@@ -1,0 +1,248 @@
+/* Accept Invitation Page Styling */
+.accept-inv-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fbff;
+  color: var(--ink);
+  padding: 32px 16px;
+  position: relative;
+}
+
+.accept-inv-card {
+  width: min(520px, 100%);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(16, 32, 60, 0.06);
+  padding: clamp(24px, 4vw, 36px);
+  position: relative;
+  z-index: 1;
+}
+
+.accept-inv-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.accept-inv-brand img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.accept-inv-brand span {
+  font-family: Georgia, serif;
+  font-size: 28px;
+  letter-spacing: -1.2px;
+  color: #102247;
+}
+
+.accept-inv-title {
+  font-family: Georgia, serif;
+  font-size: 26px;
+  letter-spacing: -0.6px;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.accept-inv-subtitle {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+/* Invitation Read-only Details Box */
+.accept-inv-details {
+  background: #f8fbff;
+  border: 1px solid #dce8f8;
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.accept-inv-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.accept-inv-detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.accept-inv-detail-val {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+  word-break: break-all;
+}
+
+.accept-inv-detail-val.email-val {
+  font-family: Consolas, monospace;
+  font-size: 12.5px;
+  color: #1e3a8a;
+}
+
+.accept-inv-detail-val.org-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accept-inv-detail-val.expiry-val {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Form inputs & fields */
+.accept-inv-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.accept-inv-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.accept-inv-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3e506e;
+  margin-bottom: 6px;
+}
+
+.accept-inv-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  padding: 0 13px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.accept-inv-input-wrap:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #ddecff;
+}
+
+.accept-inv-input-wrap svg {
+  color: #7183a0;
+  flex-shrink: 0;
+}
+
+.accept-inv-input-wrap input {
+  border: 0;
+  outline: 0;
+  box-shadow: none !important;
+  padding: 12px 0;
+  width: 100%;
+  font-size: 14.5px;
+  color: var(--ink);
+  background: transparent;
+}
+
+.accept-inv-input-wrap input::placeholder {
+  color: #94a3b8;
+}
+
+.accept-inv-field small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-top: 5px;
+}
+
+.accept-inv-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  justify-content: center;
+}
+
+/* Loading & Center Message Views */
+.accept-inv-state-view {
+  text-align: center;
+  padding: 18px 8px;
+}
+
+.accept-inv-icon {
+  margin-bottom: 14px;
+}
+
+.accept-inv-icon.success {
+  color: #10b981;
+}
+
+.accept-inv-icon.error {
+  color: #ef4444;
+}
+
+.accept-inv-icon.loading {
+  color: var(--blue);
+}
+
+.accept-inv-state-title {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.accept-inv-state-desc {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+
+.accept-inv-callout {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #166534;
+  line-height: 1.45;
+  text-align: left;
+  margin-bottom: 24px;
+}
+
+.accept-inv-state-btn {
+  min-width: 180px;
+  height: 42px;
+  font-size: 14px;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.accept-inv-footer {
+  margin-top: 24px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  text-align: center;
+}
+

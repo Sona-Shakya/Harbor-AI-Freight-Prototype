@@ -1,7 +1,13 @@
 const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8001"
+  typeof window !== "undefined"
+    ? ""
+    : (
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+        (typeof process !== "undefined" && process.env?.VITE_API_BASE_URL) ||
+        "http://localhost:8001"
+      )
 ).replace(/\/$/, "");
-import * as authService from './services/authService';
+import * as authService from './services/authService.js';
 const AUTH_EXPIRED_EVENT = 'harbor-auth-expired';
 const GET_CACHE_TTL = 30_000;
 const inFlightGets = new Map();
@@ -41,12 +47,30 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    const message = await response.text();
-    if (response.status === 401) {
-      authService.clearToken();
-      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    const rawMessage = await response.text();
+    let message = rawMessage;
+    let parsedData = null;
+    try {
+      parsedData = JSON.parse(rawMessage);
+      if (parsedData && (parsedData.message || parsedData.error)) {
+        message = parsedData.message || parsedData.error;
+      }
+    } catch {
+      // not JSON
     }
-    throw new Error(`API ${response.status}: ${message}`);
+
+    if (response.status === 401 && authService.hasToken() && !path.includes('/auth/login/verify-otp')) {
+      authService.clearToken();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      }
+    }
+
+    const error = new Error(message || `API ${response.status}`);
+    error.status = response.status;
+    error.data = parsedData;
+    error.raw = rawMessage;
+    throw error;
   }
 
   const value = response.status === 204 ? null : await response.json();
@@ -76,6 +100,80 @@ const list = (payload) =>
 const categoryId = (category) =>
   category.id || category.category_id;
 
+export async function getAccounts() {
+  return request("/v1/auth/accounts");
+}
+
+export async function createAccount(data) {
+  return request("/v1/auth/accounts", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deactivateUser(id) {
+  return request(`/v1/auth/accounts/${id}/deactivate`, {
+    method: "PATCH",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function updateUserStatus(id, status) {
+  return request(`/v1/auth/accounts/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function reassignUserRole(id, role) {
+  const body = typeof role === 'object' && role !== null ? role : { role };
+  return request(`/v1/auth/accounts/${id}/role`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function createInvitation(email, roleId) {
+  return request("/v1/auth/accounts/invitations", {
+    method: "POST",
+    body: JSON.stringify({ email, roleId }),
+  });
+}
+
+export async function getInvitations(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/v1/auth/accounts/invitations${query}`);
+}
+
+export async function validateInvitation(token) {
+  return request(`/v1/auth/accounts/invitations/${encodeURIComponent(token)}`);
+}
+
+export async function acceptInvitation(token, data) {
+  return request(`/v1/auth/accounts/invitations/${encodeURIComponent(token)}/accept`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getRoles() {
+  return request("/v1/roles");
+}
+
+export async function getRolePermissions(roleId) {
+  return request(`/v1/roles/${roleId}/permissions`);
+}
+
+export async function updateRolePermissions(roleId, permissionSet) {
+  const payload = permissionSet && typeof permissionSet === 'object' && permissionSet.permission_set
+    ? permissionSet
+    : { permission_set: permissionSet };
+  return request(`/v1/roles/${roleId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function login(email, password) {
   const response = await request("/v1/auth/login", {
     method: "POST",
@@ -84,10 +182,38 @@ export async function login(email, password) {
       password,
     }),
   });
+
+  if (response?.otp_required || response?.data?.otp_required) {
+    return {
+      ...response,
+      otpRequired: true,
+      otpToken: response?.otp_token || response?.data?.otp_token,
+      phone: response?.phone || response?.data?.phone,
+    };
+  }
+
   const token = response?.token || response?.data?.token || response?.access_token || response?.data?.access_token;
   if (!token) throw new Error('Sign in failed.');
   authService.setToken(token);
   return response;
+}
+
+export async function verifyLoginOtp({ otp_token, otp }) {
+  const response = await request("/v1/auth/login/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ otp_token, otp }),
+  });
+  const token = response?.token || response?.data?.token || response?.access_token || response?.data?.access_token;
+  if (!token) throw new Error('Login OTP verification failed: Authentication token missing.');
+  authService.setToken(token);
+  return response;
+}
+
+export async function resendLoginOtp({ otp_token }) {
+  return request("/v1/auth/login/resend-otp", {
+    method: "POST",
+    body: JSON.stringify({ otp_token }),
+  });
 }
 
 export async function getProfile() {
@@ -113,6 +239,36 @@ export async function getCurrentOrganization() {
       organization?.legal_name ??
       "",
   };
+}
+
+export async function getOrganization() {
+  return request("/v1/organizations/me");
+}
+
+export async function updateOrganization(payload) {
+  return request("/v1/organizations/me", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function verifyCarrier(organizationId, payload = {}) {
+  const options = { method: "POST" };
+  if (payload && Object.keys(payload).length > 0) {
+    options.body = JSON.stringify(payload);
+  }
+  return request(`/v1/organizations/${organizationId}/verify-carrier`, options);
+}
+
+export async function getOrganizationSsoConfig() {
+  return request("/v1/organizations/me/sso");
+}
+
+export async function updateOrganizationSsoConfig(payload) {
+  return request("/v1/organizations/me/sso", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function loadOrganizationSettings(categoryKey, organizationId) {

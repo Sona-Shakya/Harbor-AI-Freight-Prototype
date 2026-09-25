@@ -1,22 +1,28 @@
 const TOKEN_KEY = 'harbor-auth-token';
 const listeners = new Set();
+const memoryStore = new Map();
+const storage = typeof sessionStorage !== 'undefined' ? sessionStorage : {
+  getItem: (k) => memoryStore.get(k) || null,
+  setItem: (k, v) => memoryStore.set(k, String(v)),
+  removeItem: (k) => memoryStore.delete(k),
+};
 
 function notify() {
-  listeners.forEach(listener => listener(Boolean(sessionStorage.getItem(TOKEN_KEY))));
+  listeners.forEach(listener => listener(Boolean(storage.getItem(TOKEN_KEY))));
 }
 
 export function getToken() {
-  return sessionStorage.getItem(TOKEN_KEY);
+  return storage.getItem(TOKEN_KEY);
 }
 
 export function setToken(token) {
   if (!token) throw new Error('A valid authentication token is required.');
-  sessionStorage.setItem(TOKEN_KEY, token);
+  storage.setItem(TOKEN_KEY, token);
   notify();
 }
 
 export function clearToken() {
-  sessionStorage.removeItem(TOKEN_KEY);
+  storage.removeItem(TOKEN_KEY);
   notify();
 }
 

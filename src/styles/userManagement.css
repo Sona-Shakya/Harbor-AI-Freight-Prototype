@@ -1,0 +1,169 @@
+/* User Management Toolbar & Actions */
+.user-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.invite-user-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+/* Invitations Section */
+.invitations-section {
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 4px rgba(16, 32, 60, 0.04);
+}
+
+.invitations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.invitations-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.invitations-title-group h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+.invitations-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
+.invitations-table {
+  width: 100%;
+}
+
+.invitations-table th {
+  background: #fbfcfe;
+  color: #677b9b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 10px 14px;
+}
+
+.invitations-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #edf1f6;
+  font-size: 13px;
+}
+
+.invitation-email-cell {
+  font-family: Consolas, monospace;
+  font-size: 12.5px;
+  color: #1a365d;
+  font-weight: 500;
+}
+
+.invitation-date-cell {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Success Modal & Invitation Link Box */
+.invitation-success-view {
+  text-align: center;
+  padding: 10px 0 6px;
+}
+
+.invitation-success-icon {
+  color: #10b981;
+  margin-bottom: 12px;
+}
+
+.invitation-success-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.invitation-success-desc {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.invitation-link-box {
+  background: #f8fbff;
+  border: 1px solid #dce8f8;
+  border-radius: 8px;
+  padding: 14px 16px;
+  text-align: left;
+  margin: 16px 0 24px;
+}
+
+.invitation-link-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.invitation-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.invitation-link-input {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-family: Consolas, monospace;
+  color: #1e293b;
+  outline: none;
+}
+
+.invitation-link-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 36px;
+}
+
+.invitation-link-hint {
+  display: block;
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 8px;
+}
+

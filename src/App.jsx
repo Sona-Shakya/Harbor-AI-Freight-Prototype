@@ -1,10 +1,15 @@
 import React, {useEffect,useRef,useState} from 'react';
-import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey} from '@phosphor-icons/react';
+import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings} from '@phosphor-icons/react';
 import {modules,labels,numeric,dates,initialRecords,seedMissions,seedSettingCategories,money,TODAY} from './data';
 import SettingsRegistry from './SettingsRegistry';
-import {login as apiLogin} from './api';
+import UserManagement from './UserManagement';
+import RolePermissionMaster from './RolePermissionMaster';
+import OrganizationView from './OrganizationView';
+import LoginOtpScreen from './LoginOtpScreen.jsx';
+import AcceptInvitation from './AcceptInvitation.jsx';
+import {login as apiLogin, getProfile} from './api';
 import * as authService from './services/authService';
-const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix};
+const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings};
 const STORE='harbor-demo-v1';
 const load=()=>{try {return JSON.parse(sessionStorage.getItem(STORE))||{}}catch{return {}}};
 const uid=p=>p+'-'+Array.from(crypto.getRandomValues(new Uint8Array(4)),v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
@@ -12,18 +17,455 @@ const display=(k,v)=>v===''||v==null?'Not confirmed':numeric.includes(k)&&['amou
 function Badge({children}){const c=/^(approved|approved locally|active|confirmed|delivered|final|resolved|valid|paid|settled|reviewed|ready|reconciled|complete|selected)$/i.test(children)?'green':/pending|review|correction|incomplete|exception|disputed|awaiting/i.test(children)?'amber':'gray';return <span className={'badge '+c}>{children}</span>}
 function Btn({children,onClick,primary=false,disabled=false,className='',...props}){return <button className={(primary?'btn primary':'btn')+' '+className} onClick={onClick} disabled={disabled} {...props}>{children}</button>}
 const moduleGroups=['Workspace','Orders','Freight','Operations','Finance','Network'];
-const settingsOnlyModuleIds=['admin'];
-function ModuleNavigation({moduleId,view,records,openModule}){function toggleSidebar(event){const next=!document.querySelector('.app-shell')?.classList.contains('sidebar-collapsed');event.currentTarget.title=next?'Expand sidebar':'Collapse sidebar';event.currentTarget.setAttribute('aria-label',next?'Expand sidebar':'Collapse sidebar');window.dispatchEvent(new Event('toggle-sidebar'))}return <><button className="sidebar-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar" onClick={toggleSidebar}><CaretLeft className="toggle-expanded-icon" size={19}/><CaretRight className="toggle-collapsed-icon" size={19}/></button><nav className="module-navigation" aria-label="Freight modules">{moduleGroups.map(group=><section className="module-nav-group" key={group}>{modules.filter(m=>m.group===group&&settingsOnlyModuleIds.includes(m.id)).map(m=>{const Icon=icons[m.icon];const selected=view==='records'&&moduleId===m.id;return <button key={m.id} className={'module-nav-item '+(selected?'selected':'')} aria-current={selected?'page':undefined} title={m.name} onClick={()=>openModule(m.id)}><Icon size={18}/><span>{m.name}</span><span className="module-record-count">{records[m.id].length}</span></button>})}</section>)}</nav></>}
+function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
+  function toggleSidebar(event){
+    const next=!document.querySelector('.app-shell')?.classList.contains('sidebar-collapsed');
+    event.currentTarget.title=next?'Expand sidebar':'Collapse sidebar';
+    event.currentTarget.setAttribute('aria-label',next?'Expand sidebar':'Collapse sidebar');
+    window.dispatchEvent(new Event('toggle-sidebar'));
+  }
+
+  const isAdminSelected = view === 'records' && moduleId === 'admin';
+  const isUsersSelected = view === 'records' && moduleId === 'users';
+  const isRolesSelected = view === 'records' && moduleId === 'roles';
+  const isOrgSelected = view === 'records' && moduleId === 'organization';
+
+  const canReadSettings = hasPermission('system_settings', 'read');
+  const canReadUsers = hasPermission('users', 'read');
+  const canReadRoles = hasPermission('roles', 'read');
+  const canReadOrg = hasPermission('organizations', 'read');
+
+  return (
+    <>
+      <button
+        className="sidebar-toggle"
+        type="button"
+        title="Collapse sidebar"
+        aria-label="Collapse sidebar"
+        onClick={toggleSidebar}
+      >
+        <CaretLeft className="toggle-expanded-icon" size={19}/>
+        <CaretRight className="toggle-collapsed-icon" size={19}/>
+      </button>
+
+      <nav className="module-navigation" aria-label="Freight modules">
+        <section className="module-nav-group">
+          {/* 1. Existing System Settings item unchanged in its current position */}
+          {canReadSettings && (
+            <button
+              key="admin"
+              className={'module-nav-item ' + (isAdminSelected ? 'selected' : '')}
+              aria-current={isAdminSelected ? 'page' : undefined}
+              title="System settings"
+              onClick={() => openModule('admin')}
+            >
+              <GearSix size={18} />
+              <span>System settings</span>
+              <span className="module-record-count">{records.admin?.length ?? ''}</span>
+            </button>
+          )}
+
+          {/* Under existing System Settings: M1 sub-items */}
+          <div className="module-sub-nav">
+            {canReadUsers && (
+              <button
+                key="users"
+                className={'module-nav-item sub-item ' + (isUsersSelected ? 'selected' : '')}
+                aria-current={isUsersSelected ? 'page' : undefined}
+                title="Users"
+                onClick={() => openModule('users')}
+              >
+                <UsersThree size={18} />
+                <span>Users</span>
+                <span className="module-record-count">{records.users?.length ?? ''}</span>
+              </button>
+            )}
+
+            {canReadRoles && (
+              <button
+                key="roles"
+                className={'module-nav-item sub-item ' + (isRolesSelected ? 'selected' : '')}
+                aria-current={isRolesSelected ? 'page' : undefined}
+                title="Roles & Permissions"
+                onClick={() => openModule('roles')}
+              >
+                <ShieldCheck size={18} />
+                <span>Roles & Permissions</span>
+                <span className="module-record-count">{records.roles?.length ?? ''}</span>
+              </button>
+            )}
+
+            {canReadOrg && (
+              <button
+                key="organization"
+                className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
+                aria-current={isOrgSelected ? 'page' : undefined}
+                title="Organization"
+                onClick={() => openModule('organization')}
+              >
+                <Buildings size={18} />
+                <span>Organization</span>
+                <span className="module-record-count">{records.organization?.length ?? ''}</span>
+              </button>
+            )}
+          </div>
+        </section>
+      </nav>
+    </>
+  );
+}
 function Modal({title,onClose,children,wide=false}){const box=useRef();useEffect(()=>{const before=document.activeElement;box.current?.focus();const key=e=>{if(e.key==='Escape')onClose();if(e.key==='Tab'){const els=[...box.current.querySelectorAll('button,input,select,textarea,a[href]')].filter(x=>!x.disabled);if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els.at(-1)?.focus()}else if(!e.shiftKey&&document.activeElement===els.at(-1)){e.preventDefault();els[0]?.focus()}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);before?.focus()}},[]);return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section ref={box} tabIndex={-1} className={'modal '+(wide?'wide':'')} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={22}/></button></header>{children}</section></div>}
 function RecordForm({module,record,onSave,onClose}){const [form,setForm]=useState(record||Object.fromEntries(module.fields.map(k=>[k,k==='status'?module.statuses[0]:''])));const [error,setError]=useState('');function save(e){e.preventDefault();if(form.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)){setError('Enter a valid email address.');return}if(form.allocated!==undefined&&Number(form.allocated)>Number(form.quantity)){setError('Allocated quantity cannot exceed the order quantity.');return}if(form.etd&&form.eta&&form.etd>form.eta){setError('Arrival cannot be before departure.');return}onSave({...form,id:record?.id||uid(module.id.slice(0,3).toUpperCase())});}return <Modal title={(record?'Edit ':'New ')+module.name.toLowerCase()} onClose={onClose}><form onSubmit={save}><div className="form-grid">{module.fields.map((k,i)=><label key={k}>{labels[k]||k[0].toUpperCase()+k.slice(1)}{k==='status'?<select value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})}>{module.statuses.map(s=><option key={s}>{s}</option>)}</select>:<input required={i===0||k==='quantity'} type={numeric.includes(k)?'number':dates.includes(k)?'date':k==='email'?'email':'text'} min={numeric.includes(k)?0:undefined} step="any" value={form[k]??''} onChange={e=>setForm({...form,[k]:numeric.includes(k)&&e.target.value!==''?Number(e.target.value):e.target.value})}/>}</label>)}</div>{error&&<p className="error" role="alert">{error}</p>}<div className="modal-actions"><Btn onClick={onClose} type="button">Cancel</Btn><Btn primary type="submit">Save record</Btn></div></form></Modal>}
 
-function LoginScreen({onLogin}){const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[showPassword,setShowPassword]=useState(false),[error,setError]=useState('');function submit(e){e.preventDefault();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){setError('Enter a valid work email address.');return}if(password.length<6){setError('Password must contain at least 6 characters.');return}onLogin()}return <main className="login-shell"><section className="login-form-panel"><div className="login-brand"><img src="/harbor-mark.png" alt=""/><span>Harbor</span></div><div className="login-form-wrap"><div className="login-eyebrow">AI-NATIVE FREIGHT MANAGEMENT</div><h1>Welcome back</h1><p className="login-intro">Sign in to plan shipments, review exceptions, and keep every import and export decision connected.</p><form className="login-form" onSubmit={submit}><label>Work email<div className="login-field"><EnvelopeSimple size={20}/><input type="email" autoComplete="email" placeholder="name@company.com" value={email} onChange={e=>{setEmail(e.target.value);setError('')}}/></div></label><label>Password<div className="login-field"><LockKey size={20}/><input type={showPassword?'text':'password'} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={e=>{setPassword(e.target.value);setError('')}}/><button type="button" className="password-toggle" aria-label={showPassword?'Hide password':'Show password'} onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeSlash size={20}/>:<Eye size={20}/>}</button></div></label><div className="login-options"><label className="remember"><input type="checkbox"/>Keep me signed in</label><button type="button" onClick={()=>setError('Password recovery is not connected in this prototype. Use demo access below.')}>Forgot password?</button></div>{error&&<p className="login-error" role="alert">{error}</p>}<Btn primary type="submit" className="login-submit">Sign in<ArrowRight size={18}/></Btn></form><div className="login-divider"><span>or</span></div><Btn className="demo-login" onClick={onLogin}>Continue to demo workspace</Btn><p className="login-note"><ShieldCheck size={16}/>Prototype access only. No credentials are transmitted or stored.</p></div><footer>© 2026 Harbor · Global trade, more human.</footer></section><aside className="login-story"><div className="login-story-content"><span className="story-kicker">One intelligent workspace</span><h2>Move freight with clarity, not more software.</h2><p>Harbor brings conversations, operational records, evidence, and approvals together—so your team always knows what needs attention next.</p><div className="login-feature"><ChatCircleDots size={24}/><span><strong>Ask Harbor</strong><small>Turn an import or export goal into a reviewable plan.</small></span></div><div className="login-feature"><Files size={24}/><span><strong>Connected evidence</strong><small>Keep orders, offers, documents, and invoices linked.</small></span></div><div className="login-feature"><ShieldCheck size={24}/><span><strong>Human-controlled actions</strong><small>Review every draft and decision before anything moves.</small></span></div></div><div className="login-orbit login-orbit-one"/><div className="login-orbit login-orbit-two"/></aside></main>}
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-export function App(){const [authenticated,setAuthenticated]=useState(()=>authService.hasToken());useEffect(()=>{const expire=()=>setAuthenticated(false);window.addEventListener('harbor-auth-expired',expire);return()=>window.removeEventListener('harbor-auth-expired',expire)},[]);async function login(){const email=document.querySelector('input[type="email"]')?.value;const password=document.querySelector('input[type="password"]')?.value;await apiLogin(email,password);setAuthenticated(true)}function logout(){authService.logout();setAuthenticated(false)}return authenticated?<HarborWorkspace onLogout={logout}/>:<LoginScreen onLogin={login}/>}
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setError('Enter a valid work email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must contain at least 6 characters.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await onLogin(email, password);
+    } catch (error) {
+      setError(
+        error.message || 'Login failed. Please check your credentials.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="login-shell">
+      <section className="login-form-panel">
+
+        <div className="login-brand">
+          <img src="/harbor-mark.png" alt="" />
+          <span>Harbor</span>
+        </div>
+
+        <div className="login-form-wrap">
+
+          <div className="login-eyebrow">
+            AI-NATIVE FREIGHT MANAGEMENT
+          </div>
+
+          <h1>Welcome back</h1>
+
+          <p className="login-intro">
+            Sign in to plan shipments, review exceptions, and keep every
+            import and export decision connected.
+          </p>
+
+          <form className="login-form" onSubmit={submit}>
+
+            <label>
+              Work email
+
+              <div className="login-field">
+                <EnvelopeSimple size={20} />
+
+                <input
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@company.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                />
+              </div>
+            </label>
+
+            <label>
+              Password
+
+              <div className="login-field">
+                <LockKey size={20} />
+
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                />
+
+                <button
+                  type="button"
+                  className="password-toggle"
+                  aria-label={
+                    showPassword ? 'Hide password' : 'Show password'
+                  }
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? (
+                    <EyeSlash size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+            </label>
+
+            <div className="login-options">
+
+              <label className="remember">
+                <input type="checkbox" />
+                Keep me signed in
+              </label>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setError('Password recovery is not connected yet.')
+                }
+              >
+                Forgot password?
+              </button>
+
+            </div>
+
+            {error && (
+              <p className="login-error" role="alert">
+                {error}
+              </p>
+            )}
+
+            <Btn
+              primary
+              type="submit"
+              className="login-submit"
+              disabled={loading}
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+              {!loading && <ArrowRight size={18} />}
+            </Btn>
+
+          </form>
+
+          <div className="login-note">
+            <ShieldCheck size={16} />
+            Secure authentication through the FMS backend.
+          </div>
+
+        </div>
+
+        <footer>
+          © 2026 Harbor · Global trade, more human.
+        </footer>
+
+      </section>
+
+      <aside className="login-story">
+
+        <div className="login-story-content">
+
+          <span className="story-kicker">
+            One intelligent workspace
+          </span>
+
+          <h2>
+            Move freight with clarity, not more software.
+          </h2>
+
+          <p>
+            Harbor brings conversations, operational records, evidence,
+            and approvals together—so your team always knows what needs
+            attention next.
+          </p>
+
+          <div className="login-feature">
+            <ChatCircleDots size={24} />
+            <span>
+              <strong>Ask Harbor</strong>
+              <small>
+                Turn an import or export goal into a reviewable plan.
+              </small>
+            </span>
+          </div>
+
+          <div className="login-feature">
+            <Files size={24} />
+            <span>
+              <strong>Connected evidence</strong>
+              <small>
+                Keep orders, offers, documents, and invoices linked.
+              </small>
+            </span>
+          </div>
+
+          <div className="login-feature">
+            <ShieldCheck size={24} />
+            <span>
+              <strong>Human-controlled actions</strong>
+              <small>
+                Review every draft and decision before anything moves.
+              </small>
+            </span>
+          </div>
+
+        </div>
+
+        <div className="login-orbit login-orbit-one" />
+        <div className="login-orbit login-orbit-two" />
+
+      </aside>
+    </main>
+  );
+}
+export function App() {
+  const [authenticated, setAuthenticated] = useState(
+    () => authService.hasToken()
+  );
+  const [otpChallenge, setOtpChallenge] = useState(null);
+  const [pathname, setPathname] = useState(() => {
+    try {
+      return window.location.pathname;
+    } catch {
+      return '/';
+    }
+  });
+
+  useEffect(() => {
+    const expire = () => {
+      setOtpChallenge(null);
+      setAuthenticated(false);
+    };
+
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+    };
+
+    window.addEventListener('harbor-auth-expired', expire);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('harbor-auth-expired', expire);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const navigateTo = (path) => {
+    try {
+      window.history.pushState({}, '', path);
+      setPathname(path);
+    } catch {
+      window.location.href = path;
+    }
+  };
+
+  const handleGoToLogin = () => {
+    authService.logout();
+    setAuthenticated(false);
+    setOtpChallenge(null);
+    navigateTo('/login');
+  };
+
+  async function login(email, password) {
+    const result = await apiLogin(email, password);
+
+    if (result?.otpRequired) {
+      setOtpChallenge({
+        otpToken: result.otpToken,
+        phone: result.phone || '',
+      });
+      setAuthenticated(false);
+      return;
+    }
+
+    setOtpChallenge(null);
+    setAuthenticated(true);
+  }
+
+  const handleOtpSuccess = (response) => {
+    setOtpChallenge(null);
+    setAuthenticated(true);
+  };
+
+  const handleOtpCancel = () => {
+    setOtpChallenge(null);
+    setAuthenticated(false);
+  };
+
+  function logout() {
+    authService.logout();
+    setOtpChallenge(null);
+    setAuthenticated(false);
+    navigateTo('/login');
+  }
+
+  // Public Accept Invitation Route (unauthenticated)
+  if (pathname === '/accept-invitation' || pathname.startsWith('/accept-invitation')) {
+    return <AcceptInvitation onGoToLogin={handleGoToLogin} />;
+  }
+
+  if (authenticated) {
+    return <HarborWorkspace onLogout={logout} />;
+  }
+
+  if (otpChallenge) {
+    return (
+      <LoginOtpScreen
+        challenge={otpChallenge}
+        onSuccess={handleOtpSuccess}
+        onCancel={handleOtpCancel}
+      />
+    );
+  }
+
+  return <LoginScreen onLogin={login} />;
+}
 
 function HarborWorkspace({onLogout}){
+      const [profile, setProfile] = useState(null);
+      const role = profile?.organization_roles?.[0]?.role;
+const permissionSet = role?.permission_set || {};
+
+const hasPermission = (module, action) => {
+  if (role?.name === 'Company Admin' || role?.name === 'Platform Admin') {
+    return true;
+  }
+  const perms =
+    permissionSet[module] ||
+    permissionSet[module + 's'] ||
+    permissionSet[module.replace(/s$/, '')] ||
+    [];
+  return Array.isArray(perms) && perms.includes(action);
+};
+
+  useEffect(() => {
+    getProfile()
+      .then((response) => {
+        const data = response?.data || null;
+        setProfile(data);
+      })
+      .catch((error) => {
+        console.error("Failed to load profile:", error);
+      });
+  }, []);
+
  const stored=useRef(load()).current;
- const [records,setRecords]=useState(stored.records||initialRecords),[missions,setMissions]=useState(stored.missions||seedMissions),[missionId,setMissionId]=useState('import'),[view,setView]=useState('records'),[tab,setTab]=useState('Conversation'),[moduleId,setModuleId]=useState('admin'),[query,setQuery]=useState(''),[filter,setFilter]=useState('All statuses');
+ const [records,setRecords]=useState(()=>({...initialRecords, ...(stored.records||{})})),[missions,setMissions]=useState(stored.missions||seedMissions),[missionId,setMissionId]=useState('import'),[view,setView]=useState('records'),[tab,setTab]=useState('Conversation'),[moduleId,setModuleId]=useState('admin'),[query,setQuery]=useState(''),[filter,setFilter]=useState('All statuses');
  const [modal,setModal]=useState(null),[toast,setToast]=useState(''),[input,setInput]=useState(''),[messages,setMessages]=useState(stored.messages||{}),[audit,setAudit]=useState(stored.audit||[]),[approvals,setApprovals]=useState(stored.approvals||{}),[selectedRate,setSelectedRate]=useState(stored.selectedRate||null),[draft,setDraft]=useState(stored.draft||'Please confirm destination handling and local charges for 600 control units moving from Shanghai to Chennai. Your offer OB-082 includes origin and ocean freight but excludes destination handling. Please confirm the total and validity.'),[settings,setSettings]=useState(stored.settings||seedSettingCategories),[settingAudit,setSettingAudit]=useState(stored.settingAudit||[]),[attachments,setAttachments]=useState([]),[busy,setBusy]=useState(false),[navOpen,setNavOpen]=useState(false),[sidebarCollapsed,setSidebarCollapsed]=useState(false),[planOpen,setPlanOpen]=useState(false);
  const scroll=useRef(),fileRef=useRef(),timer=useRef();
  const mission=missions.find(m=>m.id===missionId)||missions[0]; const type=mission.type; const mod=modules.find(m=>m.id===moduleId);
@@ -35,15 +477,38 @@ function HarborWorkspace({onLogout}){
  function update(collection,record){setRecords(r=>({...r,[collection]:r[collection].some(x=>x.id===record.id)?r[collection].map(x=>x.id===record.id?record:x):[...r[collection],record]}));log(`${record.id} updated in ${modules.find(m=>m.id===collection).name}`)}
  function add(collection,record){setRecords(r=>({...r,[collection]:[...r[collection],record]}))}
  function notify(t){setToast(t)}
- function openModule(id){setModuleId(id);setView('records');setQuery('');setFilter('All statuses');setNavOpen(false)}
+ function openModule(id) {
+  if (id === 'admin' && !hasPermission('system_settings', 'read')) {
+    notify('You do not have permission to access System Settings.');
+    return;
+  }
+  if (id === 'users' && !hasPermission('users', 'read')) {
+    notify('You do not have permission to access User Management.');
+    return;
+  }
+  if (id === 'roles' && !hasPermission('roles', 'read')) {
+    notify('You do not have permission to access Roles & Permissions.');
+    return;
+  }
+  if (id === 'organization' && !hasPermission('organizations', 'read')) {
+    notify('You do not have permission to access Organization.');
+    return;
+  }
+
+  setModuleId(id);
+  setView('records');
+  setQuery('');
+  setFilter('All statuses');
+  setNavOpen(false);
+}
  function openMission(id){setMissionId(id);setView('mission');setTab('Conversation');setInput('');setAttachments([]);setNavOpen(false)}
- function detail(id,collection){const c=collection||Object.keys(records).find(k=>records[k].some(x=>x.id===id));if(c){setModal({kind:'detail',collection:c,record:records[c].find(x=>x.id===id)})}}
+ function detail(id,collection){const c=collection||Object.keys(records).find(k=>records[k]?.some?.(x=>x.id===id));if(c&&records[c]){setModal({kind:'detail',collection:c,record:records[c].find(x=>x.id===id)})}}
  function approve(key){setApprovals(a=>({...a,[key]:true}));log(`${key} draft approved locally; no external action executed`);notify('Draft approved. No external message has been sent.')}
  const importBooked=records.bookings.find(x=>x.reference==='PO-1042');
  const ob=records.rates.find(x=>x.id==='OB-082'); const doc=records.documents.find(x=>x.id==='DOC-04');const inv=records.invoices[0];
  function addReply(question,reply){setMessages(m=>({...m,[missionId]:[...(m[missionId]||[]),{role:'user',text:question},{role:'assistant',text:reply}]}));setTimeout(()=>scroll.current?.scrollTo({top:scroll.current.scrollHeight,behavior:'smooth'}),50)}
  function ask(e){e?.preventDefault();if(!input.trim()||busy)return;const q=input.trim();setInput('');setBusy(true);timer.current=setTimeout(()=>{const lower=q.toLowerCase();let answer='I can help you explore this sample workspace. Try “compare offers”, “check documents”, “show landed cost”, or “what needs approval”. Use Records to create or edit data. This prototype uses scripted responses, not a connected AI model.';if(/rate|offer|quot|compare/.test(lower))answer=records.rates.map(r=>`${r.partner}: ${money(Number(r.amount)+Number(r.destinationCharge||0))}${r.destinationCharge===''?' known charges; destination handling is missing':' complete quoted total'}. Valid until ${r.validUntil}.`).join('\n')+'\nOpen Work products to review and award an offer.';else if(/cost|landed/.test(lower)){const sum=records.costs.filter(r=>r.reference==='IMP-204').reduce((s,r)=>s+Number(r.amount||0),0);answer=`IMP-204 known estimated cost: ${money(sum)}; ${money(sum/600)} per unit for 600 units. Destination handling, duties, taxes and final delivery may be additional. These are sample calculations, not a final landed cost. Open Costs & landed cost to review allocations.`}else if(/doc|packing/.test(lower))answer=`Packing list EXP-118 is ${doc.status.toLowerCase()} (version ${doc.version}). ${doc.status==='Needs correction'?'The packing list shows 380 units; SO-558 requires 400. Review the discrepancy before approving.':'The reviewed draft shows 400 units, matching SO-558.'} View the export mission for the review workflow.`;else if(/invoice|surcharge/.test(lower))answer=`Invoice ${inv.id} is ${money(inv.amount)} against ${money(inv.expected)} agreed: a ${money(inv.amount-inv.expected)} variance. Current status: ${inv.status}. Open the invoice mission to review or dispute it.`;else if(/book/.test(lower))answer=importBooked?`Booking ${importBooked.id} is ${importBooked.status.toLowerCase()}. This is a local sample record; no carrier request has been transmitted.`:'A booking has not been requested. Review Work products, select a complete offer and prepare a booking draft. Carrier submission is not connected.';else if(/approv|next|risk|delay/.test(lower))answer=type==='import'?`${approvals.import?'Clarification draft approved locally.':'Destination-charge clarification draft needs your approval.'} ${ob.destinationCharge===''?'OceanBridge destination handling is still unconfirmed.':'OceanBridge destination charge has been recorded.'} Booking requires an awarded complete offer.`:type==='export'?`Packing list: ${doc.status}. Review document quantities and broker checklist before release.`:`Invoice ${inv.id}: ${inv.status}. The ${money(inv.amount-inv.expected)} difference needs a decision.`;addReply(q,answer);setBusy(false)},600)}
- function exportCsv(){const rows=records[moduleId];const keys=['id',...mod.fields];const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';download(`${moduleId}.csv`,[keys.join(','),...rows.map(r=>keys.map(k=>q(r[k])).join(','))].join('\n'),'text/csv');notify('CSV exported')}
+ function exportCsv(){const rows=records[moduleId]||[];const keys=['id',...mod.fields];const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';download(`${moduleId}.csv`,[keys.join(','),...rows.map(r=>keys.map(k=>q(r[k])).join(','))].join('\n'),'text/csv');notify('CSV exported')}
  function download(name,text,mime='text/plain'){const url=URL.createObjectURL(new Blob([text],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  function createBooking(){if(!selectedRate){notify('Select a complete offer first.');return}if(importBooked){detail(importBooked.id,'bookings');return}const rate=records.rates.find(r=>r.id===selectedRate);if(rate.destinationCharge===''||rate.validUntil<TODAY){notify('This offer is incomplete or expired. Choose a complete valid offer.');return}const b={id:uid('BK'),name:'Shanghai import booking',reference:'PO-1042',partner:rate.partner,origin:'Shanghai',destination:'Chennai',etd:'2026-09-19',eta:'2026-09-28',status:'Draft'};add('bookings',b);update('shipments',{...records.shipments.find(x=>x.id==='IMP-204'),provider:rate.partner,status:'Planned'});update('planning',{...records.planning.find(x=>x.id==='PLAN-204'),status:'Ready for booking'});log('Booking draft created from approved offer '+rate.id);notify('Booking draft created. No carrier request sent.');detailAfter(b,'bookings')}
  function detailAfter(record,collection){setModal({kind:'detail',record,collection})}
@@ -58,13 +523,46 @@ function HarborWorkspace({onLogout}){
  return <><h3>The plan is prepared. {ob.destinationCharge===''?'One charge needs clarification.':'Your freight offers are ready to compare.'}</h3><p>I’ve reviewed PO-1042, the supplier’s readiness email and <strong>3 freight offers</strong> for Shanghai to Chennai in this sample workspace.</p><p>{ob.destinationCharge===''?'Offer OB-082 excludes destination handling at Chennai. I’ve drafted a clarification to confirm the total and validity before you proceed.':'Destination handling has been recorded. Review the complete offers and select your preferred provider before creating a booking draft.'}</p><div className="offer-preview"><div className="row between"><h3>Freight offers <span>(Shanghai → Chennai)</span></h3><button className="text-btn" onClick={()=>setTab('Work products')}>Compare<ArrowRight size={14}/></button></div><table><thead><tr><th>Provider</th><th>Quoted cost</th><th>ETA Chennai</th></tr></thead><tbody>{records.rates.map((r,i)=><tr key={r.id} onClick={()=>setModal({kind:'rate',record:r})}><td><button className="table-link">{r.partner}</button><small>{r.name}</small></td><td><strong>{money(Number(r.amount)+Number(r.destinationCharge||0))}</strong>{r.destinationCharge===''&&<small className="warn-text">Destination charge excluded</small>}</td><td>{i===0?'27':i===1?'28':'29'} Sep 2026</td></tr>)}</tbody></table></div><div className="source-chips"><span>Sources</span>{sources.map(id=><button key={id} onClick={()=>detail(id)}><FileText size={16}/>{id==='DOC-01'?'PO-1042':id==='DOC-02'?'Supplier email':'Offer OB-082'}</button>)}</div><div className="draft-box"><div className="row between"><h3>Clarification draft</h3><Badge>{approvals.import?'Approved locally':'Awaiting your approval'}</Badge></div><p className="recipient">To: <strong>OceanBridge Logistics</strong> · sample partner</p><p className="draft-text">{draft}</p><div className="actions"><Btn primary disabled={!!approvals.import} onClick={()=>approve('import')}><Check size={17}/>{approvals.import?'Draft approved':'Approve draft'}</Btn><Btn onClick={()=>setModal({kind:'draft'})}>Edit</Btn>{approvals.import&&ob.destinationCharge===''&&<Btn onClick={()=>setModal({kind:'charge'})}>Record partner response</Btn>}</div><p className="micro"><Info size={14}/> No message sent. A connected email account is required to send.</p></div></>}
 
  return <div className={'app-shell '+(sidebarCollapsed?'sidebar-collapsed':'')}>
- <aside className={'sidebar '+(navOpen?'open':'')}><div className="wordmark" onClick={()=>openMission('import')}><img src="/harbor-mark.png" alt="" className="sidebar-brand-mark"/><span>Harbor</span><p>Global trade,<br/>more human.</p></div><Btn primary className="new-mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={21}/>New mission</Btn><div className="sidebar-scroll">{view==='records'&&<button className="back-to-missions" onClick={()=>openMission(missionId)}><House size={19}/><span><strong>AI missions</strong><small>Return to your active work</small></span><CaretRight size={15}/></button>}{view==='mission'&&<><div className="section-label row between">Active missions<button className="icon-btn small" aria-label="Add mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={17}/></button></div><nav className="mission-list">{missions.map(m=><button className={'mission-item '+(view==='mission'&&missionId===m.id?'selected':'')} key={m.id} onClick={()=>openMission(m.id)}><span className={'mission-dot '+(missionId===m.id?'blue':'')}/><span>{m.name}<small>{m.subtitle}</small></span></button>)}</nav></>}<div className="module-section-heading"><span>All modules</span><span className="count">20</span></div><ModuleNavigation moduleId={moduleId} view={view} records={records} openModule={openModule}/></div><div className="sidebar-bottom"><button className="about-link" onClick={()=>setModal({kind:'about'})}><Info size={19}/><span>About Harbor</span></button><button className="profile" onClick={()=>setModal({kind:'about'})}><span className="avatar">AR</span><span>Ananya Rao<small>Meridian Trading</small></span><CaretRight size={16}/></button></div></aside>
+ <aside className={'sidebar '+(navOpen?'open':'')}><div className="wordmark" onClick={()=>openMission('import')}><img src="/harbor-mark.png" alt="" className="sidebar-brand-mark"/><span>Harbor</span><p>Global trade,<br/>more human.</p></div><Btn primary className="new-mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={21}/>New mission</Btn><div className="sidebar-scroll">{view==='records'&&<button className="back-to-missions" onClick={()=>openMission(missionId)}><House size={19}/><span><strong>AI missions</strong><small>Return to your active work</small></span><CaretRight size={15}/></button>}{view==='mission'&&<><div className="section-label row between">Active missions<button className="icon-btn small" aria-label="Add mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={17}/></button></div><nav className="mission-list">{missions.map(m=><button className={'mission-item '+(view==='mission'&&missionId===m.id?'selected':'')} key={m.id} onClick={()=>openMission(m.id)}><span className={'mission-dot '+(missionId===m.id?'blue':'')}/><span>{m.name}<small>{m.subtitle}</small></span></button>)}</nav></>}<div className="module-section-heading"><span>All modules</span><span className="count">20</span></div>
+ <ModuleNavigation
+  moduleId={moduleId}
+  view={view}
+  records={records}
+  openModule={openModule}
+  hasPermission={hasPermission}
+/></div>
+ <div className="sidebar-bottom"><button className="about-link" onClick={()=>setModal({kind:'about'})}><Info size={19}/><span>About Harbor</span></button>
+ <button className="profile" onClick={()=>setModal({kind:'about'})}>
+  <span className="avatar">
+    {profile?.user?.name
+      ?.split(' ')
+      .map(word => word[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'U'}
+  </span>
+
+  <span>
+    {profile?.user?.name || 'User'}
+    <small>
+      {profile?.organization_roles?.[0]?.organization?.legal_name || 'Organization'}
+    </small>
+  </span>
+
+  <CaretRight size={16}/>
+</button>
+ </div></aside>
  <main className={'workspace '+(view==='records'?'records-workspace':'')}><div className="mobile-top"><button className="icon-btn" aria-label="Open modules and missions navigation" onClick={()=>setNavOpen(!navOpen)}><List size={24}/></button><strong>Harbor</strong><button className="icon-btn mobile-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={21}/></button>{view==='mission'?<button className="text-btn" onClick={()=>setPlanOpen(!planOpen)}>Shipment plan</button>:<span className="mobile-context">All modules</span>}</div>
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
- </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div><div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div><Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn></div></header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<div className="notice"><Info size={20}/><div><strong>This is an interactive prototype</strong><p>Edits stay in this browser session. AI, email, carrier, customs and accounting integrations are not connected. Roles below are illustrative; there is no production authentication.</p><Btn onClick={()=>setModal({kind:'confirm',title:'Reset sample workspace',body:'Reset your local demo edits and restore the original sample records?',confirm:()=>{sessionStorage.removeItem(STORE);window.location.reload()}})}><ArrowCounterClockwise/>Reset sample data</Btn></div></div>}
- <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId].filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId].some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId].length} records · Illustrative data · USD unless noted</div></div></>}
+  </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div><div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div></header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<div className="notice"><Info size={20}/><div><strong>This is an interactive prototype</strong><p>Edits stay in this browser session. AI, email, carrier, customs and accounting integrations are not connected. Roles below are illustrative; there is no production authentication.</p><Btn onClick={()=>setModal({kind:'confirm',title:'Reset sample workspace',body:'Reset your local demo edits and restore the original sample records?',confirm:()=>{sessionStorage.removeItem(STORE);window.location.reload()}})}><ArrowCounterClockwise/>Reset sample data</Btn></div></div>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify}/>}
+{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&(
+<>
+<div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
+</>
+)}
+</div></>}
  </main>
  {view==='mission'&&<aside className={'plan-panel '+(planOpen?'mobile-open':'')}><div className="plan-heading"><FileText size={25}/><h2>{type==='custom'?'Mission plan':type==='invoice'?'Invoice review':type==='export'?'Export plan':'Shipment plan'}</h2><Badge>{importBooked&&type==='import'?importBooked.status:'Draft'}</Badge><button className="icon-btn mobile-close" aria-label="Close plan" onClick={()=>setPlanOpen(false)}><X/></button></div><p className="plan-subtitle">{type==='custom'?'Custom workspace':type==='export'?'Nhava Sheva → Hamburg':type==='invoice'?'OceanBridge Logistics':'Shanghai → Chennai'} · {mission.reference}</p><div className="steps">{(type==='custom'?[['Define the mission','Goal recorded','done'],['Add source records','Open Work products','active'],['Review prepared work','Requires your input','pending'],['Approve next action','No external actions connected','pending']]:type==='export'?[['Read sales order','Completed · SO-558','done'],['Check export documents',doc.status==='Needs correction'?'20-unit mismatch':'Quantities matched',doc.status==='Needs correction'?'active':'done'],['Approve packing list',doc.status==='Approved'?'Document approved':'Needs your review',doc.status==='Approved'?'done':'active'],['Coordinate clearance','Broker documents required','pending']]:type==='invoice'?[['Read freight agreement','Completed · USD 2,400','done'],['Match invoice charges','USD 240 variance identified','done'],['Review variance',inv.status,inv.status==='Under review'?'active':'done'],['Financial settlement','Accounting not connected','pending']]:[['Read order and supplier confirmation','Completed · 2 source docs','done'],['Compare freight offers',selectedRate?'Offer selected':'Completed · 3 offers','done'],['Clarify destination charges',ob.destinationCharge===''?(approvals.import?'Draft approved locally':'Needs your approval'):'Charge recorded',ob.destinationCharge===''?'active':'done'],['Prepare booking request',importBooked?importBooked.id+' · '+importBooked.status:'Complete offer must be selected',importBooked?'done':'pending']]).map(([title,sub,status],i)=><button className={'step '+status} key={title} onClick={()=>{if(type==='custom'){setTab('Work products');return}if(i===0){sources[0]?detail(sources[0]):detail('INV-091')}else if(i===1)setTab('Work products');else if(i===2)setTab('Conversation');else type==='import'?createBooking():openModule(type==='export'?'customs':'invoices')}}><span className="step-marker">{status==='done'?<Check size={17}/>:status==='active'?<span/>:null}</span><span><strong>{title}</strong><small>{sub}</small></span></button>)}</div><div className="plan-details"><h3>{type==='custom'?'Mission details':type==='invoice'?'Invoice details':'Shipment details'}</h3><dl>{(type==='custom'?[['Reference',mission.reference],['Owner','Ananya Rao'],['Mode','Sample workspace']]:type==='invoice'?[['Invoice',inv.id],['Agreed',money(inv.expected)],['Invoiced',money(inv.amount)],['Due date','25 Sep 2026']]:[['Origin',type==='export'?'Nhava Sheva, India':'Shanghai, China'],['Destination',type==='export'?'Hamburg, Germany':'Chennai, India'],['Cargo',type==='export'?'400 precision valves':'600 control units'],['Cargo ready',type==='export'?'20 Sep 2026':'18 Sep 2026'],['Required by',type==='export'?'8 Oct 2026':'30 Sep 2026']]).map(([k,v])=><React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl></div><div className="evidence"><h3>Evidence</h3>{sources.map(id=>{const r=records.documents.find(x=>x.id===id);return <button key={id} onClick={()=>detail(id)}><span className="file-icon"><FileText size={22}/></span><span>{r.name}<small>{r.type} · Version {r.version}</small></span><ArrowSquareOut size={15}/></button>})}{type==='custom'&&<p className="muted">Add relevant records from Work products to start your review.</p>}{type==='invoice'&&<button onClick={()=>detail(inv.id,'invoices')}><FileText size={23}/><span>Invoice {inv.id}<small>Sample supplier invoice</small></span></button>}</div><div className="plan-bottom"><ShieldCheck size={17}/><span>You approve. Harbor prepares.</span></div></aside>}
  <SettingsRegistry settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} notify={notify} visible={view==='records'&&moduleId==='admin'}/>
@@ -75,10 +573,19 @@ function HarborWorkspace({onLogout}){
  {modal?.kind==='charge'&&<ChargeForm onClose={()=>setModal(null)} onSave={(amount,source)=>{update('rates',{...ob,destinationCharge:amount,status:'Valid'});update('portal',{...records.portal.find(x=>x.id==='REQ-032'),status:'Received'});log('Manual charge confirmation: '+money(amount)+' · '+source);setModal(null);notify('Destination charge recorded. Review offers under Work products.')}}/>}
  {modal?.kind==='confirm'&&<Modal title={modal.title} onClose={()=>setModal(null)}><p>{modal.body}</p><div className="modal-actions"><Btn onClick={()=>setModal(null)}>Cancel</Btn><Btn primary onClick={modal.confirm}>Confirm</Btn></div></Modal>}
  {modal?.kind==='newmission'&&<NewMission onClose={()=>setModal(null)} onSave={m=>{setMissions(a=>[...a,m]);setMissionId(m.id);setView('mission');setTab('Conversation');setModal(null);log('Mission created: '+m.name)}}/>}
- {modal?.kind==='modules'&&<Modal title="All workspaces" wide onClose={()=>setModal(null)}><p className="muted">Twenty connected modules. Open a workspace to inspect and edit records.</p><div className="module-grid">{modules.map(m=>{const Icon=icons[m.icon];return <button key={m.id} onClick={()=>{openModule(m.id);setModal(null)}}><Icon size={24}/><span><strong>{m.name}</strong><small>{m.group} · {records[m.id].length} records</small></span><CaretRight size={17}/></button>})}</div></Modal>}
+ {modal?.kind==='modules'&&<Modal title="All workspaces" wide onClose={()=>setModal(null)}><p className="muted">Twenty connected modules. Open a workspace to inspect and edit records.</p><div className="module-grid">{modules.map(m=>{const Icon=icons[m.icon]||SquaresFour;return <button key={m.id} onClick={()=>{openModule(m.id);setModal(null)}}><Icon size={24}/><span><strong>{m.name}</strong><small>{m.group} · {records[m.id]?.length ?? 0} records</small></span><CaretRight size={17}/></button>})}</div></Modal>}
  {modal?.kind==='search'&&<Search records={records} onClose={()=>setModal(null)} detail={detail}/>}
  {modal?.kind==='rate'&&<Modal title={modal.record.id+' · Freight offer'} onClose={()=>setModal(null)}><h2>{modal.record.partner}</h2><p>{modal.record.origin} → {modal.record.destination}</p><dl className="detail-grid"><dt>Origin and ocean</dt><dd>{money(modal.record.amount)}</dd><dt>Destination handling</dt><dd>{display('destinationCharge',modal.record.destinationCharge)}</dd><dt>{modal.record.destinationCharge===''?'Known charges':'Quoted total'}</dt><dd><strong>{money(Number(modal.record.amount)+Number(modal.record.destinationCharge||0))}</strong></dd><dt>Valid until</dt><dd>{display('validUntil',modal.record.validUntil)}</dd></dl>{modal.record.destinationCharge===''&&<p className="notice"><WarningCircle/>Total is incomplete. Destination handling must be confirmed.</p>}<div className="modal-actions"><Btn onClick={()=>setModal({kind:'form',collection:'rates',record:modal.record})}>Edit offer</Btn><Btn primary disabled={modal.record.destinationCharge===''} onClick={()=>{award(modal.record);setModal(null)}}>Select this offer</Btn></div></Modal>}
- {modal?.kind==='about'&&<Modal title="Your Harbor workspace" onClose={()=>setModal(null)}><p className="lead">AI conversation, connected work products, and decisions you control.</p><p>This interactive frontend includes all 20 module workspaces with sample records, editable forms, search, filters and CSV exports.</p><div className="notice"><Info/><p>AI replies are scripted demonstrations. Carrier bookings, emails, customs filings and payments are not transmitted. Changes are kept only for this browser session.</p></div><p>Current profile: Ananya Rao · Meridian Trading · Demo operator</p><div className="modal-actions"><Btn onClick={onLogout}><SignOut size={18}/>Log out</Btn><Btn primary onClick={()=>{setModal({kind:'modules'})}}>Explore all modules</Btn></div></Modal>}
+ {modal?.kind==='about'&&<Modal title="Your Harbor workspace" onClose={()=>setModal(null)}><p className="lead">AI conversation, connected work products, and decisions you control.</p><p>This interactive frontend includes all 20 module workspaces with sample records, editable forms, search, filters and CSV exports.</p><div className="notice"><Info/><p>AI replies are scripted demonstrations. Carrier bookings, emails, customs filings and payments are not transmitted. Changes are kept only for this browser session.</p></div>
+ 
+ <p>
+  Current profile: {profile?.user?.name || 'User'} ·{' '}
+  {profile?.organization_roles?.[0]?.organization?.legal_name || 'Organization'}
+  {' · '}
+  {profile?.organization_roles?.[0]?.role?.name || 'User'}
+</p>
+
+ <div className="modal-actions"><Btn onClick={onLogout}><SignOut size={18}/>Log out</Btn><Btn primary onClick={()=>{setModal({kind:'modules'})}}>Explore all modules</Btn></div></Modal>}
  </div>
 }
 
