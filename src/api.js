@@ -146,13 +146,15 @@ export async function getInvitations(status) {
 }
 
 export async function validateInvitation(token) {
-  return request(`/v1/auth/accounts/invitations/${encodeURIComponent(token)}`);
+  const cleanToken = (token || "").trim();
+  return request(`/v1/auth/accounts/invitations/${encodeURIComponent(cleanToken)}`);
 }
 
 export async function acceptInvitation(token, data) {
-  return request(`/v1/auth/accounts/invitations/${encodeURIComponent(token)}/accept`, {
+  const cleanToken = (token || data?.token || "").trim();
+  return request(`/v1/auth/accounts/invitations/${encodeURIComponent(cleanToken)}/accept`, {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, token: cleanToken }),
   });
 }
 
@@ -213,6 +215,41 @@ export async function resendLoginOtp({ otp_token }) {
   return request("/v1/auth/login/resend-otp", {
     method: "POST",
     body: JSON.stringify({ otp_token }),
+  });
+}
+
+export async function forgotPassword(email) {
+  return request("/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email: (email || "").trim().toLowerCase() }),
+  });
+}
+
+export async function resendResetOtp(email) {
+  return request("/v1/auth/resend-reset-otp", {
+    method: "POST",
+    body: JSON.stringify({ email: (email || "").trim().toLowerCase() }),
+  });
+}
+
+export async function verifyResetOtp(email, otp) {
+  return request("/v1/auth/verify-reset-otp", {
+    method: "POST",
+    body: JSON.stringify({
+      email: (email || "").trim().toLowerCase(),
+      otp: String(otp || "").trim(),
+    }),
+  });
+}
+
+export async function resetPassword({ resetToken, newPassword, confirmPassword }) {
+  return request("/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      resetToken,
+      newPassword,
+      confirmPassword,
+    }),
   });
 }
 

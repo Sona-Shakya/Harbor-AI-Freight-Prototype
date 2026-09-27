@@ -1,5 +1,5 @@
 import React, {useEffect,useRef,useState} from 'react';
-import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings} from '@phosphor-icons/react';
+import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings} from '@phosphor-icons/react';
 import {modules,labels,numeric,dates,initialRecords,seedMissions,seedSettingCategories,money,TODAY} from './data';
 import SettingsRegistry from './SettingsRegistry';
 import UserManagement from './UserManagement';
@@ -18,100 +18,144 @@ function Badge({children}){const c=/^(approved|approved locally|active|confirmed
 function Btn({children,onClick,primary=false,disabled=false,className='',...props}){return <button className={(primary?'btn primary':'btn')+' '+className} onClick={onClick} disabled={disabled} {...props}>{children}</button>}
 const moduleGroups=['Workspace','Orders','Freight','Operations','Finance','Network'];
 function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
-  function toggleSidebar(event){
-    const next=!document.querySelector('.app-shell')?.classList.contains('sidebar-collapsed');
-    event.currentTarget.title=next?'Expand sidebar':'Collapse sidebar';
-    event.currentTarget.setAttribute('aria-label',next?'Expand sidebar':'Collapse sidebar');
-    window.dispatchEvent(new Event('toggle-sidebar'));
-  }
-
   const isAdminSelected = view === 'records' && moduleId === 'admin';
   const isUsersSelected = view === 'records' && moduleId === 'users';
   const isRolesSelected = view === 'records' && moduleId === 'roles';
   const isOrgSelected = view === 'records' && moduleId === 'organization';
 
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected;
+
   const canReadSettings = hasPermission('system_settings', 'read');
   const canReadUsers = hasPermission('users', 'read');
   const canReadRoles = hasPermission('roles', 'read');
   const canReadOrg = hasPermission('organizations', 'read');
+  const canReadMasters = canReadUsers || canReadRoles || canReadOrg;
+
+  const [mastersOpen, setMastersOpen] = useState(true);
+
+  // Automatically keep Masters dropdown OPEN when one of its child pages is active
+  useEffect(() => {
+    if (isChildActive) {
+      setMastersOpen(true);
+    }
+  }, [isChildActive]);
+
+  const handleMastersClick = () => {
+    if (!isChildActive) {
+      setMastersOpen(true);
+      if (canReadUsers) openModule('users');
+      else if (canReadRoles) openModule('roles');
+      else if (canReadOrg) openModule('organization');
+    } else {
+      setMastersOpen(v => !v);
+    }
+  };
+
+  const handleCaretClick = (e) => {
+    e.stopPropagation();
+    setMastersOpen(v => !v);
+  };
 
   return (
-    <>
-      <button
-        className="sidebar-toggle"
-        type="button"
-        title="Collapse sidebar"
-        aria-label="Collapse sidebar"
-        onClick={toggleSidebar}
-      >
-        <CaretLeft className="toggle-expanded-icon" size={19}/>
-        <CaretRight className="toggle-collapsed-icon" size={19}/>
-      </button>
-
-      <nav className="module-navigation" aria-label="Freight modules">
-        <section className="module-nav-group">
-          {/* 1. Existing System Settings item unchanged in its current position */}
-          {canReadSettings && (
+    <nav className="module-navigation" aria-label="Freight modules">
+      <section className="module-nav-group">
+        {/* 1. Exactly ONE Masters row directly below All modules */}
+        {canReadMasters && (
+          <div className="masters-group">
             <button
-              key="admin"
-              className={'module-nav-item ' + (isAdminSelected ? 'selected' : '')}
-              aria-current={isAdminSelected ? 'page' : undefined}
-              title="System settings"
-              onClick={() => openModule('admin')}
+              type="button"
+              className={'module-nav-item masters-dropdown-toggle ' + (isChildActive ? 'selected' : '')}
+              aria-expanded={mastersOpen}
+              aria-controls="masters-menu"
+              aria-current={isChildActive ? 'page' : undefined}
+              title="Masters"
+              onClick={handleMastersClick}
             >
-              <GearSix size={18} />
-              <span>System settings</span>
-              <span className="module-record-count">{records.admin?.length ?? ''}</span>
+              <Stack size={20} />
+              <span>Masters</span>
+              <span
+                className="masters-caret"
+                role="button"
+                tabIndex={0}
+                title={mastersOpen ? "Collapse Masters" : "Expand Masters"}
+                aria-label={mastersOpen ? "Collapse Masters" : "Expand Masters"}
+                onClick={handleCaretClick}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleCaretClick(e);
+                  }
+                }}
+              >
+                {mastersOpen ? <CaretUp size={14} /> : <CaretDown size={14} />}
+              </span>
             </button>
-          )}
 
-          {/* Under existing System Settings: M1 sub-items */}
-          <div className="module-sub-nav">
-            {canReadUsers && (
-              <button
-                key="users"
-                className={'module-nav-item sub-item ' + (isUsersSelected ? 'selected' : '')}
-                aria-current={isUsersSelected ? 'page' : undefined}
-                title="Users"
-                onClick={() => openModule('users')}
-              >
-                <UsersThree size={18} />
-                <span>Users</span>
-                <span className="module-record-count">{records.users?.length ?? ''}</span>
-              </button>
-            )}
+            {/* Child items under Masters: Users, Roles & Permissions, Organization */}
+            {mastersOpen && (
+              <div id="masters-menu" className="masters-sub-menu" role="region" aria-label="Masters sub-menu">
+                {canReadUsers && (
+                  <button
+                    key="users"
+                    className={'module-nav-item sub-item ' + (isUsersSelected ? 'selected' : '')}
+                    aria-current={isUsersSelected ? 'page' : undefined}
+                    title="Users"
+                    onClick={() => openModule('users')}
+                  >
+                    <UsersThree size={20} />
+                    <span>Users</span>
+                    <span className="module-record-count">{records.users?.length ?? ''}</span>
+                  </button>
+                )}
 
-            {canReadRoles && (
-              <button
-                key="roles"
-                className={'module-nav-item sub-item ' + (isRolesSelected ? 'selected' : '')}
-                aria-current={isRolesSelected ? 'page' : undefined}
-                title="Roles & Permissions"
-                onClick={() => openModule('roles')}
-              >
-                <ShieldCheck size={18} />
-                <span>Roles & Permissions</span>
-                <span className="module-record-count">{records.roles?.length ?? ''}</span>
-              </button>
-            )}
+                {canReadRoles && (
+                  <button
+                    key="roles"
+                    className={'module-nav-item sub-item ' + (isRolesSelected ? 'selected' : '')}
+                    aria-current={isRolesSelected ? 'page' : undefined}
+                    title="Roles & Permissions"
+                    onClick={() => openModule('roles')}
+                  >
+                    <ShieldCheck size={20} />
+                    <span>Roles & Permissions</span>
+                    <span className="module-record-count">{records.roles?.length ?? ''}</span>
+                  </button>
+                )}
 
-            {canReadOrg && (
-              <button
-                key="organization"
-                className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
-                aria-current={isOrgSelected ? 'page' : undefined}
-                title="Organization"
-                onClick={() => openModule('organization')}
-              >
-                <Buildings size={18} />
-                <span>Organization</span>
-                <span className="module-record-count">{records.organization?.length ?? ''}</span>
-              </button>
+                {canReadOrg && (
+                  <button
+                    key="organization"
+                    className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
+                    aria-current={isOrgSelected ? 'page' : undefined}
+                    title="Organization"
+                    onClick={() => openModule('organization')}
+                  >
+                    <Buildings size={20} />
+                    <span>Organization</span>
+                    <span className="module-record-count">{records.organization?.length ?? ''}</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
-        </section>
-      </nav>
-    </>
+        )}
+
+        {/* 2. Exactly ONE System Settings row below Masters */}
+        {canReadSettings && (
+          <button
+            key="admin"
+            className={'module-nav-item ' + (isAdminSelected ? 'selected' : '')}
+            aria-current={isAdminSelected ? 'page' : undefined}
+            title="System settings"
+            onClick={() => openModule('admin')}
+          >
+            <GearSix size={20} />
+            <span>System settings</span>
+            <span className="module-record-count">{records.admin?.length ?? ''}</span>
+          </button>
+        )}
+      </section>
+    </nav>
   );
 }
 function Modal({title,onClose,children,wide=false}){const box=useRef();useEffect(()=>{const before=document.activeElement;box.current?.focus();const key=e=>{if(e.key==='Escape')onClose();if(e.key==='Tab'){const els=[...box.current.querySelectorAll('button,input,select,textarea,a[href]')].filter(x=>!x.disabled);if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els.at(-1)?.focus()}else if(!e.shiftKey&&document.activeElement===els.at(-1)){e.preventDefault();els[0]?.focus()}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);before?.focus()}},[]);return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section ref={box} tabIndex={-1} className={'modal '+(wide?'wide':'')} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={22}/></button></header>{children}</section></div>}
@@ -523,7 +567,33 @@ const hasPermission = (module, action) => {
  return <><h3>The plan is prepared. {ob.destinationCharge===''?'One charge needs clarification.':'Your freight offers are ready to compare.'}</h3><p>I’ve reviewed PO-1042, the supplier’s readiness email and <strong>3 freight offers</strong> for Shanghai to Chennai in this sample workspace.</p><p>{ob.destinationCharge===''?'Offer OB-082 excludes destination handling at Chennai. I’ve drafted a clarification to confirm the total and validity before you proceed.':'Destination handling has been recorded. Review the complete offers and select your preferred provider before creating a booking draft.'}</p><div className="offer-preview"><div className="row between"><h3>Freight offers <span>(Shanghai → Chennai)</span></h3><button className="text-btn" onClick={()=>setTab('Work products')}>Compare<ArrowRight size={14}/></button></div><table><thead><tr><th>Provider</th><th>Quoted cost</th><th>ETA Chennai</th></tr></thead><tbody>{records.rates.map((r,i)=><tr key={r.id} onClick={()=>setModal({kind:'rate',record:r})}><td><button className="table-link">{r.partner}</button><small>{r.name}</small></td><td><strong>{money(Number(r.amount)+Number(r.destinationCharge||0))}</strong>{r.destinationCharge===''&&<small className="warn-text">Destination charge excluded</small>}</td><td>{i===0?'27':i===1?'28':'29'} Sep 2026</td></tr>)}</tbody></table></div><div className="source-chips"><span>Sources</span>{sources.map(id=><button key={id} onClick={()=>detail(id)}><FileText size={16}/>{id==='DOC-01'?'PO-1042':id==='DOC-02'?'Supplier email':'Offer OB-082'}</button>)}</div><div className="draft-box"><div className="row between"><h3>Clarification draft</h3><Badge>{approvals.import?'Approved locally':'Awaiting your approval'}</Badge></div><p className="recipient">To: <strong>OceanBridge Logistics</strong> · sample partner</p><p className="draft-text">{draft}</p><div className="actions"><Btn primary disabled={!!approvals.import} onClick={()=>approve('import')}><Check size={17}/>{approvals.import?'Draft approved':'Approve draft'}</Btn><Btn onClick={()=>setModal({kind:'draft'})}>Edit</Btn>{approvals.import&&ob.destinationCharge===''&&<Btn onClick={()=>setModal({kind:'charge'})}>Record partner response</Btn>}</div><p className="micro"><Info size={14}/> No message sent. A connected email account is required to send.</p></div></>}
 
  return <div className={'app-shell '+(sidebarCollapsed?'sidebar-collapsed':'')}>
- <aside className={'sidebar '+(navOpen?'open':'')}><div className="wordmark" onClick={()=>openMission('import')}><img src="/harbor-mark.png" alt="" className="sidebar-brand-mark"/><span>Harbor</span><p>Global trade,<br/>more human.</p></div><Btn primary className="new-mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={21}/>New mission</Btn><div className="sidebar-scroll">{view==='records'&&<button className="back-to-missions" onClick={()=>openMission(missionId)}><House size={19}/><span><strong>AI missions</strong><small>Return to your active work</small></span><CaretRight size={15}/></button>}{view==='mission'&&<><div className="section-label row between">Active missions<button className="icon-btn small" aria-label="Add mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={17}/></button></div><nav className="mission-list">{missions.map(m=><button className={'mission-item '+(view==='mission'&&missionId===m.id?'selected':'')} key={m.id} onClick={()=>openMission(m.id)}><span className={'mission-dot '+(missionId===m.id?'blue':'')}/><span>{m.name}<small>{m.subtitle}</small></span></button>)}</nav></>}<div className="module-section-heading"><span>All modules</span><span className="count">20</span></div>
+ <aside className={'sidebar '+(navOpen?'open':'')}>
+  <div className="sidebar-header">
+    <div className="sidebar-header-top">
+      <div className="wordmark" onClick={()=>openMission('import')}>
+        <img src="/harbor-mark.png" alt="" className="sidebar-brand-mark"/>
+        <span>Harbor</span>
+      </div>
+      <button
+        className="sidebar-toggle"
+        type="button"
+        title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSidebarCollapsed(v => !v);
+        }}
+      >
+        <CaretLeft className="toggle-expanded-icon" size={17}/>
+        <CaretRight className="toggle-collapsed-icon" size={17}/>
+      </button>
+    </div>
+    <p className="sidebar-tagline">Global trade,<br/>more human.</p>
+  </div>
+  <Btn primary className="new-mission" title="New mission" onClick={()=>setModal({kind:'newmission'})}>
+    <Plus size={21}/><span>New mission</span>
+  </Btn>
+  <div className="sidebar-scroll">{view==='records'&&<button className="back-to-missions" title="AI missions" onClick={()=>openMission(missionId)}><House size={19}/><span><strong>AI missions</strong><small>Return to your active work</small></span><CaretRight size={15}/></button>}{view==='mission'&&<><div className="section-label row between">Active missions<button className="icon-btn small" aria-label="Add mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={17}/></button></div><nav className="mission-list">{missions.map(m=><button className={'mission-item '+(view==='mission'&&missionId===m.id?'selected':'')} key={m.id} title={m.name} onClick={()=>openMission(m.id)}><span className={'mission-dot '+(missionId===m.id?'blue':'')}/><span>{m.name}<small>{m.subtitle}</small></span></button>)}</nav></>}<div className="module-section-heading"><span>All modules</span><span className="count">20</span></div>
  <ModuleNavigation
   moduleId={moduleId}
   view={view}

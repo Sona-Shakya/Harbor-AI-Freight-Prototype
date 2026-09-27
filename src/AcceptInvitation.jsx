@@ -41,15 +41,51 @@ function formatExpiryDate(isoStr) {
   }
 }
 
-export default function AcceptInvitation({ onGoToLogin }) {
-  const [token, setToken] = useState(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('token') || '';
-    } catch {
-      return '';
+function extractTokenFromUrl() {
+  try {
+    if (typeof window === 'undefined') return '';
+
+    // 1. Check window.location.search
+    const searchParams = new URLSearchParams(window.location.search);
+    const tokenFromSearch =
+      searchParams.get('token') ||
+      searchParams.get('inviteToken') ||
+      searchParams.get('invite_token') ||
+      searchParams.get('invitationToken') ||
+      searchParams.get('t');
+    if (tokenFromSearch && tokenFromSearch.trim()) {
+      return tokenFromSearch.trim();
     }
-  });
+
+    // 2. Check window.location.hash in case of hash router
+    if (window.location.hash && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.substring(window.location.hash.indexOf('?'));
+      const hashParams = new URLSearchParams(hashQuery);
+      const tokenFromHash =
+        hashParams.get('token') ||
+        hashParams.get('inviteToken') ||
+        hashParams.get('invite_token') ||
+        hashParams.get('invitationToken') ||
+        hashParams.get('t');
+      if (tokenFromHash && tokenFromHash.trim()) {
+        return tokenFromHash.trim();
+      }
+    }
+
+    // 3. Check path segments (/accept-invitation/:token)
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    if (pathSegments.length >= 2 && pathSegments[0] === 'accept-invitation') {
+      return pathSegments[1].trim();
+    }
+
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+export default function AcceptInvitation({ onGoToLogin }) {
+  const [token, setToken] = useState(() => extractTokenFromUrl());
 
   const [validationState, setValidationState] = useState('validating'); // 'validating' | 'valid' | 'error'
   const [invitationData, setInvitationData] = useState(null);
@@ -71,15 +107,19 @@ export default function AcceptInvitation({ onGoToLogin }) {
     let cancelled = false;
 
     async function checkToken() {
-      if (!token || !token.trim()) {
+      const currentToken = (token || extractTokenFromUrl() || '').trim();
+      if (!currentToken) {
         setValidationState('error');
         setValidationError('Invalid invitation link.');
         return;
       }
+      if (!token && currentToken) {
+        setToken(currentToken);
+      }
 
       try {
         setValidationState('validating');
-        const res = await validateInvitation(token.trim());
+        const res = await validateInvitation(currentToken);
         const data = res?.data || res;
         if (!cancelled) {
           setInvitationData(data);
@@ -156,10 +196,12 @@ export default function AcceptInvitation({ onGoToLogin }) {
 
     try {
       setSubmitting(true);
-      await acceptInvitation(token.trim(), {
+      const activeToken = (token || extractTokenFromUrl() || '').trim();
+      await acceptInvitation(activeToken, {
         name: name.trim() || undefined,
         phone: trimmedPhone,
-        password
+        password,
+        token: activeToken,
       });
       setAccepted(true);
     } catch (err) {
