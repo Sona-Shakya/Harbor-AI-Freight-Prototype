@@ -5,6 +5,7 @@ import SettingsRegistry from './SettingsRegistry';
 import UserManagement from './UserManagement';
 import RolePermissionMaster from './RolePermissionMaster';
 import OrganizationView from './OrganizationView';
+import CustomerMaster from './CustomerMaster';
 import LoginOtpScreen from './LoginOtpScreen.jsx';
 import AcceptInvitation from './AcceptInvitation.jsx';
 import {login as apiLogin, getProfile} from './api';
@@ -22,14 +23,16 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const isUsersSelected = view === 'records' && moduleId === 'users';
   const isRolesSelected = view === 'records' && moduleId === 'roles';
   const isOrgSelected = view === 'records' && moduleId === 'organization';
+  const isCustomersSelected = view === 'records' && moduleId === 'customers';
 
-  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected;
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected;
 
   const canReadSettings = hasPermission('system_settings', 'read');
   const canReadUsers = hasPermission('users', 'read');
   const canReadRoles = hasPermission('roles', 'read');
   const canReadOrg = hasPermission('organizations', 'read');
-  const canReadMasters = canReadUsers || canReadRoles || canReadOrg;
+  const canReadCustomers = hasPermission('customers', 'read');
+  const canReadMasters = canReadUsers || canReadRoles || canReadOrg || canReadCustomers;
 
   const [mastersOpen, setMastersOpen] = useState(true);
 
@@ -43,7 +46,8 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const handleMastersClick = () => {
     if (!isChildActive) {
       setMastersOpen(true);
-      if (canReadUsers) openModule('users');
+      if (canReadCustomers) openModule('customers');
+      else if (canReadUsers) openModule('users');
       else if (canReadRoles) openModule('roles');
       else if (canReadOrg) openModule('organization');
     } else {
@@ -133,6 +137,19 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                     <Buildings size={20} />
                     <span>Organization</span>
                     <span className="module-record-count">{records.organization?.length ?? ''}</span>
+                  </button>
+                )}
+
+                {canReadCustomers && (
+                  <button
+                    key="customers"
+                    className={'module-nav-item sub-item ' + (isCustomersSelected ? 'selected' : '')}
+                    aria-current={isCustomersSelected ? 'page' : undefined}
+                    title="Customer Master"
+                    onClick={() => openModule('customers')}
+                  >
+                    <ShoppingBag size={20} />
+                    <span>Customer Master</span>
                   </button>
                 )}
               </div>
@@ -480,8 +497,18 @@ export function App() {
   return <LoginScreen onLogin={login} />;
 }
 
+const getModuleFromPath = (path) => {
+  if (path === '/customers' || path.startsWith('/customers/')) return 'customers';
+  if (path === '/users' || path.startsWith('/users/')) return 'users';
+  if (path === '/roles' || path.startsWith('/roles/')) return 'roles';
+  if (path === '/organization' || path.startsWith('/organization/')) return 'organization';
+  if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
+  return null;
+};
+
 function HarborWorkspace({onLogout}){
       const [profile, setProfile] = useState(null);
+      const [profileLoading, setProfileLoading] = useState(true);
       const role = profile?.organization_roles?.[0]?.role;
 const permissionSet = role?.permission_set || {};
 
@@ -498,6 +525,7 @@ const hasPermission = (module, action) => {
 };
 
   useEffect(() => {
+    setProfileLoading(true);
     getProfile()
       .then((response) => {
         const data = response?.data || null;
@@ -505,18 +533,33 @@ const hasPermission = (module, action) => {
       })
       .catch((error) => {
         console.error("Failed to load profile:", error);
+      })
+      .finally(() => {
+        setProfileLoading(false);
       });
   }, []);
 
  const stored=useRef(load()).current;
- const [records,setRecords]=useState(()=>({...initialRecords, ...(stored.records||{})})),[missions,setMissions]=useState(stored.missions||seedMissions),[missionId,setMissionId]=useState('import'),[view,setView]=useState('records'),[tab,setTab]=useState('Conversation'),[moduleId,setModuleId]=useState('admin'),[query,setQuery]=useState(''),[filter,setFilter]=useState('All statuses');
+ const initialMod = (typeof window !== 'undefined' && getModuleFromPath(window.location.pathname)) || 'admin';
+ const [records,setRecords]=useState(()=>({...initialRecords, ...(stored.records||{})})),[missions,setMissions]=useState(stored.missions||seedMissions),[missionId,setMissionId]=useState('import'),[view,setView]=useState('records'),[tab,setTab]=useState('Conversation'),[moduleId,setModuleId]=useState(initialMod),[query,setQuery]=useState(''),[filter,setFilter]=useState('All statuses');
  const [modal,setModal]=useState(null),[toast,setToast]=useState(''),[input,setInput]=useState(''),[messages,setMessages]=useState(stored.messages||{}),[audit,setAudit]=useState(stored.audit||[]),[approvals,setApprovals]=useState(stored.approvals||{}),[selectedRate,setSelectedRate]=useState(stored.selectedRate||null),[draft,setDraft]=useState(stored.draft||'Please confirm destination handling and local charges for 600 control units moving from Shanghai to Chennai. Your offer OB-082 includes origin and ocean freight but excludes destination handling. Please confirm the total and validity.'),[settings,setSettings]=useState(stored.settings||seedSettingCategories),[settingAudit,setSettingAudit]=useState(stored.settingAudit||[]),[attachments,setAttachments]=useState([]),[busy,setBusy]=useState(false),[navOpen,setNavOpen]=useState(false),[sidebarCollapsed,setSidebarCollapsed]=useState(false),[planOpen,setPlanOpen]=useState(false);
  const scroll=useRef(),fileRef=useRef(),timer=useRef();
- const mission=missions.find(m=>m.id===missionId)||missions[0]; const type=mission.type; const mod=modules.find(m=>m.id===moduleId);
+ const mission=missions.find(m=>m.id===missionId)||missions[0]; const type=mission.type; const mod=modules.find(m=>m.id===moduleId)||modules[0];
  useEffect(()=>{sessionStorage.setItem(STORE,JSON.stringify({records,missions,messages,audit,approvals,selectedRate,draft,settings,settingAudit}))},[records,missions,messages,audit,approvals,selectedRate,draft,settings,settingAudit]);
  useEffect(()=>{if(toast){const t=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(t)}},[toast]);
  useEffect(()=>()=>clearTimeout(timer.current),[]);
  useEffect(()=>{const toggle=()=>setSidebarCollapsed(value=>!value);window.addEventListener('toggle-sidebar',toggle);return()=>window.removeEventListener('toggle-sidebar',toggle)},[]);
+ useEffect(()=>{
+   const onPop = () => {
+     const m = getModuleFromPath(window.location.pathname);
+     if (m) {
+       setModuleId(m);
+       setView('records');
+     }
+   };
+   window.addEventListener('popstate', onPop);
+   return () => window.removeEventListener('popstate', onPop);
+ }, []);
  function log(text){setAudit(a=>[{id:uid('ACT'),text,time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})},...a])}
  function update(collection,record){setRecords(r=>({...r,[collection]:r[collection].some(x=>x.id===record.id)?r[collection].map(x=>x.id===record.id?record:x):[...r[collection],record]}));log(`${record.id} updated in ${modules.find(m=>m.id===collection).name}`)}
  function add(collection,record){setRecords(r=>({...r,[collection]:[...r[collection],record]}))}
@@ -538,12 +581,30 @@ const hasPermission = (module, action) => {
     notify('You do not have permission to access Organization.');
     return;
   }
+  if (id === 'customers' && !hasPermission('customers', 'read')) {
+    notify('You do not have permission to access Customer Master.');
+    return;
+  }
 
   setModuleId(id);
   setView('records');
   setQuery('');
   setFilter('All statuses');
   setNavOpen(false);
+
+  const moduleUrls = {
+    customers: '/customers',
+    users: '/users',
+    roles: '/roles',
+    organization: '/organization',
+    admin: '/admin'
+  };
+  const targetUrl = moduleUrls[id];
+  if (targetUrl && window.location.pathname !== targetUrl) {
+    window.history.pushState({}, '', targetUrl);
+  } else if (!targetUrl && window.location.pathname !== '/') {
+    window.history.pushState({}, '', '/');
+  }
 }
  function openMission(id){setMissionId(id);setView('mission');setTab('Conversation');setInput('');setAttachments([]);setNavOpen(false)}
  function detail(id,collection){const c=collection||Object.keys(records).find(k=>records[k]?.some?.(x=>x.id===id));if(c&&records[c]){setModal({kind:'detail',collection:c,record:records[c].find(x=>x.id===id)})}}
@@ -626,8 +687,8 @@ const hasPermission = (module, action) => {
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
-  </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div><div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div></header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<div className="notice"><Info size={20}/><div><strong>This is an interactive prototype</strong><p>Edits stay in this browser session. AI, email, carrier, customs and accounting integrations are not connected. Roles below are illustrative; there is no production authentication.</p><Btn onClick={()=>setModal({kind:'confirm',title:'Reset sample workspace',body:'Reset your local demo edits and restore the original sample records?',confirm:()=>{sessionStorage.removeItem(STORE);window.location.reload()}})}><ArrowCounterClockwise/>Reset sample data</Btn></div></div>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify}/>}
-{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&(
+   </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<div className="notice"><Info size={20}/><div><strong>This is an interactive prototype</strong><p>Edits stay in this browser session. AI, email, carrier, customs and accounting integrations are not connected. Roles below are illustrative; there is no production authentication.</p><Btn onClick={()=>setModal({kind:'confirm',title:'Reset sample workspace',body:'Reset your local demo edits and restore the original sample records?',confirm:()=>{sessionStorage.removeItem(STORE);window.location.reload()}})}><ArrowCounterClockwise/>Reset sample data</Btn></div></div>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>}
+{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&(
 <>
 <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
 </>

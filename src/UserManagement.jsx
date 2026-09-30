@@ -27,7 +27,10 @@ import {
   updateUserStatus,
   reassignUserRole,
   createInvitation,
-  getInvitations
+  getInvitations,
+  getOrganization,
+  getCustomers,
+  getCustomer
 } from './api';
 import './styles/userManagement.css';
 
@@ -988,12 +991,20 @@ function CreateUserModal({ onClose, onSuccess }) {
   );
 }
 
-function InviteUserModal({ onClose, onSuccess }) {
+export function InviteUserModal({
+  onClose,
+  onSuccess,
+  initialOrganizationId = null,
+  initialEmail = '',
+}) {
   const ALLOWED_TENANT_ROLES = ['Company Admin', 'Dispatcher', 'Driver', 'Finance', 'Read-only'];
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail || '');
+  const [selectedOrgId, setSelectedOrgId] = useState(initialOrganizationId ? String(initialOrganizationId) : '');
   const [roleId, setRoleId] = useState('');
-  const [roles, setRoles] = useState([]);
-  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [currentOrg, setCurrentOrg] = useState(null);
+  const [customerOrgs, setCustomerOrgs] = useState([]);
+  const [allRoles, setAllRoles] = useState([]);
+  const [loadingInitialData, setLoadingInitialData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [createdData, setCreatedData] = useState(null);
@@ -1001,33 +1012,138 @@ function InviteUserModal({ onClose, onSuccess }) {
 
   useEffect(() => {
     let cancelled = false;
-    async function loadRolesList() {
+    async function loadData() {
       try {
-        setLoadingRoles(true);
-        const res = await getRoles();
-        const roleList = (res?.data || (Array.isArray(res) ? res : [])).filter(
-          (r) => ALLOWED_TENANT_ROLES.includes(r.name) && r.name !== 'Platform Admin'
+        setLoadingInitialData(true);
+        const [orgRes, custRes, rolesRes] = await Promise.allSettled([
+          getOrganization(),
+          getCustomers('limit=100&status=active'),
+          getRoles(),
+        ]);
+
+        if (cancelled) return;
+
+        let myOrg = null;
+        if (orgRes.status === 'fulfilled') {
+          myOrg = orgRes.value?.data || orgRes.value;
+          setCurrentOrg(myOrg);
+        }
+
+        let customers = [];
+        if (custRes.status === 'fulfilled') {
+          const rawCust = custRes.value?.data || (Array.isArray(custRes.value) ? custRes.value : []);
+          customers = rawCust.filter(
+            (c) => c.status !== 'terminated' && (!myOrg || String(c.id) !== String(myOrg.id))
+          );
+        }
+
+        if (
+          initialOrganizationId &&
+          (!myOrg || String(myOrg.id) !== String(initialOrganizationId)) &&
+          !customers.some((c) => String(c.id) === String(initialOrganizationId))
+        ) {
+          try {
+            const single = await getCustomer(initialOrganizationId);
+            const singleData = single?.data || single;
+            if (singleData && singleData.id) {
+              customers.push(singleData);
+            }
+          } catch (e) {
+            // fallback if single fetch fails
+          }
+        }
+        setCustomerOrgs(customers);
+
+        let rolesList = [];
+        if (rolesRes.status === 'fulfilled') {
+          rolesList = rolesRes.value?.data || (Array.isArray(rolesRes.value) ? rolesRes.value : []);
+          setAllRoles(rolesList);
+        }
+
+        let activeOrgId = initialOrganizationId ? String(initialOrganizationId) : '';
+        if (!activeOrgId && myOrg?.id) {
+          activeOrgId = String(myOrg.id);
+        }
+        setSelectedOrgId(activeOrgId);
+
+        const targetIsCustomer = Boolean(
+          activeOrgId &&
+          (!myOrg || String(activeOrgId) !== String(myOrg.id)) &&
+          customers.some((c) => String(c.id) === String(activeOrgId))
         );
-        if (!cancelled) {
-          setRoles(roleList);
-          if (roleList.length > 0) {
-            setRoleId(roleList[0].id);
+
+        if (targetIsCustomer) {
+          const sRole = rolesList.find((r) => r.name === 'Shipper User') || { id: 10, name: 'Shipper User' };
+          setRoleId(sRole.id);
+        } else {
+          const internalRoles = rolesList.filter(
+            (r) => ALLOWED_TENANT_ROLES.includes(r.name) && r.name !== 'Platform Admin'
+          );
+          if (internalRoles.length > 0) {
+            const def = internalRoles.find((r) => r.name === 'Dispatcher') || internalRoles[0];
+            setRoleId(def.id);
           }
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Failed to load roles in invite modal:', err);
-          setFormError('Failed to load available roles. Please close and retry.');
+          console.error('Failed to load invitation dialog data:', err);
+          setFormError('Failed to load initial organization data. Please close and retry.');
         }
       } finally {
-        if (!cancelled) setLoadingRoles(false);
+        if (!cancelled) setLoadingInitialData(false);
       }
     }
-    loadRolesList();
+
+    loadData();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialOrganizationId]);
+
+  const handleOrgChange = (newOrgId) => {
+    setSelectedOrgId(newOrgId);
+    setFormError('');
+
+    const targetIsCustomer = Boolean(
+      newOrgId &&
+      (!currentOrg || String(newOrgId) !== String(currentOrg.id)) &&
+      customerOrgs.some((c) => String(c.id) === String(newOrgId))
+    );
+
+    if (targetIsCustomer) {
+      const sRole = allRoles.find((r) => r.name === 'Shipper User') || { id: 10, name: 'Shipper User' };
+      setRoleId(sRole.id);
+    } else {
+      const internalRoles = allRoles.filter(
+        (r) => ALLOWED_TENANT_ROLES.includes(r.name) && r.name !== 'Platform Admin'
+      );
+      if (!internalRoles.some((r) => String(r.id) === String(roleId))) {
+        const def = internalRoles.find((r) => r.name === 'Dispatcher') || internalRoles[0];
+        setRoleId(def ? def.id : '');
+      }
+    }
+  };
+
+  const isCustomerShipper = Boolean(
+    selectedOrgId &&
+    (!currentOrg || String(selectedOrgId) !== String(currentOrg.id)) &&
+    customerOrgs.some((c) => String(c.id) === String(selectedOrgId))
+  );
+
+  const selectedOrg =
+    customerOrgs.find((c) => String(c.id) === String(selectedOrgId)) ||
+    (currentOrg && String(currentOrg.id) === String(selectedOrgId) ? currentOrg : null);
+
+  const internalRoles = allRoles.filter(
+    (r) => ALLOWED_TENANT_ROLES.includes(r.name) && r.name !== 'Platform Admin'
+  );
+
+  const shipperRole = allRoles.find((r) => r.name === 'Shipper User') || {
+    id: 10,
+    name: 'Shipper User',
+  };
+
+  const availableRoles = isCustomerShipper ? [shipperRole] : internalRoles;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -1039,6 +1155,11 @@ function InviteUserModal({ onClose, onSuccess }) {
       return;
     }
 
+    if (!selectedOrgId) {
+      setFormError('Please select a target organization.');
+      return;
+    }
+
     if (!roleId) {
       setFormError('Please select an authorized role.');
       return;
@@ -1046,9 +1167,13 @@ function InviteUserModal({ onClose, onSuccess }) {
 
     try {
       setSubmitting(true);
-      const res = await createInvitation(trimmedEmail, Number(roleId));
+      const res = await createInvitation(
+        trimmedEmail,
+        Number(roleId) || roleId,
+        Number(selectedOrgId)
+      );
       const data = res?.data || res;
-      onSuccess();
+      if (onSuccess) onSuccess(data);
 
       if (data?.invitation_link) {
         setCreatedData(data);
@@ -1064,7 +1189,7 @@ function InviteUserModal({ onClose, onSuccess }) {
       } else if (err.status === 403) {
         setFormError(err.message || 'Permission denied: Only Company Admin can invite users.');
       } else if (err.status === 400) {
-        setFormError(err.message || 'Validation error: Please verify the email and selected role.');
+        setFormError(err.message || 'Validation error: Please verify the email, organization, and selected role.');
       } else {
         setFormError(formatErrorMessage(err, 'Failed to send invitation. Please try again.'));
       }
@@ -1110,7 +1235,11 @@ function InviteUserModal({ onClose, onSuccess }) {
             <CheckCircle size={48} className="invitation-success-icon" weight="fill" />
             <h3 className="invitation-success-title">Invitation Sent!</h3>
             <p className="invitation-success-desc">
-              An invitation has been dispatched to <strong>{createdData.email}</strong> with the <strong>{createdData.role}</strong> role.
+              An invitation has been dispatched to <strong>{createdData.email}</strong> with the{' '}
+              <strong>{createdData.role}</strong> role
+              {createdData.organization_name ? (
+                <> for organization <strong>{createdData.organization_name}</strong></>
+              ) : null}.
             </p>
 
             {createdData.invitation_link && (
@@ -1149,7 +1278,9 @@ function InviteUserModal({ onClose, onSuccess }) {
         ) : (
           <>
             <p className="modal-description">
-              Send an email invitation to add a new team member to your organization. The invitee will receive instructions to accept their invite.
+              {isCustomerShipper
+                ? `Send an email invitation to add an authorized representative to access the M12 Shipper Portal for ${selectedOrg?.legal_name || 'the customer organization'}.`
+                : 'Send an email invitation to add a new team member to your internal organization or invite an external customer.'}
             </p>
 
             {formError && (
@@ -1161,23 +1292,66 @@ function InviteUserModal({ onClose, onSuccess }) {
 
             <form onSubmit={handleSubmit}>
               <label>
+                Target Organization *
+                {loadingInitialData ? (
+                  <select disabled>
+                    <option>Loading organizations...</option>
+                  </select>
+                ) : (
+                  <select
+                    required
+                    value={selectedOrgId}
+                    onChange={(e) => handleOrgChange(e.target.value)}
+                    disabled={submitting}
+                  >
+                    {currentOrg && (
+                      <optgroup label="Internal Organization">
+                        <option value={currentOrg.id}>
+                          {currentOrg.legal_name || 'My Organization'} (Internal Organization)
+                        </option>
+                      </optgroup>
+                    )}
+                    {customerOrgs.length > 0 && (
+                      <optgroup label="Shipper Customers">
+                        {customerOrgs.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.legal_name} (#{c.id})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                )}
+                {isCustomerShipper ? (
+                  <small className="form-hint" style={{ marginTop: '4px', display: 'block', color: 'var(--muted)', fontSize: '12px' }}>
+                    Customer organization: Invitee will access the M12 Shipper Portal.
+                  </small>
+                ) : (
+                  <small className="form-hint" style={{ marginTop: '4px', display: 'block', color: 'var(--muted)', fontSize: '12px' }}>
+                    Internal organization: Invitee will join internal operations.
+                  </small>
+                )}
+              </label>
+
+              <label>
                 Invitee Email *
                 <input
                   type="email"
                   required
-                  placeholder="colleague@company.com"
+                  placeholder={isCustomerShipper ? 'customer.rep@shipper.com' : 'colleague@company.com'}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setFormError('');
                   }}
+                  disabled={submitting}
                   autoFocus
                 />
               </label>
 
               <label>
                 Assigned Role *
-                {loadingRoles ? (
+                {loadingInitialData ? (
                   <select disabled>
                     <option>Loading roles...</option>
                   </select>
@@ -1189,13 +1363,19 @@ function InviteUserModal({ onClose, onSuccess }) {
                       setRoleId(e.target.value);
                       setFormError('');
                     }}
+                    disabled={submitting}
                   >
-                    {roles.map((r) => (
+                    {availableRoles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
                       </option>
                     ))}
                   </select>
+                )}
+                {isCustomerShipper && (
+                  <small className="form-hint" style={{ marginTop: '4px', display: 'block', color: 'var(--muted)', fontSize: '12px' }}>
+                    Shipper organizations are strictly assigned the Shipper User role.
+                  </small>
                 )}
               </label>
 
@@ -1206,7 +1386,7 @@ function InviteUserModal({ onClose, onSuccess }) {
                 <button
                   className="btn primary"
                   type="submit"
-                  disabled={submitting || loadingRoles || roles.length === 0}
+                  disabled={submitting || loadingInitialData || !roleId || !selectedOrgId}
                 >
                   <PaperPlaneTilt size={16} />
                   <span>{submitting ? 'Sending Invite...' : 'Send Invitation'}</span>

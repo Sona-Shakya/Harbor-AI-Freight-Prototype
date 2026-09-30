@@ -133,16 +133,44 @@ export async function reassignUserRole(id, role) {
   });
 }
 
-export async function createInvitation(email, roleId) {
+export async function createInvitation(email, role, organizationId) {
+  const body = { email };
+  if (typeof role === 'number' || !isNaN(Number(role))) {
+    body.roleId = Number(role);
+  } else if (role) {
+    body.role = role;
+  }
+  if (organizationId) {
+    body.organizationId = Number(organizationId);
+  }
   return request("/v1/auth/accounts/invitations", {
     method: "POST",
-    body: JSON.stringify({ email, roleId }),
+    body: JSON.stringify(body),
   });
 }
 
-export async function getInvitations(status) {
+export async function inviteCustomerUser(customerId, { email, role }) {
+  return request(`/v1/customers/${customerId}/invitations`, {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export async function getCustomerRoles() {
+  return request("/v1/customers/roles");
+}
+
+export async function getCustomerInvitations(customerId, status) {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
-  return request(`/v1/auth/accounts/invitations${query}`);
+  return request(`/v1/customers/${customerId}/invitations${query}`);
+}
+
+export async function getInvitations(status, organizationId) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (organizationId) params.set("organizationId", organizationId);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return request(`/v1/auth/accounts/invitations${qs}`);
 }
 
 export async function validateInvitation(token) {
@@ -418,5 +446,77 @@ export const updateOverride = (id, payload) =>
 export const loadAudit = () =>
   request("/v1/admin/settings/audit-log");
 
+
+/* ─── Customer Master ───────────────────────────────────────── */
+
+/**
+ * GET /v1/customers
+ * Accepts a URLSearchParams-compatible query string:
+ *   page, limit, search, status
+ */
+export async function getCustomers(queryString) {
+  const qs = queryString ? `?${queryString}` : '';
+  return request(`/v1/customers${qs}`);
+}
+
+/**
+ * GET /v1/customers/:id
+ */
+export async function getCustomer(id) {
+  return request(`/v1/customers/${id}`);
+}
+
+/**
+ * POST /v1/customers
+ * Payload: { legal_name, tax_id?, is_enterprise? }
+ */
+export async function createCustomer(payload) {
+  return request('/v1/customers', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PUT /v1/customers/:id
+ * Payload: { legal_name?, tax_id?, is_enterprise?, operating_status? }
+ */
+export async function updateCustomer(id, payload) {
+  return request(`/v1/customers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PATCH /v1/customers/:id/status
+ * Payload: { status: 'active' | 'suspended' | 'terminated' }
+ */
+export async function updateCustomerStatus(id, status) {
+  return request(`/v1/customers/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+/**
+ * DELETE /v1/customers/:id
+ * Soft-deactivation (sets status → terminated on the backend).
+ */
+export async function deactivateCustomer(id) {
+  return request(`/v1/customers/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * GET /v1/customers/:id/audit-log
+ * Accepts optional query params: page, limit
+ * Returns { success, data: [...], pagination: {...} }
+ */
+export async function getCustomerAuditLog(id, { page = 1, limit = 20 } = {}) {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+  return request(`/v1/customers/${id}/audit-log?${qs}`);
+}
 
 export const isApiConfigured = Boolean(API_BASE);
