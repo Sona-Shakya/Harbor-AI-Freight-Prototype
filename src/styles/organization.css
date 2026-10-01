@@ -1,0 +1,750 @@
+/* ============================================================
+   Company Master / Organization Master — Production FMS Stylesheet
+   Uses Harbor design tokens from styles.css
+   ============================================================ */
+
+/* ── Container ── */
+.org-master-container,
+.organization-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  color: var(--ink, #102247);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── Page Header ── */
+.org-page-header,
+.organization-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.org-page-header-left h1,
+.organization-header h1 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink, #102247);
+  margin: 0 0 4px;
+  letter-spacing: -0.5px;
+}
+
+.org-page-header-left p,
+.organization-header p {
+  font-size: 13.5px;
+  color: var(--muted, #7c8aa6);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.org-page-header-actions,
+.organization-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ── Top Hero Identity Card ── */
+.org-hero-card,
+.organization-card,
+.org-card {
+  background: #ffffff;
+  border: 1px solid var(--line, #e5eaf2);
+  border-radius: 12px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 1px 4px rgba(16, 34, 71, 0.04);
+}
+
+.org-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.org-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.org-avatar-badge {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  background: #eaf2fd;
+  color: #005fdc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.org-identity-text h2 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink, #102247);
+  margin: 0 0 6px 0;
+  letter-spacing: -0.4px;
+  line-height: 1.25;
+}
+
+.org-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.org-type-label {
+  color: var(--muted, #7c8aa6);
+  font-weight: 500;
+}
+
+.org-type-label strong {
+  color: var(--ink, #102247);
+  text-transform: capitalize;
+}
+
+.org-enterprise-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #005fdc;
+  background: #eaf2fd;
+  border: 1px solid #d0e2fa;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+}
+
+.org-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Badges ── */
+.org-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  line-height: 1.2;
+}
+
+.org-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.org-badge-active,
+.org-badge-valid,
+.org-badge-compliant {
+  background: #eaf8f1;
+  color: #127d55;
+  border: 1px solid #b6e9cd;
+}
+.org-badge-active .org-status-dot,
+.org-badge-valid .org-status-dot,
+.org-badge-compliant .org-status-dot {
+  background: #127d55;
+}
+
+.org-badge-pending,
+.org-badge-review,
+.org-badge-action_required {
+  background: #fef8e7;
+  color: #9b6100;
+  border: 1px solid #fae8ba;
+}
+.org-badge-pending .org-status-dot,
+.org-badge-review .org-status-dot,
+.org-badge-action_required .org-status-dot {
+  background: #9b6100;
+}
+
+.org-badge-suspended {
+  background: #fff4e5;
+  color: #b25e00;
+  border: 1px solid #fdd8b5;
+}
+.org-badge-suspended .org-status-dot {
+  background: #b25e00;
+}
+
+.org-badge-terminated,
+.org-badge-rejected,
+.org-badge-expired,
+.org-badge-non_compliant {
+  background: #fdf2f2;
+  color: #c92a2a;
+  border: 1px solid #f8c8c8;
+}
+.org-badge-terminated .org-status-dot,
+.org-badge-rejected .org-status-dot,
+.org-badge-expired .org-status-dot,
+.org-badge-non_compliant .org-status-dot {
+  background: #c92a2a;
+}
+
+.org-badge-expiring {
+  background: #fff8e8;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.org-badge-expiring .org-status-dot {
+  background: #b45309;
+}
+
+.org-badge-gray {
+  background: #f1f4f8;
+  color: #526075;
+  border: 1px solid #e2e8f0;
+}
+.org-badge-gray .org-status-dot {
+  background: #526075;
+}
+
+/* ── Hero Stats Grid ── */
+.org-hero-stats-grid,
+.org-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line, #e5eaf2);
+}
+
+.org-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.org-stat-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted, #7c8aa6);
+}
+
+.org-stat-value {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink, #102247);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Navigation Tabs ── */
+.org-tabs-bar,
+.organization-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid var(--line, #e5eaf2);
+  margin-bottom: 4px;
+}
+
+.org-tab-btn,
+.organization-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted, #7c8aa6);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border-radius: 6px 6px 0 0;
+  outline: none;
+}
+
+.org-tab-btn:hover,
+.organization-tab:hover {
+  color: var(--ink, #102247);
+  background: rgba(0, 99, 250, 0.04);
+}
+
+.org-tab-btn.active,
+.organization-tab.active {
+  color: var(--blue, #0063fa);
+  border-bottom-color: var(--blue, #0063fa);
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.org-tab-count {
+  background: #eaf2fd;
+  color: #005fdc;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.sso-active-count {
+  background: #eaf8f1;
+  color: #127d55;
+}
+
+.org-tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Content Cards ── */
+.org-card-section,
+.organization-section {
+  background: #ffffff;
+  border: 1px solid var(--line, #e5eaf2);
+  border-radius: 12px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 1px 4px rgba(16, 34, 71, 0.04);
+}
+
+.org-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.org-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.org-card-title-group h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink, #102247);
+  margin: 0;
+}
+
+.org-card-desc {
+  font-size: 13.5px;
+  color: var(--muted, #7c8aa6);
+  margin: -10px 0 0 0;
+  line-height: 1.5;
+}
+
+/* ── Grid Layouts ── */
+.org-info-grid,
+.organization-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px 24px;
+}
+
+.org-field-item,
+.organization-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.org-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #7c8aa6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.org-field-val {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink, #102247);
+  word-break: break-word;
+}
+
+.org-field-val a {
+  color: var(--blue, #0063fa);
+  text-decoration: none;
+}
+
+.org-field-val a:hover {
+  text-decoration: underline;
+}
+
+.org-mono-val {
+  font-family: Consolas, monospace;
+  font-size: 13px;
+}
+
+/* ── Lifecycle Card ── */
+.org-lifecycle-box,
+.organization-status {
+  background: #f9fbfe;
+  border: 1px solid #e4edf8;
+  border-radius: 10px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.org-lifecycle-desc strong {
+  color: var(--ink, #102247);
+  font-size: 15px;
+}
+
+.org-lifecycle-desc p {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: var(--muted, #7c8aa6);
+  line-height: 1.45;
+}
+
+.org-lifecycle-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Compliance Overview Banner ── */
+.org-compliance-banner,
+.organization-compliance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 10px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.org-compliance-banner.compliant {
+  background: #eaf8f1;
+  border: 1px solid #b6e9cd;
+  color: #127d55;
+}
+
+.org-compliance-banner.action_required {
+  background: #fef8e7;
+  border: 1px solid #fae8ba;
+  color: #9b6100;
+}
+
+.org-compliance-banner.non_compliant {
+  background: #fdf2f2;
+  border: 1px solid #f8c8c8;
+  color: #c92a2a;
+}
+
+.org-compliance-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.org-compliance-banner-left strong {
+  font-size: 15px;
+  display: block;
+}
+
+.org-compliance-banner-left p {
+  margin: 2px 0 0 0;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.org-compliance-pills {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.org-sub-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* ── Data Tables ── */
+.org-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line, #e5eaf2);
+  border-radius: 8px;
+}
+
+.org-table,
+.organization-table,
+.organization-audit {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.org-table th {
+  background: #f8fafc;
+  color: var(--muted, #7c8aa6);
+  font-weight: 600;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, #e5eaf2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.org-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line, #e5eaf2);
+  color: var(--ink, #102247);
+  vertical-align: middle;
+}
+
+.org-table tr:last-child td {
+  border-bottom: none;
+}
+
+.org-table tr:hover td {
+  background: #f9fbfe;
+}
+
+.org-table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.org-icon-btn {
+  background: #ffffff;
+  border: 1px solid var(--line, #e5eaf2);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--muted, #7c8aa6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+  font-family: inherit;
+  outline: none;
+}
+
+.org-icon-btn:hover {
+  background: #f1f5f9;
+  color: var(--ink, #102247);
+  border-color: #cbd5e1;
+}
+
+.org-icon-btn.danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* ── SSO Config Box ── */
+.org-sso-box {
+  background: #f9fbfe;
+  border: 1px solid #e7eff8;
+  border-radius: 10px;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 20px;
+}
+
+.org-secret-mask {
+  font-family: Consolas, monospace;
+  letter-spacing: 2px;
+  color: var(--muted, #7c8aa6);
+  background: #edf2f7;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* ── Diff Chips for Audit Log ── */
+.org-diff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-family: Consolas, monospace;
+  margin: 2px 4px 2px 0;
+}
+
+.org-diff-chip .diff-old {
+  color: #c53030;
+  text-decoration: line-through;
+}
+
+.org-diff-chip .diff-arrow {
+  color: var(--muted, #7c8aa6);
+}
+
+.org-diff-chip .diff-new {
+  color: #276749;
+  font-weight: 600;
+}
+
+/* ── Form Groups in Modals ── */
+.org-form-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted, #7c8aa6);
+  margin: 16px 0 10px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line, #e5eaf2);
+  grid-column: 1 / -1;
+}
+
+.org-form-full-width {
+  grid-column: 1 / -1;
+}
+
+/* ── File Upload Zone ── */
+.org-file-dropzone {
+  border: 2px dashed #c4d8f2;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  background: #f8fbff;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.org-file-dropzone:hover {
+  border-color: var(--blue, #0063fa);
+  background: #edf4fe;
+}
+
+.org-file-dropzone.has-file {
+  border-color: #127d55;
+  background: #eaf8f1;
+}
+
+/* ── Pagination Bar ── */
+.org-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted, #7c8aa6);
+}
+
+.org-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.org-loading-state {
+  padding: 36px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted, #7c8aa6);
+}
+
+/* ── Responsive Adaptations ── */
+@media (max-width: 1050px) {
+  .org-hero-card,
+  .org-card-section {
+    padding: 20px 22px;
+  }
+
+  .org-hero-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .org-hero-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .org-hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .org-hero-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .org-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .org-tabs-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .org-lifecycle-box {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .org-compliance-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -28,8 +28,9 @@ async function request(path, options = {}) {
     if (inFlightGets.has(cacheKey)) return inFlightGets.get(cacheKey);
   }
 
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {}),
     ...authService.getAuthorizationHeader(),
   };
@@ -71,6 +72,10 @@ async function request(path, options = {}) {
     error.data = parsedData;
     error.raw = rawMessage;
     throw error;
+  }
+
+  if (options.responseType === 'blob') {
+    return await response.blob();
   }
 
   const value = response.status === 204 ? null : await response.json();
@@ -306,14 +311,65 @@ export async function getCurrentOrganization() {
   };
 }
 
-export async function getOrganization() {
-  return request("/v1/organizations/me");
+export async function getOrganization(organizationId) {
+  const path = organizationId ? `/v1/organizations/${organizationId}` : "/v1/organizations/me";
+  return request(path);
 }
 
-export async function updateOrganization(payload) {
-  return request("/v1/organizations/me", {
+export async function updateOrganization(payload, organizationId) {
+  const path = organizationId ? `/v1/organizations/${organizationId}` : "/v1/organizations/me";
+  return request(path, {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updateOrganizationStatus(status, reason, organizationId) {
+  const path = organizationId ? `/v1/organizations/${organizationId}/status` : "/v1/organizations/me/status";
+  return request(path, {
+    method: "PATCH",
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+export async function getOrganizationAuditLog({ page = 1, limit = 20, organizationId } = {}) {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+  const path = organizationId ? `/v1/organizations/${organizationId}/audit-log?${qs}` : `/v1/organizations/me/audit-log?${qs}`;
+  return request(path);
+}
+
+export async function getComplianceStatus(organizationId) {
+  return request(`/v1/organizations/${organizationId}/compliance-status`);
+}
+
+export async function getComplianceDocuments(organizationId) {
+  return request(`/v1/organizations/${organizationId}/compliance-documents`);
+}
+
+export async function uploadComplianceDocument(organizationId, formDataOrPayload) {
+  const isFormData = typeof FormData !== "undefined" && formDataOrPayload instanceof FormData;
+  return request(`/v1/organizations/${organizationId}/compliance-documents`, {
+    method: "POST",
+    body: isFormData ? formDataOrPayload : JSON.stringify(formDataOrPayload),
+  });
+}
+
+export async function downloadComplianceDocument(organizationId, docId) {
+  return request(`/v1/organizations/${organizationId}/compliance-documents/${docId}/download`, {
+    responseType: "blob",
+  });
+}
+
+export async function updateComplianceDocument(organizationId, docId, payload) {
+  return request(`/v1/organizations/${organizationId}/compliance-documents/${docId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteComplianceDocument(organizationId, docId) {
+  return request(`/v1/organizations/${organizationId}/compliance-documents/${docId}`, {
+    method: "DELETE",
   });
 }
 
@@ -325,12 +381,14 @@ export async function verifyCarrier(organizationId, payload = {}) {
   return request(`/v1/organizations/${organizationId}/verify-carrier`, options);
 }
 
-export async function getOrganizationSsoConfig() {
-  return request("/v1/organizations/me/sso");
+export async function getOrganizationSsoConfig(organizationId) {
+  const path = organizationId ? `/v1/organizations/${organizationId}/sso` : "/v1/organizations/me/sso";
+  return request(path);
 }
 
-export async function updateOrganizationSsoConfig(payload) {
-  return request("/v1/organizations/me/sso", {
+export async function updateOrganizationSsoConfig(payload, organizationId) {
+  const path = organizationId ? `/v1/organizations/${organizationId}/sso` : "/v1/organizations/me/sso";
+  return request(path, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -519,4 +577,155 @@ export async function getCustomerAuditLog(id, { page = 1, limit = 20 } = {}) {
   return request(`/v1/customers/${id}/audit-log?${qs}`);
 }
 
+/* ─── Vendor Master ─────────────────────────────────────────── */
+
+/**
+ * GET /v1/vendors
+ * Supports query parameters: page, limit, search, status
+ */
+export async function getVendors(queryString) {
+  const qs = queryString ? `?${queryString}` : '';
+  return request(`/v1/vendors${qs}`);
+}
+
+/**
+ * GET /v1/vendors/:id
+ */
+export async function getVendor(id) {
+  return request(`/v1/vendors/${id}`);
+}
+
+/**
+ * POST /v1/vendors
+ * Payload: { legal_name, tax_id?, mc_number?, dot_number?, operating_status?,
+ *            safety_rating?, status?, is_enterprise?, address_line1?, address_line2?,
+ *            city?, state?, country?, postal_code?, company_phone?, company_email?, website? }
+ */
+export async function createVendor(payload) {
+  return request('/v1/vendors', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PUT /v1/vendors/:id
+ * Payload: fields to update
+ */
+export async function updateVendor(id, payload) {
+  return request(`/v1/vendors/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PATCH /v1/vendors/:id/status
+ * Payload: { status: 'pending' | 'active' | 'suspended' | 'terminated', reason?: string }
+ */
+export async function updateVendorStatus(id, status, reason) {
+  return request(`/v1/vendors/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+/**
+ * DELETE /v1/vendors/:id
+ * Soft deactivation (status → 'terminated')
+ */
+export async function deleteVendor(id) {
+  return request(`/v1/vendors/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * GET /v1/vendors/:id/compliance
+ * Returns carrier regulatory details & compliance documents
+ */
+export async function getVendorCompliance(id) {
+  return request(`/v1/vendors/${id}/compliance`);
+}
+
+/**
+ * GET /v1/vendors/:id/audit-log
+ * Query params: page, limit
+ */
+export async function getVendorAuditLog(id, { page = 1, limit = 20 } = {}) {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+  return request(`/v1/vendors/${id}/audit-log?${qs}`);
+}
+
+/**
+ * GET /v1/branches
+ * Query params: page, limit, search, status
+ */
+export async function getBranches(queryString = '') {
+  const qs = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : '';
+  return request(`/v1/branches${qs}`);
+}
+
+/**
+ * GET /v1/branches/:id
+ */
+export async function getBranch(id) {
+  return request(`/v1/branches/${id}`);
+}
+
+/**
+ * POST /v1/branches
+ * Payload: { branch_code, name, is_headquarters?, status?, address_line1?, address_line2?,
+ *            city?, state?, country?, postal_code?, phone?, email?, manager_user_id? }
+ */
+export async function createBranch(payload) {
+  return request('/v1/branches', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PUT /v1/branches/:id
+ * Payload: fields to update
+ */
+export async function updateBranch(id, payload) {
+  return request(`/v1/branches/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PATCH /v1/branches/:id/status
+ * Payload: { status: 'active' | 'inactive', reason?: string }
+ */
+export async function updateBranchStatus(id, status, reason) {
+  return request(`/v1/branches/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+/**
+ * DELETE /v1/branches/:id
+ * Soft deactivation (status → 'inactive')
+ */
+export async function deleteBranch(id, reason) {
+  return request(`/v1/branches/${id}`, {
+    method: 'DELETE',
+    body: reason ? JSON.stringify({ reason }) : undefined,
+  });
+}
+
+/**
+ * GET /v1/branches/:id/audit-log
+ * Query params: page, limit
+ */
+export async function getBranchAuditLog(id, { page = 1, limit = 20 } = {}) {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+  return request(`/v1/branches/${id}/audit-log?${qs}`);
+}
+
 export const isApiConfigured = Boolean(API_BASE);
+
