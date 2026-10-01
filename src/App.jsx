@@ -1,5 +1,5 @@
 import React, {useEffect,useRef,useState} from 'react';
-import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings,GitBranch} from '@phosphor-icons/react';
+import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings,GitBranch,IdentificationBadge,Anchor,Package} from '@phosphor-icons/react';
 import {modules,labels,numeric,dates,initialRecords,seedMissions,seedSettingCategories,money,TODAY} from './data';
 import SettingsRegistry from './SettingsRegistry';
 import UserManagement from './UserManagement';
@@ -8,11 +8,14 @@ import OrganizationView from './OrganizationView';
 import CustomerMaster from './CustomerMaster';
 import VendorMaster from './VendorMaster';
 import BranchMaster from './BranchMaster';
+import AgentMaster from './AgentMaster';
+import PortMaster from './PortMaster';
+import CfsMaster from './CfsMaster';
 import LoginOtpScreen from './LoginOtpScreen.jsx';
 import AcceptInvitation from './AcceptInvitation.jsx';
 import {login as apiLogin, getProfile} from './api';
 import * as authService from './services/authService';
-const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings,GitBranch};
+const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings,GitBranch,IdentificationBadge,Anchor,Package};
 const STORE='harbor-demo-v1';
 const load=()=>{try {return JSON.parse(sessionStorage.getItem(STORE))||{}}catch{return {}}};
 const uid=p=>p+'-'+Array.from(crypto.getRandomValues(new Uint8Array(4)),v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
@@ -28,8 +31,11 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const isCustomersSelected = view === 'records' && moduleId === 'customers';
   const isVendorsSelected = view === 'records' && moduleId === 'vendors';
   const isBranchesSelected = view === 'records' && moduleId === 'branches';
+  const isAgentsSelected = view === 'records' && moduleId === 'agents';
+  const isPortsSelected = view === 'records' && moduleId === 'ports';
+  const isCfsSelected = view === 'records' && moduleId === 'cfs';
 
-  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected;
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected;
 
   const canReadSettings = hasPermission('system_settings', 'read');
   const canReadUsers = hasPermission('users', 'read');
@@ -38,7 +44,10 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadCustomers = hasPermission('customers', 'read');
   const canReadVendors = hasPermission('vendors', 'read');
   const canReadBranches = hasPermission('branches', 'read');
-  const canReadMasters = canReadUsers || canReadRoles || canReadOrg || canReadCustomers || canReadVendors || canReadBranches;
+  const canReadAgents = hasPermission('agents', 'read');
+  const canReadPorts = hasPermission('ports', 'read');
+  const canReadCfs = hasPermission('cfs', 'read');
+  const canReadMasters = canReadUsers || canReadRoles || canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents || canReadPorts || canReadCfs;
 
   const [mastersOpen, setMastersOpen] = useState(true);
 
@@ -55,6 +64,9 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
       if (canReadCustomers) openModule('customers');
       else if (canReadVendors) openModule('vendors');
       else if (canReadBranches) openModule('branches');
+      else if (canReadAgents) openModule('agents');
+      else if (canReadPorts) openModule('ports');
+      else if (canReadCfs) openModule('cfs');
       else if (canReadUsers) openModule('users');
       else if (canReadRoles) openModule('roles');
       else if (canReadOrg) openModule('organization');
@@ -184,6 +196,45 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                   >
                     <GitBranch size={20} />
                     <span>Branches</span>
+                  </button>
+                )}
+
+                {canReadAgents && (
+                  <button
+                    key="agents"
+                    className={'module-nav-item sub-item ' + (isAgentsSelected ? 'selected' : '')}
+                    aria-current={isAgentsSelected ? 'page' : undefined}
+                    title="Agent Master"
+                    onClick={() => openModule('agents')}
+                  >
+                    <IdentificationBadge size={20} />
+                    <span>Agent Master</span>
+                  </button>
+                )}
+
+                {canReadPorts && (
+                  <button
+                    key="ports"
+                    className={'module-nav-item sub-item ' + (isPortsSelected ? 'selected' : '')}
+                    aria-current={isPortsSelected ? 'page' : undefined}
+                    title="Port Master"
+                    onClick={() => openModule('ports')}
+                  >
+                    <Anchor size={20} />
+                    <span>Port Master</span>
+                  </button>
+                )}
+
+                {canReadCfs && (
+                  <button
+                    key="cfs"
+                    className={'module-nav-item sub-item ' + (isCfsSelected ? 'selected' : '')}
+                    aria-current={isCfsSelected ? 'page' : undefined}
+                    title="CFS Master"
+                    onClick={() => openModule('cfs')}
+                  >
+                    <Package size={20} />
+                    <span>CFS Master</span>
                   </button>
                 )}
               </div>
@@ -535,6 +586,9 @@ const getModuleFromPath = (path) => {
   if (path === '/customers' || path.startsWith('/customers/')) return 'customers';
   if (path === '/vendors' || path.startsWith('/vendors/')) return 'vendors';
   if (path === '/branches' || path.startsWith('/branches/')) return 'branches';
+  if (path === '/agents' || path.startsWith('/agents/')) return 'agents';
+  if (path === '/ports' || path.startsWith('/ports/')) return 'ports';
+  if (path === '/cfs' || path.startsWith('/cfs/')) return 'cfs';
   if (path === '/users' || path.startsWith('/users/')) return 'users';
   if (path === '/roles' || path.startsWith('/roles/')) return 'roles';
   if (path === '/organization' || path.startsWith('/organization/')) return 'organization';
@@ -549,7 +603,7 @@ function HarborWorkspace({onLogout}){
 const permissionSet = role?.permission_set || {};
 
 const hasPermission = (module, action) => {
-  if (role?.name === 'Company Admin' || role?.name === 'Platform Admin') {
+  if (role?.name === 'Platform Admin') {
     return true;
   }
   let mod = module;
@@ -562,7 +616,42 @@ const hasPermission = (module, action) => {
     permissionSet[mod + 's'] ||
     permissionSet[mod.replace(/s$/, '')] ||
     [];
-  return Array.isArray(perms) && perms.includes(act);
+  if (Array.isArray(perms) && perms.includes(act)) {
+    return true;
+  }
+
+  // System Settings module baseline defaults matching backend authorizePermission
+  if (mod === 'system_settings' || mod === 'settings') {
+    if (act === 'read') {
+      return ['Platform Admin', 'Company Admin', 'Dispatcher', 'Finance', 'Shipper User'].includes(role?.name);
+    }
+    if (act === 'override') {
+      return ['Platform Admin', 'Company Admin'].includes(role?.name);
+    }
+    return role?.name === 'Platform Admin';
+  }
+
+  // Ports module baseline defaults matching backend authorizePermission
+  if (mod === 'ports' || mod === 'port') {
+    if (act === 'read') {
+      return ['Platform Admin', 'Company Admin', 'Dispatcher', 'Finance', 'Shipper User'].includes(role?.name);
+    }
+    return role?.name === 'Platform Admin';
+  }
+
+  // CFS module baseline defaults matching backend authorizePermission
+  if (mod === 'cfs') {
+    if (act === 'read') {
+      return ['Platform Admin', 'Company Admin', 'Dispatcher', 'Finance', 'Shipper User'].includes(role?.name);
+    }
+    return role?.name === 'Platform Admin';
+  }
+
+  if (role?.name === 'Company Admin') {
+    return true;
+  }
+
+  return false;
 };
 
   useEffect(() => {
@@ -634,6 +723,18 @@ const hasPermission = (module, action) => {
     notify('You do not have permission to access Branch Master.');
     return;
   }
+  if (id === 'agents' && !hasPermission('agents', 'read')) {
+    notify('You do not have permission to access Agent Master.');
+    return;
+  }
+  if (id === 'ports' && !hasPermission('ports', 'read')) {
+    notify('You do not have permission to access Port Master.');
+    return;
+  }
+  if (id === 'cfs' && !hasPermission('cfs', 'read')) {
+    notify('You do not have permission to access CFS Master.');
+    return;
+  }
 
   setModuleId(id);
   setView('records');
@@ -645,6 +746,9 @@ const hasPermission = (module, action) => {
     customers: '/customers',
     vendors: '/vendors',
     branches: '/branches',
+    agents: '/agents',
+    ports: '/ports',
+    cfs: '/cfs',
     users: '/users',
     roles: '/roles',
     organization: '/organization',
@@ -738,8 +842,8 @@ const hasPermission = (module, action) => {
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
-   </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<div className="notice"><Info size={20}/><div><strong>This is an interactive prototype</strong><p>Edits stay in this browser session. AI, email, carrier, customs and accounting integrations are not connected. Roles below are illustrative; there is no production authentication.</p><Btn onClick={()=>setModal({kind:'confirm',title:'Reset sample workspace',body:'Reset your local demo edits and restore the original sample records?',confirm:()=>{sessionStorage.removeItem(STORE);window.location.reload()}})}><ArrowCounterClockwise/>Reset sample data</Btn></div></div>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>}
-{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&(
+    </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='admin'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>}
+{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='admin'&&(
 <>
 <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
 </>
@@ -747,7 +851,6 @@ const hasPermission = (module, action) => {
 </div></>}
  </main>
  {view==='mission'&&<aside className={'plan-panel '+(planOpen?'mobile-open':'')}><div className="plan-heading"><FileText size={25}/><h2>{type==='custom'?'Mission plan':type==='invoice'?'Invoice review':type==='export'?'Export plan':'Shipment plan'}</h2><Badge>{importBooked&&type==='import'?importBooked.status:'Draft'}</Badge><button className="icon-btn mobile-close" aria-label="Close plan" onClick={()=>setPlanOpen(false)}><X/></button></div><p className="plan-subtitle">{type==='custom'?'Custom workspace':type==='export'?'Nhava Sheva → Hamburg':type==='invoice'?'OceanBridge Logistics':'Shanghai → Chennai'} · {mission.reference}</p><div className="steps">{(type==='custom'?[['Define the mission','Goal recorded','done'],['Add source records','Open Work products','active'],['Review prepared work','Requires your input','pending'],['Approve next action','No external actions connected','pending']]:type==='export'?[['Read sales order','Completed · SO-558','done'],['Check export documents',doc.status==='Needs correction'?'20-unit mismatch':'Quantities matched',doc.status==='Needs correction'?'active':'done'],['Approve packing list',doc.status==='Approved'?'Document approved':'Needs your review',doc.status==='Approved'?'done':'active'],['Coordinate clearance','Broker documents required','pending']]:type==='invoice'?[['Read freight agreement','Completed · USD 2,400','done'],['Match invoice charges','USD 240 variance identified','done'],['Review variance',inv.status,inv.status==='Under review'?'active':'done'],['Financial settlement','Accounting not connected','pending']]:[['Read order and supplier confirmation','Completed · 2 source docs','done'],['Compare freight offers',selectedRate?'Offer selected':'Completed · 3 offers','done'],['Clarify destination charges',ob.destinationCharge===''?(approvals.import?'Draft approved locally':'Needs your approval'):'Charge recorded',ob.destinationCharge===''?'active':'done'],['Prepare booking request',importBooked?importBooked.id+' · '+importBooked.status:'Complete offer must be selected',importBooked?'done':'pending']]).map(([title,sub,status],i)=><button className={'step '+status} key={title} onClick={()=>{if(type==='custom'){setTab('Work products');return}if(i===0){sources[0]?detail(sources[0]):detail('INV-091')}else if(i===1)setTab('Work products');else if(i===2)setTab('Conversation');else type==='import'?createBooking():openModule(type==='export'?'customs':'invoices')}}><span className="step-marker">{status==='done'?<Check size={17}/>:status==='active'?<span/>:null}</span><span><strong>{title}</strong><small>{sub}</small></span></button>)}</div><div className="plan-details"><h3>{type==='custom'?'Mission details':type==='invoice'?'Invoice details':'Shipment details'}</h3><dl>{(type==='custom'?[['Reference',mission.reference],['Owner','Ananya Rao'],['Mode','Sample workspace']]:type==='invoice'?[['Invoice',inv.id],['Agreed',money(inv.expected)],['Invoiced',money(inv.amount)],['Due date','25 Sep 2026']]:[['Origin',type==='export'?'Nhava Sheva, India':'Shanghai, China'],['Destination',type==='export'?'Hamburg, Germany':'Chennai, India'],['Cargo',type==='export'?'400 precision valves':'600 control units'],['Cargo ready',type==='export'?'20 Sep 2026':'18 Sep 2026'],['Required by',type==='export'?'8 Oct 2026':'30 Sep 2026']]).map(([k,v])=><React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl></div><div className="evidence"><h3>Evidence</h3>{sources.map(id=>{const r=records.documents.find(x=>x.id===id);return <button key={id} onClick={()=>detail(id)}><span className="file-icon"><FileText size={22}/></span><span>{r.name}<small>{r.type} · Version {r.version}</small></span><ArrowSquareOut size={15}/></button>})}{type==='custom'&&<p className="muted">Add relevant records from Work products to start your review.</p>}{type==='invoice'&&<button onClick={()=>detail(inv.id,'invoices')}><FileText size={23}/><span>Invoice {inv.id}<small>Sample supplier invoice</small></span></button>}</div><div className="plan-bottom"><ShieldCheck size={17}/><span>You approve. Harbor prepares.</span></div></aside>}
- <SettingsRegistry settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} notify={notify} visible={view==='records'&&moduleId==='admin'}/>
  {toast&&<div className="toast" role="status"><CheckCircle size={21}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={17}/></button></div>}
  {modal?.kind==='form'&&<RecordForm module={modules.find(m=>m.id===modal.collection)} record={modal.record} onClose={()=>setModal(null)} onSave={r=>{update(modal.collection,r);setModal(null);notify('Record saved in this sample workspace.')}}/>}
  {modal?.kind==='detail'&&<Modal title={modal.record.id} onClose={()=>setModal(null)}><div className="detail-title"><h2>{modal.record.name||modal.record.title}</h2><Badge>{modal.record.status}</Badge></div><dl className="detail-grid">{Object.entries(modal.record).filter(([k])=>!['id','name','title','status','content'].includes(k)).map(([k,v])=><React.Fragment key={k}><dt>{labels[k]||k}</dt><dd>{display(k,v)}</dd></React.Fragment>)}</dl>{modal.record.content&&<pre className="document-text">{modal.record.content}</pre>}<div className="modal-actions"><Btn onClick={()=>setModal({kind:'form',collection:modal.collection,record:modal.record})}><NotePencil size={18}/>Edit record</Btn>{modal.collection==='documents'&&<Btn onClick={()=>download(modal.record.name+'.txt',modal.record.content||Object.entries(modal.record).map(([k,v])=>k+': '+v).join('\n'))}><DownloadSimple size={18}/>Download</Btn>}<Btn primary onClick={()=>action(modal.collection,modal.record)}>{modules.find(m=>m.id===modal.collection).action}</Btn></div></Modal>}

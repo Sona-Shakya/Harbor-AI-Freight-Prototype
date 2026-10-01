@@ -26,10 +26,13 @@ export const modules = [
  {id:'organization',name:'Organization',group:'Workspace',icon:'Buildings',description:'Tenant company profile, carrier verification and enterprise configuration.',fields:['legal_name','tax_id','dot_number','mc_number','status'],statuses:['Active','Under review'],action:'Edit profile'},
   {id:'customers',name:'Customer Master',group:'Workspace',icon:'ShoppingBag',description:'Manage shipper customer organizations registered in this platform.',fields:['legal_name','tax_id','type','status','is_enterprise','created_at'],statuses:['Active','Suspended','Terminated'],action:'Add Customer'},
   {id:'vendors',name:'Vendor Master',group:'Workspace',icon:'Truck',description:'Manage motor carriers, drayage providers, and freight service vendors registered in this platform.',fields:['legal_name','mc_number','dot_number','operating_status','safety_rating','status'],statuses:['Pending','Active','Suspended','Terminated'],action:'Add Vendor'},
-  {id:'branches',name:'Branches',group:'Workspace',icon:'GitBranch',description:'Manage operational branches for your organization.',fields:['branch_code','name','city','state','is_headquarters','status'],statuses:['Active','Inactive'],action:'Add Branch'}
+  {id:'branches',name:'Branches',group:'Workspace',icon:'GitBranch',description:'Manage operational branches for your organization.',fields:['branch_code','name','city','state','is_headquarters','status'],statuses:['Active','Inactive'],action:'Add Branch'},
+  {id:'agents',name:'Agent Master',group:'Workspace',icon:'IdentificationBadge',description:'Manage freight brokers and agents registered in this platform.',fields:['legal_name','mc_number','dot_number','tax_id','status'],statuses:['Pending','Active','Suspended','Terminated'],action:'Add Agent'},
+  {id:'ports',name:'Port Master',group:'Workspace',icon:'Anchor',description:'Global reference database of commercial seaports, inland terminals, and intermodal transport hubs.',fields:['port_code','name','port_type','country','city','state','status'],statuses:['Active','Inactive'],action:'Add Port'},
+  {id:'cfs',name:'CFS Master',group:'Workspace',icon:'Package',description:'Global reference database of Container Freight Stations, inland container depots, and bonded deconsolidation facilities.',fields:['cfs_code','name','facility_type','firms_code','city','state','country','status'],statuses:['Active','Inactive'],action:'Add CFS'}
 ];
-export const labels = {id:'Reference',name:'Name',title:'Task or event',reference:'Linked reference',partner:'Partner',product:'Product',quantity:'Quantity',allocated:'Allocated quantity',required:'Required by',due:'Due date',ready:'Cargo ready',amount:'Amount (USD)',actual:'Actual (USD)',expected:'Agreed (USD)',destinationCharge:'Destination charge (USD)',validUntil:'Valid until',etd:'Departure',eta:'Arrival',eventDate:'Event date',weight:'Weight (kg / unit)',volume:'Volume (m³ / unit)',unit:'Unit',sku:'SKU',duty:'Duty estimate (USD)',allocation:'Allocation method',policy:'Policy reference',deadline:'Claim deadline',pickup:'Pickup location',delivery:'Delivery location',appointment:'Appointment',contact:'Contact',email:'Email',phone:'Phone',role:'Assigned role',status:'Status',legal_name:'Legal Name',tax_id:'Tax ID',dot_number:'USDOT Number',mc_number:'MC Number',operating_status:'Operating Status',safety_rating:'Safety Rating',branch_code:'Branch Code',is_headquarters:'Headquarters'};
-export const numeric = ['quantity','allocated','weight','volume','amount','actual','expected','destinationCharge','duty'];
+export const labels = {id:'Reference',name:'Name',title:'Task or event',reference:'Linked reference',partner:'Partner',product:'Product',quantity:'Quantity',allocated:'Allocated quantity',required:'Required by',due:'Due date',ready:'Cargo ready',amount:'Amount (USD)',actual:'Actual (USD)',expected:'Agreed (USD)',destinationCharge:'Destination charge (USD)',validUntil:'Valid until',etd:'Departure',eta:'Arrival',eventDate:'Event date',weight:'Weight (kg / unit)',volume:'Volume (m³ / unit)',unit:'Unit',sku:'SKU',duty:'Duty estimate (USD)',allocation:'Allocation method',policy:'Policy reference',deadline:'Claim deadline',pickup:'Pickup location',delivery:'Delivery location',appointment:'Appointment',contact:'Contact',email:'Email',phone:'Phone',role:'Assigned role',status:'Status',legal_name:'Legal Name',tax_id:'Tax ID',dot_number:'USDOT Number',mc_number:'MC Number',operating_status:'Operating Status',safety_rating:'Safety Rating',branch_code:'Branch Code',is_headquarters:'Headquarters',port_code:'Port Code',port_type:'Port Type',cfs_code:'CFS Code',firms_code:'FIRMS Code',facility_type:'Facility Type',address_line1:'Address Line 1',address_line2:'Address Line 2',postal_code:'Postal Code',operating_hours:'Operating Hours',timezone:'Timezone',lat:'Latitude',lng:'Longitude'};
+export const numeric = ['quantity','allocated','weight','volume','amount','actual','expected','destinationCharge','duty','lat','lng'];
 export const dates = ['required','due','ready','validUntil','etd','eta','eventDate','deadline','appointment'];
 export const initialRecords = {
  dashboard:[{id:'TASK-01',title:'Clarify destination handling',reference:'PO-1042',owner:'Ananya Rao',due:'2026-09-16',status:'Open'},{id:'TASK-02',title:'Correct packing list quantity',reference:'SO-558',owner:'Vikram Shah',due:'2026-09-17',status:'Open'},{id:'TASK-03',title:'Review unapproved surcharge',reference:'INV-091',owner:'Ananya Rao',due:'2026-09-18',status:'Open'}],
@@ -57,27 +60,55 @@ export const initialRecords = {
  customers:[],
  vendors:[],
  branches:[],
+ agents:[],
+ ports:[],
+ cfs:[],
  admin:[{id:'SET-01',name:'External action approval',type:'Policy',value:'Human review required',status:'Active'},{id:'SET-02',name:'Carrier connections',type:'Integration',value:'No carrier credentials configured',status:'Not connected'},{id:'SET-03',name:'Email account',type:'Integration',value:'No mailbox connected',status:'Not connected'},{id:'SET-04',name:'AI model',type:'Integration',value:'Scripted demonstration responses',status:'Demo only'}]
 };
 export const seedMissions=[{id:'import',name:'Shanghai import plan',title:'Import 600 control units to Chennai',reference:'PO-1042',subtitle:'PO-1042 · Chennai',goal:'Plan this import and compare the freight offers. Ask me before sending or booking.',type:'import'},{id:'export',name:'September exports',title:'Prepare 400 precision valves for export',reference:'SO-558',subtitle:'SO-558 · Hamburg',goal:'Check our export documents and prepare this shipment for the buyer.',type:'export'},{id:'invoice',name:'Freight invoice review',title:'Review the freight invoice for IMP-190',reference:'INV-091',subtitle:'INV-091 · Finance',goal:'Check this invoice against the agreed rate and draft a clarification for any unexpected costs.',type:'invoice'}];
 
 export const seedSettingCategories=[
+ {id:'cat-equipment-type',module:'equipment',key:'equipment.type',name:'Equipment Type',description:'Supported equipment catalog for shipment planning, quoting, and load matching.',isSystemDefined:true,values:[
+  {id:'set-dry',category_id:'cat-equipment-type',value:'dry_van',label:"Dry Van (53')",sortOrder:1,sort_order:1,isActive:true,is_active:true,isDefault:true,is_default:true,isSystemDefined:true,is_system_defined:true},
+  {id:'set-reefer',category_id:'cat-equipment-type',value:'reefer',label:"Refrigerated (53')",sortOrder:2,sort_order:2,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-flatbed',category_id:'cat-equipment-type',value:'flatbed',label:"Flatbed (48')",sortOrder:3,sort_order:3,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-stepdeck',category_id:'cat-equipment-type',value:'step_deck',label:'Step Deck',sortOrder:4,sort_order:4,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-poweronly',category_id:'cat-equipment-type',value:'power_only',label:'Power Only',sortOrder:5,sort_order:5,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-boxtruck',category_id:'cat-equipment-type',value:'box_truck',label:'Straight / Box Truck',sortOrder:6,sort_order:6,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true}
+ ]},
+ {id:'cat-accessorial-type',module:'quoting',key:'accessorial.type',name:'Accessorial Type',description:'Accessorial charge catalog for additional services beyond linehaul rate.',isSystemDefined:true,values:[
+  {id:'set-detention',category_id:'cat-accessorial-type',value:'detention',label:'Detention',sortOrder:1,sort_order:1,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-layover',category_id:'cat-accessorial-type',value:'layover',label:'Layover',sortOrder:2,sort_order:2,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-liftgate',category_id:'cat-accessorial-type',value:'liftgate',label:'Liftgate Service',sortOrder:3,sort_order:3,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-residential',category_id:'cat-accessorial-type',value:'residential_delivery',label:'Residential Delivery',sortOrder:4,sort_order:4,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-inside',category_id:'cat-accessorial-type',value:'inside_delivery',label:'Inside Delivery',sortOrder:5,sort_order:5,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-hazmat',category_id:'cat-accessorial-type',value:'hazmat_surcharge',label:'Hazardous Materials Surcharge',sortOrder:6,sort_order:6,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-storage',category_id:'cat-accessorial-type',value:'storage',label:'Storage Fee',sortOrder:7,sort_order:7,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true}
+ ]},
+ {id:'cat-shipment-cutoff',module:'shipment',key:'shipment.cutoff',name:'Shipment Cutoff Rules',description:'Order modification and cancellation cutoff hours and fee calculation.',isSystemDefined:true,values:[
+  {id:'set-cutoff-std',category_id:'cat-shipment-cutoff',value:'standard_cutoff_hours',label:'Standard Booking Cutoff (24h)',sortOrder:1,sort_order:1,isActive:true,is_active:true,isDefault:true,is_default:true,isSystemDefined:true,is_system_defined:true},
+  {id:'set-cutoff-cancel',category_id:'cat-shipment-cutoff',value:'cancellation_fee_rate',label:'Cancellation Penalty Rate',sortOrder:2,sort_order:2,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-cutoff-doc',category_id:'cat-shipment-cutoff',value:'documentation_deadline',label:'Customs Document Cutoff',sortOrder:3,sort_order:3,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true}
+ ]},
+ {id:'cat-fee-commission',module:'billing',key:'fee.commission',name:'Fee & Commission Structures',description:'Configurable platform transaction fees, broker margins, and quick-pay discounts.',isSystemDefined:true,values:[
+  {id:'set-fee-quickpay',category_id:'cat-fee-commission',value:'quick_pay_discount',label:'Quick Pay Discount (2%)',sortOrder:1,sort_order:1,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-fee-booking',category_id:'cat-fee-commission',value:'platform_booking_fee',label:'Platform Flat Booking Fee',sortOrder:2,sort_order:2,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-fee-margin',category_id:'cat-fee-commission',value:'broker_margin_default',label:'Default Broker Margin (15%)',sortOrder:3,sort_order:3,isActive:true,is_active:true,isDefault:true,is_default:true,isSystemDefined:true,is_system_defined:true}
+ ]},
  {id:'cat-shipment-status',module:'shipment',key:'shipment.status',name:'Shipment Status',description:'Core shipment lifecycle values shared by operations and reporting.',isSystemDefined:true,values:[
-  {id:'set-draft',value:'draft',label:'Draft',sortOrder:1,isActive:true,isDefault:true,isSystemDefined:true},
-  {id:'set-quoted',value:'quoted',label:'Quoted',sortOrder:2,isActive:true,isDefault:false,isSystemDefined:true},
-  {id:'set-booked',value:'booked',label:'Booked',sortOrder:3,isActive:true,isDefault:false,isSystemDefined:true},
-  {id:'set-transit',value:'in_transit',label:'In Transit',sortOrder:4,isActive:true,isDefault:false,isSystemDefined:true},
-  {id:'set-delivered',value:'delivered',label:'Delivered',sortOrder:5,isActive:true,isDefault:false,isSystemDefined:true},
-  {id:'set-closed',value:'closed',label:'Closed / Invoiced',sortOrder:6,isActive:true,isDefault:false,isSystemDefined:true}
+  {id:'set-draft',category_id:'cat-shipment-status',value:'draft',label:'Draft',sortOrder:1,sort_order:1,isActive:true,is_active:true,isDefault:true,is_default:true,isSystemDefined:true,is_system_defined:true},
+  {id:'set-quoted',category_id:'cat-shipment-status',value:'quoted',label:'Quoted',sortOrder:2,sort_order:2,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-booked',category_id:'cat-shipment-status',value:'booked',label:'Booked',sortOrder:3,sort_order:3,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-dispatched',category_id:'cat-shipment-status',value:'dispatched',label:'Dispatched',sortOrder:4,sort_order:4,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-transit',category_id:'cat-shipment-status',value:'in_transit',label:'In Transit',sortOrder:5,sort_order:5,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-delivered',category_id:'cat-shipment-status',value:'delivered',label:'Delivered',sortOrder:6,sort_order:6,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-closed',category_id:'cat-shipment-status',value:'closed',label:'Closed / Invoiced',sortOrder:7,sort_order:7,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true}
  ]},
- {id:'cat-equipment-type',module:'equipment',key:'equipment.type',name:'Equipment Type',description:'Equipment options used by shipment planning and load board filters.',isSystemDefined:true,values:[
-  {id:'set-dry',value:'dry_van',label:'Dry van',sortOrder:1,isActive:true,isDefault:true,isSystemDefined:true},
-  {id:'set-reefer',value:'reefer',label:'Reefer',sortOrder:2,isActive:true,isDefault:false,isSystemDefined:true},
-  {id:'set-flatbed',value:'flatbed',label:'Flatbed',sortOrder:3,isActive:true,isDefault:false,isSystemDefined:false}
- ]},
- {id:'cat-accessorial-type',module:'quoting',key:'accessorial.type',name:'Accessorial Type',description:'Optional charges available to quoting teams and organization extensions.',isSystemDefined:false,values:[
-  {id:'set-storage',value:'storage',label:'Storage',sortOrder:1,isActive:true,isDefault:false,isSystemDefined:true},
-  {id:'set-detention',value:'detention',label:'Detention',sortOrder:2,isActive:true,isDefault:true,isSystemDefined:false},
-  {id:'set-inspection',value:'inspection',label:'Inspection',sortOrder:3,isActive:false,isDefault:false,isSystemDefined:false}
- ],overrides:[{id:'org-reefer',orgId:'Meridian Trading',value:'reefer_monitoring',label:'Reefer monitoring',sortOrder:4,isActive:true}]}
+ {id:'cat-service-type',module:'shipment',key:'service.type',name:'Service Type',description:'Freight service types supported by the platform',isSystemDefined:true,is_system_defined:true,values:[
+  {id:'set-service-ftl',category_id:'cat-service-type',value:'ftl',label:'Full Truckload',sortOrder:1,sort_order:1,isActive:true,is_active:true,isDefault:true,is_default:true,isSystemDefined:true,is_system_defined:true},
+  {id:'set-service-ltl',category_id:'cat-service-type',value:'ltl',label:'Less-Than-Truckload',sortOrder:2,sort_order:2,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-service-parcel',category_id:'cat-service-type',value:'parcel',label:'Parcel',sortOrder:3,sort_order:3,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-service-intermodal',category_id:'cat-service-type',value:'intermodal',label:'Intermodal / Drayage',sortOrder:4,sort_order:4,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true},
+  {id:'set-service-lastmile',category_id:'cat-service-type',value:'last_mile',label:'Last-Mile / Local Delivery',sortOrder:5,sort_order:5,isActive:true,is_active:true,isDefault:false,is_default:false,isSystemDefined:true,is_system_defined:true}
+ ]}
 ];
