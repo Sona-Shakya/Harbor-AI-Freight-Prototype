@@ -37,7 +37,8 @@ import './styles/userManagement.css';
 function Badge({ children, variant = 'gray' }) {
   const v = variant || (
     /^(active|confirmed|approved|resolved)$/i.test(children) ? 'green' :
-    /^(pending|review|inactive)$/i.test(children) ? 'amber' : 'gray'
+    /^(pending|review|inactive)$/i.test(children) ? 'amber' :
+    /^(suspended|failed|rejected|terminated)$/i.test(children) ? 'red' : 'gray'
   );
   return <span className={`badge ${v}`}>{children}</span>;
 }
@@ -124,6 +125,8 @@ export default function UserManagement({ hasPermission, notify, currentUser }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [deactivateModalUser, setDeactivateModalUser] = useState(null);
+  const [suspendModalUser, setSuspendModalUser] = useState(null);
+  const [reactivateModalUser, setReactivateModalUser] = useState(null);
   const [changeRoleModalUser, setChangeRoleModalUser] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
@@ -291,6 +294,7 @@ export default function UserManagement({ hasPermission, notify, currentUser }) {
           <option>All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
+          <option value="suspended">Suspended</option>
           <option value="pending">Pending</option>
         </select>
 
@@ -404,25 +408,38 @@ export default function UserManagement({ hasPermission, notify, currentUser }) {
                             Change Role
                           </button>
 
-                          {u.status === 'inactive' ? (
+                          {u.status === 'inactive' || u.status === 'suspended' ? (
                             <button
                               type="button"
                               className="btn small success action-btn"
-                              onClick={() => handleActivateUser(u)}
+                              onClick={() => setReactivateModalUser(u)}
                               disabled={actionLoadingId === u.id}
+                              title="Reactivate user"
                             >
-                              {actionLoadingId === u.id ? 'Activating...' : 'Activate'}
+                              Reactivate
                             </button>
                           ) : (
-                            <button
-                              type="button"
-                              className="btn small danger action-btn"
-                              onClick={() => setDeactivateModalUser(u)}
-                              disabled={self || actionLoadingId === u.id}
-                              title={self ? 'You cannot deactivate your own account' : 'Deactivate user'}
-                            >
-                              Deactivate
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="btn small outline action-btn"
+                                style={{ borderColor: '#fca5a5', color: '#b91c1c' }}
+                                onClick={() => setSuspendModalUser(u)}
+                                disabled={self || actionLoadingId === u.id}
+                                title={self ? 'You cannot suspend your own account' : 'Suspend user'}
+                              >
+                                Suspend
+                              </button>
+                              <button
+                                type="button"
+                                className="btn small danger action-btn"
+                                onClick={() => setDeactivateModalUser(u)}
+                                disabled={self || actionLoadingId === u.id}
+                                title={self ? 'You cannot deactivate your own account' : 'Deactivate user'}
+                              >
+                                Deactivate
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -576,6 +593,32 @@ export default function UserManagement({ hasPermission, notify, currentUser }) {
         />
       )}
 
+      {/* Suspend User Confirmation Modal */}
+      {suspendModalUser && (
+        <SuspendUserModal
+          user={suspendModalUser}
+          onClose={() => setSuspendModalUser(null)}
+          onSuccess={() => {
+            setSuspendModalUser(null);
+            notify('User suspended successfully.');
+            fetchUsers();
+          }}
+        />
+      )}
+
+      {/* Reactivate User Confirmation Modal */}
+      {reactivateModalUser && (
+        <ReactivateUserModal
+          user={reactivateModalUser}
+          onClose={() => setReactivateModalUser(null)}
+          onSuccess={() => {
+            setReactivateModalUser(null);
+            notify('User reactivated successfully.');
+            fetchUsers();
+          }}
+        />
+      )}
+
       {/* Change User Role Modal */}
       {changeRoleModalUser && (
         <ChangeRoleModal
@@ -661,6 +704,158 @@ function DeactivateUserModal({ user, onClose, onSuccess }) {
             disabled={submitting}
           >
             {submitting ? 'Deactivating...' : 'Confirm Deactivation'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SuspendUserModal({ user, onClose, onSuccess }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleConfirm() {
+    setError('');
+    try {
+      setSubmitting(true);
+      await updateUserStatus(user.id, 'suspended');
+      onSuccess();
+    } catch (err) {
+      console.error('Suspend user error:', err);
+      setError(formatErrorMessage(err, 'Failed to suspend user.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <section className="modal" role="dialog" aria-modal="true" aria-label="Confirm Suspension">
+        <header>
+          <h2>Suspend User</h2>
+          <button className="icon-btn" aria-label="Close dialog" onClick={onClose}>
+            <X size={22} />
+          </button>
+        </header>
+
+        <p className="modal-description">
+          Are you sure you want to suspend this user account? The user will temporarily lose system access until reactivated by an administrator.
+        </p>
+
+        <div className="modal-user-summary">
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">User Name:</span>
+            <span className="modal-user-summary-val">{user.name}</span>
+          </div>
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">Email Address:</span>
+            <span className="modal-user-summary-val">{user.email}</span>
+          </div>
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">Current Role:</span>
+            <span className="modal-user-summary-val">{user.role || 'Unassigned'}</span>
+          </div>
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">Current Status:</span>
+            <span className="modal-user-summary-val">{user.status || 'active'}</span>
+          </div>
+        </div>
+
+        {error && (
+          <div className="login-error modal-error-banner" role="alert">
+            <WarningCircle size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn" type="button" onClick={onClose} disabled={submitting}>
+            Cancel
+          </button>
+          <button
+            className="btn danger solid"
+            type="button"
+            onClick={handleConfirm}
+            disabled={submitting}
+          >
+            {submitting ? 'Suspending...' : 'Confirm Suspension'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ReactivateUserModal({ user, onClose, onSuccess }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleConfirm() {
+    setError('');
+    try {
+      setSubmitting(true);
+      await updateUserStatus(user.id, 'active');
+      onSuccess();
+    } catch (err) {
+      console.error('Reactivate user error:', err);
+      setError(formatErrorMessage(err, 'Failed to reactivate user.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <section className="modal" role="dialog" aria-modal="true" aria-label="Confirm Reactivation">
+        <header>
+          <h2>Reactivate User</h2>
+          <button className="icon-btn" aria-label="Close dialog" onClick={onClose}>
+            <X size={22} />
+          </button>
+        </header>
+
+        <p className="modal-description">
+          Are you sure you want to reactivate this user account? The user will regain full access according to their assigned role.
+        </p>
+
+        <div className="modal-user-summary">
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">User Name:</span>
+            <span className="modal-user-summary-val">{user.name}</span>
+          </div>
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">Email Address:</span>
+            <span className="modal-user-summary-val">{user.email}</span>
+          </div>
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">Current Role:</span>
+            <span className="modal-user-summary-val">{user.role || 'Unassigned'}</span>
+          </div>
+          <div className="modal-user-summary-row">
+            <span className="modal-user-summary-label">Current Status:</span>
+            <span className="modal-user-summary-val">{user.status || 'inactive'}</span>
+          </div>
+        </div>
+
+        {error && (
+          <div className="login-error modal-error-banner" role="alert">
+            <WarningCircle size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn" type="button" onClick={onClose} disabled={submitting}>
+            Cancel
+          </button>
+          <button
+            className="btn primary solid"
+            type="button"
+            onClick={handleConfirm}
+            disabled={submitting}
+          >
+            {submitting ? 'Reactivating...' : 'Confirm Reactivation'}
           </button>
         </div>
       </section>

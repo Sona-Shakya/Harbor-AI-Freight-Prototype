@@ -24,6 +24,7 @@ import {
   Copy,
   Check,
   DownloadSimple,
+  ArrowsClockwise,
 } from '@phosphor-icons/react';
 import {
   getVendors,
@@ -35,6 +36,7 @@ import {
   getVendorCompliance,
   getVendorAuditLog,
   downloadComplianceDocument,
+  reverifyCarrier,
 } from './api';
 import './styles/vendorMaster.css';
 
@@ -504,6 +506,25 @@ function VendorDetailModal({
   const [compliance, setCompliance] = useState(null);
   const [compLoading, setCompLoading] = useState(false);
   const [compError, setCompError] = useState('');
+  const [reverifying, setReverifying] = useState(false);
+  const [reverifyMsg, setReverifyMsg] = useState(null);
+
+  const handleReverify = async () => {
+    try {
+      setReverifying(true);
+      setReverifyMsg(null);
+      setCompError('');
+      const res = await reverifyCarrier(vendorId);
+      setReverifyMsg(res?.message || 'Carrier FMCSA re-verification passed successfully.');
+      const compRes = await getVendorCompliance(vendorId);
+      setCompliance(compRes?.data || compRes);
+    } catch (err) {
+      console.error('Carrier reverification error:', err);
+      setCompError(err?.message || 'Failed to re-verify carrier with FMCSA.');
+    } finally {
+      setReverifying(false);
+    }
+  };
 
   // Audit state
   const [auditLogs, setAuditLogs] = useState([]);
@@ -776,6 +797,68 @@ function VendorDetailModal({
 
               {!compLoading && compliance && (
                 <>
+                  {(() => {
+                    const expStatus = calcExpiryStatus(compliance.verification_expires_at);
+                    const isExpired = expStatus.status === 'expired';
+                    const isDue = expStatus.status === 'expiring';
+                    const notAuthorized = compliance.operating_status && compliance.operating_status !== 'authorized';
+                    const hasWarning = isExpired || isDue || notAuthorized;
+
+                    return (
+                      <>
+                        {reverifyMsg && (
+                          <div className="vm-notice-banner success" style={{ marginBottom: '14px' }}>
+                            <CheckCircle size={18} />
+                            <span>{reverifyMsg}</span>
+                          </div>
+                        )}
+
+                        {hasWarning && (
+                          <div className="vm-notice-banner error" style={{ marginBottom: '14px' }} role="alert">
+                            <WarningCircle size={20} />
+                            <div>
+                              <strong style={{ display: 'block', fontSize: '13.5px' }}>
+                                {isExpired
+                                  ? 'Carrier Compliance Warning: Verification Expired'
+                                  : isDue
+                                  ? 'Carrier Compliance Warning: Verification Due Soon'
+                                  : 'Carrier Compliance Warning: FMCSA Authority Inactive'}
+                              </strong>
+                              <span style={{ fontSize: '12.5px' }}>
+                                {isExpired
+                                  ? `The carrier's authority verification expired on ${formatDate(compliance.verification_expires_at)}. Do not dispatch or tender shipments until re-verification is completed.`
+                                  : isDue
+                                  ? `The carrier's authority verification is due within 30 days (${expStatus.label}). Schedule or perform a manual re-verification.`
+                                  : 'Carrier operating status is not authorized with FMCSA. Tendering freight is restricted.'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="vm-compliance-actions-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Current Verification Status:</span>
+                            <span className={`badge ${compliance.operating_status === 'authorized' && !isExpired ? (isDue ? 'amber' : 'green') : 'red'}`}>
+                              {compliance.operating_status === 'authorized' && !isExpired
+                                ? (isDue ? 'Due for Re-verification' : 'Verified / Current')
+                                : isExpired
+                                ? 'Verification Expired'
+                                : 'Unauthorized / Inactive'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn primary small"
+                            onClick={handleReverify}
+                            disabled={reverifying}
+                          >
+                            <ArrowsClockwise size={16} className={reverifying ? 'spinning' : ''} />
+                            <span>{reverifying ? 'Re-verifying with FMCSA...' : 'Manual Re-verify'}</span>
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                   <div className="vm-compliance-cards">
                     <div className="vm-compliance-card">
                       <span className="vm-summary-card-label">FMCSA Operating Authority</span>

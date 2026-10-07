@@ -2,9 +2,9 @@ const API_BASE = (
   typeof window !== "undefined"
     ? ""
     : (
-        (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-        (typeof process !== "undefined" && process.env?.VITE_API_BASE_URL) ||
-        "http://localhost:8001"
+       (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+       (typeof process !== "undefined" && process.env?.VITE_API_BASE_URL) ||
+       ""
       )
 ).replace(/\/$/, "");
 import * as authService from './services/authService.js';
@@ -1015,5 +1015,211 @@ export async function getCfsAuditLog(id, { page = 1, limit = 20 } = {}) {
 
 export const isApiConfigured = Boolean(API_BASE || typeof window !== 'undefined');
 
+// ==========================================
+// FR-1.10 MULTI-ORGANIZATION CONTEXT SWITCHING
+// ==========================================
+export async function getUserOrganizations() {
+  return request("/v1/auth/organizations");
+}
 
+export async function switchOrganizationContext(organizationId) {
+  const response = await request("/v1/auth/switch-organization", {
+    method: "POST",
+    body: JSON.stringify({ organizationId }),
+  });
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    authService.setToken(token);
+  }
+  return response;
+}
 
+// ==========================================
+// FR-1.6 CARRIER RE-VERIFICATION
+// ==========================================
+export async function reverifyCarrier(organizationId) {
+  return request(`/v1/organizations/${organizationId}/reverify`, {
+    method: "POST",
+  });
+}
+
+// ==========================================
+// FR-1.7 DRIVER ONBOARDING & MANAGEMENT
+// ==========================================
+export async function getDrivers(queryString = "") {
+  const q = queryString ? `?${queryString}` : "";
+  return request(`/v1/drivers${q}`);
+}
+
+export async function getDriver(id) {
+  return request(`/v1/drivers/${id}`);
+}
+
+export async function createDriver(data) {
+  return request("/v1/drivers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDriverProfile(id, data) {
+  return request(`/v1/drivers/${id}/profile`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function recordDriverDocument(id, formDataOrPayload) {
+  const isFormData = typeof FormData !== "undefined" && formDataOrPayload instanceof FormData;
+  return request(`/v1/drivers/${id}/documents`, {
+    method: "POST",
+    body: isFormData ? formDataOrPayload : JSON.stringify(formDataOrPayload),
+  });
+}
+
+export async function updateDriverDocument(id, docId, data) {
+  return request(`/v1/drivers/${id}/documents/${docId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDriverBackgroundCheck(id, { status, notes }) {
+  return request(`/v1/drivers/${id}/background-check`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, notes }),
+  });
+}
+
+export async function updateDriverOnboardingStatus(id, { status, notes }) {
+  return request(`/v1/drivers/${id}/onboarding-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, notes }),
+  });
+}
+
+export async function approveDriverOnboarding(id, { notes } = {}) {
+  return request(`/v1/drivers/${id}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ notes }),
+  });
+}
+
+// ==========================================
+// MODULE M3: LOAD BOARD & FREIGHT MATCHING
+// ==========================================
+
+export async function getLoadPostings(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/load-board${q}`);
+}
+
+export async function getLoadPosting(id) {
+  return request(`/v1/load-board/${id}`);
+}
+
+export async function createLoadPosting(data) {
+  return request("/v1/load-board", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cancelLoadPosting(id, data = {}) {
+  return request(`/v1/load-board/${id}/cancel`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteLoadPosting(id) {
+  return request(`/v1/load-board/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function bookNowLoad(id) {
+  return request(`/v1/load-board/${id}/book`, {
+    method: "POST",
+  });
+}
+
+export async function submitLoadBid(id, data) {
+  return request(`/v1/load-board/${id}/bid`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getLoadBids(id) {
+  return request(`/v1/load-board/${id}/bids`);
+}
+
+export async function counterLoadBid(loadId, bidId, data) {
+  return request(`/v1/load-board/${loadId}/bids/${bidId}/counter`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function acceptLoadBid(loadId, bidId) {
+  return request(`/v1/load-board/${loadId}/bids/${bidId}/accept`, {
+    method: "PATCH",
+  });
+}
+
+export async function rejectLoadBid(loadId, bidId, data = {}) {
+  return request(`/v1/load-board/${loadId}/bids/${bidId}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function withdrawLoadBid(loadId, bidId) {
+  return request(`/v1/load-board/${loadId}/bids/${bidId}/withdraw`, {
+    method: "PATCH",
+  });
+}
+
+export async function getLoadMatches(id) {
+  return request(`/v1/load-board/${id}/matches`);
+}
+
+export async function getCarrierPreferences() {
+  return request("/v1/load-board/preferences");
+}
+
+export async function saveCarrierPreference(data) {
+  return request("/v1/load-board/preferences", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getLaneMetrics(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/load-board/metrics/lanes${q}`);
+}
+
+export async function getShipments(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/shipments${q}`);
+}

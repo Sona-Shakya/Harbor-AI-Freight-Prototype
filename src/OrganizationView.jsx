@@ -244,6 +244,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
   const [auditPagination, setAuditPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
   const [loadingAudit, setLoadingAudit] = useState(false);
   const [auditError, setAuditError] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
 
   // ── Load Organization Profile ──
   const loadOrgData = useCallback(async (isSilent = false) => {
@@ -1408,6 +1409,44 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
               </div>
             ) : (
               <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label htmlFor="org-audit-filter" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>
+                      Audit Filter:
+                    </label>
+                    <select
+                      id="org-audit-filter"
+                      className="org-select"
+                      style={{ minWidth: '220px', padding: '6px 10px', fontSize: '13px' }}
+                      value={auditActionFilter}
+                      onChange={(e) => setAuditActionFilter(e.target.value)}
+                    >
+                      <option value="all">All Events ({auditLogs.length})</option>
+                      <option value="login">Login & Auth Attempts</option>
+                      <option value="role">Role & Permission Changes</option>
+                      <option value="user">User Status Changes</option>
+                      <option value="org">Organization Status & Context</option>
+                      <option value="carrier">Carrier Verification</option>
+                      <option value="driver">Driver Onboarding</option>
+                    </select>
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                    Showing {
+                      auditLogs.filter(log => {
+                        if (auditActionFilter === 'all') return true;
+                        const act = (log.action || '').toUpperCase();
+                        if (auditActionFilter === 'login') return act.includes('LOGIN') || act.includes('MFA') || act.includes('SSO');
+                        if (auditActionFilter === 'role') return act.includes('ROLE') || act.includes('PERMISSION');
+                        if (auditActionFilter === 'user') return act.includes('USER_');
+                        if (auditActionFilter === 'org') return act.includes('ORGANIZATION');
+                        if (auditActionFilter === 'carrier') return act.includes('CARRIER') || act.includes('COMPLIANCE');
+                        if (auditActionFilter === 'driver') return act.includes('DRIVER');
+                        return true;
+                      }).length
+                    } of {auditLogs.length} events
+                  </span>
+                </div>
+
                 <div className="org-table-wrap">
                   <table className="org-table organization-table organization-audit">
                     <thead>
@@ -1421,17 +1460,48 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs.map((log, idx) => {
-                        const changes = log.changes || log.diff || null;
+                      {auditLogs
+                        .filter(log => {
+                          if (auditActionFilter === 'all') return true;
+                          const act = (log.action || '').toUpperCase();
+                          if (auditActionFilter === 'login') return act.includes('LOGIN') || act.includes('MFA') || act.includes('SSO');
+                          if (auditActionFilter === 'role') return act.includes('ROLE') || act.includes('PERMISSION');
+                          if (auditActionFilter === 'user') return act.includes('USER_');
+                          if (auditActionFilter === 'org') return act.includes('ORGANIZATION');
+                          if (auditActionFilter === 'carrier') return act.includes('CARRIER') || act.includes('COMPLIANCE');
+                          if (auditActionFilter === 'driver') return act.includes('DRIVER');
+                          return true;
+                        })
+                        .map((log, idx) => {
+                        let changes = log.changes || log.diff || null;
+                        if (!changes && (log.old_value || log.new_value)) {
+                          const oldVal = log.old_value && typeof log.old_value === 'object' ? log.old_value : {};
+                          const newVal = log.new_value && typeof log.new_value === 'object' ? log.new_value : {};
+                          const allKeys = Array.from(new Set([...Object.keys(oldVal), ...Object.keys(newVal)]));
+                          if (allKeys.length > 0) {
+                            changes = {};
+                            for (const k of allKeys) {
+                              if (oldVal[k] !== newVal[k]) {
+                                changes[k] = { old: oldVal[k], new: newVal[k] };
+                              }
+                            }
+                          }
+                        }
                         const actorName = log.actor?.name || log.actor_name || log.user?.name || log.actor_email || 'System';
+                        const actionStr = log.action || log.event || 'UPDATE';
+                        const actionBadgeClass =
+                          /FAILED|DEACTIVATED|SUSPENDED|TERMINATED/i.test(actionStr) ? 'org-badge org-badge-danger' :
+                          /SUCCESS|APPROVED|VERIFIED|ACTIVATED/i.test(actionStr) ? 'org-badge org-badge-success' :
+                          /DRIVER|ROLE|ORGANIZATION/i.test(actionStr) ? 'org-badge org-badge-primary' :
+                          'org-badge org-badge-gray';
                         return (
                           <tr key={log.id || idx}>
                             <td style={{ whiteSpace: 'nowrap', fontSize: '12.5px', color: 'var(--muted)' }}>
                               {formatDateTime(log.created_at || log.timestamp)}
                             </td>
                             <td>
-                              <span className="org-badge org-badge-gray" style={{ fontWeight: 600, fontSize: '11px' }}>
-                                {log.action || log.event || 'UPDATE'}
+                              <span className={actionBadgeClass} style={{ fontWeight: 600, fontSize: '11px' }}>
+                                {actionStr}
                               </span>
                             </td>
                             <td>

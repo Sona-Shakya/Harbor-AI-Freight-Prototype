@@ -1,5 +1,5 @@
 import React, {useEffect,useRef,useState} from 'react';
-import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings,GitBranch,IdentificationBadge,Anchor,Package} from '@phosphor-icons/react';
+import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings,GitBranch,IdentificationBadge,Anchor,Package,ArrowsClockwise} from '@phosphor-icons/react';
 import {modules,labels,numeric,dates,initialRecords,seedMissions,seedSettingCategories,money,TODAY} from './data';
 import SettingsRegistry from './SettingsRegistry';
 import UserManagement from './UserManagement';
@@ -11,9 +11,12 @@ import BranchMaster from './BranchMaster';
 import AgentMaster from './AgentMaster';
 import PortMaster from './PortMaster';
 import CfsMaster from './CfsMaster';
+import DriverMaster from './DriverMaster';
+import LoadBoard from './LoadBoard';
+import './styles/loadBoard.css';
 import LoginOtpScreen from './LoginOtpScreen.jsx';
 import AcceptInvitation from './AcceptInvitation.jsx';
-import {login as apiLogin, getProfile} from './api';
+import {login as apiLogin, getProfile, getUserOrganizations, switchOrganizationContext} from './api';
 import * as authService from './services/authService';
 const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings,GitBranch,IdentificationBadge,Anchor,Package};
 const STORE='harbor-demo-v1';
@@ -34,10 +37,13 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const isAgentsSelected = view === 'records' && moduleId === 'agents';
   const isPortsSelected = view === 'records' && moduleId === 'ports';
   const isCfsSelected = view === 'records' && moduleId === 'cfs';
+  const isDriversSelected = view === 'records' && moduleId === 'drivers';
+  const isLoadBoardSelected = view === 'records' && moduleId === 'load_board';
 
-  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected;
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected;
 
   const canReadSettings = hasPermission('system_settings', 'read');
+  const canReadLoadBoard = hasPermission('load_board', 'read');
   const canReadUsers = hasPermission('users', 'read');
   const canReadRoles = hasPermission('roles', 'read');
   const canReadOrg = hasPermission('organizations', 'read');
@@ -47,7 +53,8 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadAgents = hasPermission('agents', 'read');
   const canReadPorts = hasPermission('ports', 'read');
   const canReadCfs = hasPermission('cfs', 'read');
-  const canReadMasters = canReadUsers || canReadRoles || canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents || canReadPorts || canReadCfs;
+  const canReadDrivers = hasPermission('drivers', 'read');
+  const canReadMasters = canReadUsers || canReadRoles || canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents || canReadPorts || canReadCfs || canReadDrivers || canReadLoadBoard;
 
   const [mastersOpen, setMastersOpen] = useState(true);
 
@@ -67,6 +74,8 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
       else if (canReadAgents) openModule('agents');
       else if (canReadPorts) openModule('ports');
       else if (canReadCfs) openModule('cfs');
+      else if (canReadDrivers) openModule('drivers');
+      else if (canReadLoadBoard) openModule('load_board');
       else if (canReadUsers) openModule('users');
       else if (canReadRoles) openModule('roles');
       else if (canReadOrg) openModule('organization');
@@ -235,6 +244,33 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                   >
                     <Package size={20} />
                     <span>CFS Master</span>
+                  </button>
+                )}
+
+                {canReadDrivers && (
+                  <button
+                    key="drivers"
+                    className={'module-nav-item sub-item ' + (isDriversSelected ? 'selected' : '')}
+                    aria-current={isDriversSelected ? 'page' : undefined}
+                    title="Driver Master"
+                    onClick={() => openModule('drivers')}
+                  >
+                    <Truck size={20} />
+                    <span>Driver Master</span>
+                  </button>
+                )}
+
+                {canReadLoadBoard && (
+                  <button
+                    key="load_board"
+                    className={'module-nav-item sub-item ' + (isLoadBoardSelected ? 'selected' : '')}
+                    aria-current={isLoadBoardSelected ? 'page' : undefined}
+                    title="Load Board"
+                    onClick={() => openModule('load_board')}
+                  >
+                    <Truck size={20} />
+                    <span>Load Board</span>
+                    <span className="module-record-count">{records.load_board?.length ?? ''}</span>
                   </button>
                 )}
               </div>
@@ -589,6 +625,8 @@ const getModuleFromPath = (path) => {
   if (path === '/agents' || path.startsWith('/agents/')) return 'agents';
   if (path === '/ports' || path.startsWith('/ports/')) return 'ports';
   if (path === '/cfs' || path.startsWith('/cfs/')) return 'cfs';
+  if (path === '/drivers' || path.startsWith('/drivers/')) return 'drivers';
+  if (path === '/load-board' || path.startsWith('/load-board/') || path === '/shipments') return 'load_board';
   if (path === '/users' || path.startsWith('/users/')) return 'users';
   if (path === '/roles' || path.startsWith('/roles/')) return 'roles';
   if (path === '/organization' || path.startsWith('/organization/')) return 'organization';
@@ -645,6 +683,34 @@ const hasPermission = (module, action) => {
       return ['Platform Admin', 'Company Admin', 'Dispatcher', 'Finance', 'Shipper User'].includes(role?.name);
     }
     return role?.name === 'Platform Admin';
+  }
+
+  // Driver Master module baseline defaults
+  if (mod === 'drivers' || mod === 'driver') {
+    if (['Platform Admin', 'Company Admin', 'Dispatcher'].includes(role?.name)) {
+      return true;
+    }
+    if (act === 'read') {
+      return true;
+    }
+    return false;
+  }
+
+  // Load Board & Freight Matching module (M3)
+  if (mod === 'load_board' || mod === 'loadboard' || mod === 'loads') {
+    if (role?.name === 'Platform Admin' || role?.name === 'Company Admin') {
+      return true;
+    }
+    if (role?.name === 'Shipper User') {
+      return ['create', 'read', 'update', 'delete', 'bids_read', 'bids_update', 'matches', 'metrics'].includes(act);
+    }
+    if (role?.name === 'Dispatcher' || role?.name === 'Driver') {
+      return ['read', 'book', 'bid', 'preferences'].includes(act);
+    }
+    if (act === 'read') {
+      return ['Platform Admin', 'Company Admin', 'Dispatcher', 'Finance', 'Shipper User', 'Carrier Admin'].includes(role?.name);
+    }
+    return false;
   }
 
   if (role?.name === 'Company Admin') {
@@ -735,6 +801,14 @@ const hasPermission = (module, action) => {
     notify('You do not have permission to access CFS Master.');
     return;
   }
+  if (id === 'drivers' && !hasPermission('drivers', 'read')) {
+    notify('You do not have permission to access Driver Master.');
+    return;
+  }
+  if (id === 'load_board' && !hasPermission('load_board', 'read')) {
+    notify('You do not have permission to access Load Board & Freight Matching.');
+    return;
+  }
 
   setModuleId(id);
   setView('records');
@@ -749,6 +823,8 @@ const hasPermission = (module, action) => {
     agents: '/agents',
     ports: '/ports',
     cfs: '/cfs',
+    drivers: '/drivers',
+    load_board: '/load-board',
     users: '/users',
     roles: '/roles',
     organization: '/organization',
@@ -842,8 +918,8 @@ const hasPermission = (module, action) => {
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
-    </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='admin'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>}
-{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='admin'&&(
+     </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='admin'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>}
+{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='admin'&&(
 <>
 <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
 </>
