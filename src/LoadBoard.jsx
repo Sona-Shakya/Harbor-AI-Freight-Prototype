@@ -25,6 +25,7 @@ import {
   Globe,
   Sliders,
   CaretRight,
+  CaretLeft,
 } from '@phosphor-icons/react';
 import {
   getLoadPostings,
@@ -126,6 +127,7 @@ export default function LoadBoard({
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [destQuery, setDestQuery] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState('all');
   const [statusFilter, setStatusFilter] = useState('posted');
   const [deadheadRadius, setDeadheadRadius] = useState(0);
@@ -258,6 +260,10 @@ export default function LoadBoard({
           params.origin = searchQuery.trim();
         }
 
+        if (destQuery.trim()) {
+          params.destination = destQuery.trim();
+        }
+
         if (minRpmFilter && Number(minRpmFilter) > 0) {
           params.min_rpm = minRpmFilter;
         }
@@ -287,7 +293,7 @@ export default function LoadBoard({
         setLoadingPostings(false);
       }
     },
-    [page, statusFilter, selectedEquipment, searchQuery, minRpmFilter, deadheadRadius, originSearchCity]
+    [page, statusFilter, selectedEquipment, searchQuery, destQuery, minRpmFilter, deadheadRadius, originSearchCity]
   );
 
   useEffect(() => {
@@ -702,15 +708,35 @@ export default function LoadBoard({
           {/* Filter Toolbar */}
           <div className="lb-toolbar">
             <div className="lb-toolbar-row">
-              {/* Search query */}
+              {/* Origin search (FR-3.2) */}
               <div className="lb-search-box">
-                <MagnifyingGlass size={18} />
+                <MapPin size={18} />
                 <input
                   type="text"
-                  placeholder="Search city, state, lane or posting ID..."
+                  placeholder="Origin city/state..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(1);
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && fetchPostings()}
+                  aria-label="Filter origin"
+                />
+              </div>
+
+              {/* Destination search (FR-3.2) */}
+              <div className="lb-search-box">
+                <MapPin size={18} />
+                <input
+                  type="text"
+                  placeholder="Destination city/state..."
+                  value={destQuery}
+                  onChange={(e) => {
+                    setDestQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && fetchPostings()}
+                  aria-label="Filter destination"
                 />
               </div>
 
@@ -718,7 +744,10 @@ export default function LoadBoard({
               <select
                 className="lb-select"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
                 aria-label="Filter status"
               >
                 <option value="posted">Status: Available (Posted)</option>
@@ -731,7 +760,10 @@ export default function LoadBoard({
               <select
                 className="lb-select"
                 value={selectedEquipment}
-                onChange={(e) => setSelectedEquipment(e.target.value)}
+                onChange={(e) => {
+                  setSelectedEquipment(e.target.value);
+                  setPage(1);
+                }}
                 aria-label="Filter equipment"
               >
                 <option value="all">All Equipment Types</option>
@@ -752,7 +784,10 @@ export default function LoadBoard({
                   placeholder="$2.50"
                   className="lb-rpm-input"
                   value={minRpmFilter}
-                  onChange={(e) => setMinRpmFilter(e.target.value)}
+                  onChange={(e) => {
+                    setMinRpmFilter(e.target.value);
+                    setPage(1);
+                  }}
                 />
               </div>
             </div>
@@ -810,7 +845,8 @@ export default function LoadBoard({
               )}
             </div>
           ) : (
-            <div className="lb-table-wrap">
+            <>
+              <div className="lb-table-wrap">
               <table className="lb-table">
                 <thead>
                   <tr>
@@ -978,6 +1014,36 @@ export default function LoadBoard({
                 </tbody>
               </table>
             </div>
+
+            {/* Server-Side Pagination Controls (FR-3.2) */}
+            {totalPages > 1 && (
+              <div className="lb-pagination" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginTop: '14px' }}>
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-label="Previous page"
+                >
+                  <CaretLeft size={14} />
+                  <span>Previous</span>
+                </button>
+                <span style={{ fontSize: '12.5px', color: '#64748b' }}>
+                  Page {page} of {totalPages} ({totalPostings} {totalPostings === 1 ? 'load' : 'loads'})
+                </span>
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label="Next page"
+                >
+                  <span>Next</span>
+                  <CaretRight size={14} />
+                </button>
+              </div>
+            )}
+            </>
           )}
         </>
       )}
@@ -1645,10 +1711,29 @@ function PostLoadModal({ shipments = [], onClose, onSuccess, notify }) {
       const pickup = found.stops?.find((st) => st.type === 'pickup') || found.stops?.[0];
       const dropoff = found.stops?.find((st) => st.type === 'dropoff') || found.stops?.[found.stops.length - 1];
 
-      if (pickup?.address?.city) setOriginCity(pickup.address.city);
-      if (pickup?.address?.state) setOriginState(pickup.address.state);
-      if (dropoff?.address?.city) setDestCity(dropoff.address.city);
-      if (dropoff?.address?.state) setDestState(dropoff.address.state);
+      if (found.origin?.city) {
+        setOriginCity(found.origin.city);
+        if (found.origin.state) setOriginState(found.origin.state);
+      } else if (typeof found.origin === 'string') {
+        const parts = found.origin.split(',');
+        if (parts[0]) setOriginCity(parts[0].trim());
+        if (parts[1]) setOriginState(parts[1].trim());
+      } else if (pickup?.address?.city) {
+        setOriginCity(pickup.address.city);
+        if (pickup.address.state) setOriginState(pickup.address.state);
+      }
+
+      if (found.destination?.city) {
+        setDestCity(found.destination.city);
+        if (found.destination.state) setDestState(found.destination.state);
+      } else if (typeof found.destination === 'string') {
+        const parts = found.destination.split(',');
+        if (parts[0]) setDestCity(parts[0].trim());
+        if (parts[1]) setDestState(parts[1].trim());
+      } else if (dropoff?.address?.city) {
+        setDestCity(dropoff.address.city);
+        if (dropoff.address.state) setDestState(dropoff.address.state);
+      }
     }
   };
 
@@ -1665,6 +1750,11 @@ function PostLoadModal({ shipments = [], onClose, onSuccess, notify }) {
 
     setSubmitting(true);
     try {
+      const origKey = `${(originCity || '').trim().toUpperCase()}, ${(originState || '').trim().toUpperCase()}`;
+      const destKey = `${(destCity || '').trim().toUpperCase()}, ${(destState || '').trim().toUpperCase()}`;
+      const origGeo = US_CITIES_GEO[origKey];
+      const destGeo = US_CITIES_GEO[destKey];
+
       const payload = {
         shipment_id: Number(selectedShipmentId),
         posted_rate: Number(postedRate),
@@ -1674,8 +1764,12 @@ function PostLoadModal({ shipments = [], onClose, onSuccess, notify }) {
         allow_bids: allowBids,
         origin_city: originCity.trim() || undefined,
         origin_state: originState.trim() || undefined,
+        origin_lat: origGeo?.lat,
+        origin_lng: origGeo?.lng,
         dest_city: destCity.trim() || undefined,
         dest_state: destState.trim() || undefined,
+        dest_lat: destGeo?.lat,
+        dest_lng: destGeo?.lng,
         distance_miles: distanceMiles ? Number(distanceMiles) : undefined,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       };

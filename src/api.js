@@ -1223,3 +1223,428 @@ export async function getShipments(params = {}) {
   const q = query.toString() ? `?${query.toString()}` : "";
   return request(`/v1/shipments${q}`);
 }
+
+// ============================================================================
+// MODULE M4: QUOTING & RATE MANAGEMENT APIS
+// ============================================================================
+
+export async function getQuotes(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/quotes${q}`);
+}
+
+export async function getQuote(id) {
+  return request(`/v1/quotes/${id}`);
+}
+
+export async function createQuote(data) {
+  return request("/v1/quotes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function bookQuote(id) {
+  return request(`/v1/quotes/${id}/book`, {
+    method: "POST",
+  });
+}
+
+export async function getQuoteComparison(shipmentId) {
+  return request(`/v1/quotes/comparison?shipment_id=${encodeURIComponent(shipmentId)}`);
+}
+
+export async function getRateAgreements(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/rate-agreements${q}`);
+}
+
+export async function getRateAgreement(id) {
+  return request(`/v1/rate-agreements/${id}`);
+}
+
+export async function createRateAgreement(data) {
+  return request("/v1/rate-agreements", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRateAgreement(id, data) {
+  return request(`/v1/rate-agreements/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteRateAgreement(id) {
+  return request(`/v1/rate-agreements/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getLaneRateHistory(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/rates/lane-history${q}`);
+}
+
+export async function generateRateConfirmation(shipmentId, data = {}) {
+  return request(`/v1/shipments/${shipmentId}/rate-confirmation`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getShipmentRateConfirmation(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/rate-confirmation`);
+}
+
+export async function getRateConfirmation(id) {
+  return request(`/v1/rate-confirmations/${id}`);
+}
+
+export async function signRateConfirmation(id, data) {
+  return request(`/v1/rate-confirmations/${id}/sign`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function downloadRateConfirmationDocument(id) {
+  return request(`/v1/rate-confirmations/${id}/document`, {
+    responseType: "blob",
+  });
+}
+
+// ============================================================
+// M5: FLEET & CARRIER MANAGEMENT APIS
+// ============================================================
+
+// Fleet Assets (FR-5.1)
+export async function getVehicles(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/fleet/vehicles${q}`);
+}
+
+export async function getVehicle(id) {
+  return request(`/v1/fleet/vehicles/${id}`);
+}
+
+export async function getAssignedVehicle() {
+  return request(`/v1/fleet/vehicles/assigned`);
+}
+
+export async function createVehicle(data) {
+  return request("/v1/fleet/vehicles", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVehicle(id, data) {
+  return request(`/v1/fleet/vehicles/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteVehicle(id) {
+  return request(`/v1/fleet/vehicles/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// Vehicle Maintenance & Availability (FR-5.2)
+export async function getVehicleAvailability(vehicleId) {
+  return request(`/v1/fleet/vehicles/${vehicleId}/availability`);
+}
+
+export async function getVehicleMaintenance(vehicleId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/fleet/vehicles/${vehicleId}/maintenance${q}`);
+}
+
+export async function createVehicleMaintenance(vehicleId, data) {
+  return request(`/v1/fleet/vehicles/${vehicleId}/maintenance`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getMaintenanceRecord(id) {
+  return request(`/v1/fleet/maintenance/${id}`);
+}
+
+export async function updateMaintenanceRecord(id, data) {
+  return request(`/v1/fleet/maintenance/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getVehicleInspections(vehicleId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/fleet/vehicles/${vehicleId}/inspections${q}`);
+}
+
+export async function createVehicleInspection(vehicleId, data) {
+  return request(`/v1/fleet/vehicles/${vehicleId}/inspections`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getInspectionRecord(id) {
+  return request(`/v1/fleet/inspections/${id}`);
+}
+
+export async function updateInspectionRecord(id, data) {
+  return request(`/v1/fleet/inspections/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// Driver Roster & HOS (FR-5.3 & FR-5.8)
+export async function getFleetDrivers(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/fleet/drivers${q}`);
+}
+
+export async function getCarrierDrivers(carrierId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/carriers/${carrierId}/drivers${q}`);
+}
+
+export async function getFleetDriver(id) {
+  return request(`/v1/fleet/drivers/${id}`);
+}
+
+export async function updateFleetDriver(id, data) {
+  return request(`/v1/fleet/drivers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getDriverHos(driverId) {
+  return request(`/v1/drivers/${driverId}/hos`);
+}
+
+export async function getDriverHosHistory(driverId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/drivers/${driverId}/hos/history${q}`);
+}
+
+export async function recordDutyStatus(driverId, data) {
+  return request(`/v1/drivers/${driverId}/hos/logs`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function checkHosEligibility(driverId, data) {
+  return request(`/v1/drivers/${driverId}/hos/eligibility`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getDriverEld(driverId) {
+  return request(`/v1/drivers/${driverId}/eld`);
+}
+
+export async function syncDriverEld(driverId) {
+  return request(`/v1/drivers/${driverId}/eld/sync`, {
+    method: "POST",
+  });
+}
+
+export async function getEldProviders() {
+  return request(`/v1/fleet/eld/providers`);
+}
+
+// Carrier Compliance, Insurance & Suspension (FR-5.4)
+export async function getCarrierCompliance(carrierOrgId = null) {
+  const path = carrierOrgId ? `/v1/carriers/${carrierOrgId}/compliance` : `/v1/fleet/compliance`;
+  return request(path);
+}
+
+export async function updateCarrierCompliance(carrierOrgId, data) {
+  const path = carrierOrgId ? `/v1/carriers/${carrierOrgId}/compliance` : `/v1/fleet/compliance`;
+  return request(path, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function setCarrierSuspension(carrierOrgId, data) {
+  const path = carrierOrgId ? `/v1/carriers/${carrierOrgId}/suspension` : `/v1/fleet/suspension`;
+  return request(path, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getCarrierInsurance(carrierOrgId = null, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  const path = carrierOrgId ? `/v1/carriers/${carrierOrgId}/insurance${q}` : `/v1/fleet/insurance${q}`;
+  return request(path);
+}
+
+export async function getInsurancePolicy(id) {
+  return request(`/v1/fleet/insurance/${id}`);
+}
+
+export async function createInsurancePolicy(data, carrierOrgId = null) {
+  const path = carrierOrgId ? `/v1/carriers/${carrierOrgId}/insurance` : `/v1/fleet/insurance`;
+  return request(path, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateInsurancePolicy(id, data) {
+  return request(`/v1/fleet/insurance/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getComplianceExpirations(carrierOrgId = null, thresholdDays = 30) {
+  const path = carrierOrgId
+    ? `/v1/carriers/${carrierOrgId}/compliance/expirations?threshold_days=${thresholdDays}`
+    : `/v1/fleet/compliance/expirations?threshold_days=${thresholdDays}`;
+  return request(path);
+}
+
+// Fleet Assignment (FR-5.7)
+export async function assignFleetToShipment(shipmentId, data) {
+  return request(`/v1/shipments/${shipmentId}/assign-fleet`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getShipmentFleetAssignment(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/assign-fleet`);
+}
+
+export async function removeShipmentFleetAssignment(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/assign-fleet`, {
+    method: "DELETE",
+  });
+}
+
+// Carrier Scorecard & Performance (FR-5.5)
+export async function getCarrierScorecard(carrierOrgId = null, period = 'rolling_90d') {
+  const query = new URLSearchParams();
+  if (period) query.set('period', period);
+  if (carrierOrgId) query.set('carrier_org_id', carrierOrgId);
+  const q = query.toString() ? `?${query.toString()}` : '';
+  const path = carrierOrgId ? `/v1/fleet/scorecards/${carrierOrgId}${q}` : `/v1/fleet/scorecards${q}`;
+  return request(path);
+}
+
+export async function evaluateCarrierScorecard(carrierOrgId = null, period = 'rolling_90d') {
+  const path = carrierOrgId ? `/v1/fleet/scorecards/${carrierOrgId}/evaluate` : `/v1/fleet/scorecards/evaluate`;
+  return request(path, {
+    method: 'POST',
+    body: JSON.stringify({ carrier_org_id: carrierOrgId, period }),
+  });
+}
+
+// Carrier Network Tiers (FR-5.6)
+export async function getCarrierTier(carrierOrgId = null, shipperOrgId = null) {
+  const query = new URLSearchParams();
+  if (carrierOrgId) query.set('carrier_org_id', carrierOrgId);
+  if (shipperOrgId) query.set('shipper_org_id', shipperOrgId);
+  const q = query.toString() ? `?${query.toString()}` : '';
+  const path = carrierOrgId ? `/v1/fleet/tiers/${carrierOrgId}${q}` : `/v1/fleet/tiers${q}`;
+  return request(path);
+}
+
+export async function listCarrierTiers(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : '';
+  return request(`/v1/fleet/tiers/list${q}`);
+}
+
+export async function updateCarrierTier(carrierOrgId = null, data = {}) {
+  const targetId = carrierOrgId || data?.carrier_org_id || data?.carrier_id;
+  const path = targetId ? `/v1/fleet/tiers/${targetId}` : `/v1/fleet/tiers`;
+  const bodyPayload = targetId && !data.carrier_org_id ? { ...data, carrier_org_id: targetId } : data;
+  return request(path, {
+    method: 'PATCH',
+    body: JSON.stringify(bodyPayload),
+  });
+}
+
+
+
+
