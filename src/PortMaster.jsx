@@ -302,142 +302,174 @@ function PortFormModal({ port, onClose, onSuccess, notify }) {
           </div>
         )}
 
-        <div className="pm-section-title">Port Identity & Classification</div>
-        <div className="pm-form-grid">
-          <label>
-            Port Code <span className="pm-required">*</span>
-            <input
-              type="text"
-              className="pm-code-input"
-              value={form.port_code}
-              onChange={(e) => setForm((p) => ({ ...p, port_code: e.target.value.toUpperCase() }))}
-              placeholder="e.g. USLAX, SGSIN, DEHAM"
-              required
-              maxLength={20}
-              autoFocus={!isEdit}
-            />
-          </label>
+        <div className="pm-modal-sections">
+          {/* Section 1: Port Identification & Classification */}
+          <div className="pm-modal-section">
+            <div className="pm-section-header">
+              <h4>Port Identification & Classification</h4>
+              <p>UN/LOCODE or commercial code, legal port title, terminal category, and lifecycle status</p>
+            </div>
+            <div className="pm-form-grid">
+              <label>
+                Port Code <span className="pm-required">*</span>
+                <input
+                  type="text"
+                  className="pm-code-input"
+                  value={form.port_code}
+                  onChange={(e) => setForm((p) => ({ ...p, port_code: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. USLAX, SGSIN, DEHAM"
+                  required
+                  maxLength={20}
+                  autoFocus={!isEdit}
+                />
+              </label>
 
-          <label>
-            Port Name <span className="pm-required">*</span>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="e.g. Port of Los Angeles"
-              required
-              maxLength={150}
-            />
-          </label>
+              <label>
+                Port Name <span className="pm-required">*</span>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Port of Los Angeles"
+                  required
+                  maxLength={150}
+                />
+              </label>
 
-          <label>
-            Port Type <span className="pm-required">*</span>
-            <select
-              value={form.port_type}
-              onChange={(e) => setForm((p) => ({ ...p, port_type: e.target.value }))}
-            >
-              <option value="seaport">Seaport / Ocean Terminal</option>
-              <option value="inland_port">Inland Port / Dry Port</option>
-              <option value="rail_ramp">Rail Ramp / Intermodal</option>
-              <option value="airport">Air Cargo Hub</option>
-            </select>
-          </label>
+              <label>
+                Port Type <span className="pm-required">*</span>
+                <select
+                  value={form.port_type}
+                  onChange={(e) => setForm((p) => ({ ...p, port_type: e.target.value }))}
+                >
+                  <option value="seaport">Seaport / Ocean Terminal</option>
+                  <option value="inland_port">Inland Port / Dry Port</option>
+                  <option value="rail_ramp">Rail Ramp / Intermodal</option>
+                  <option value="airport">Air Cargo Hub</option>
+                </select>
+              </label>
 
-          <label>
-            Status <span className="pm-required">*</span>
-            <select
-              value={form.status}
-              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
-        </div>
+              <label>
+                Operational Status <span className="pm-required">*</span>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
+                >
+                  <option value="active">Active — Open for cargo booking</option>
+                  <option value="inactive">Inactive — Closed / Suspended</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
-        <div className="pm-section-title">Geographic Location</div>
-        <div className="pm-form-grid">
-          <label>
-            Country <span className="pm-required">*</span>
-            <input
-              type="text"
-              value={form.country}
-              onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
-              placeholder="e.g. United States, Germany, China"
-              required
-              maxLength={100}
-            />
-          </label>
+          {/* Section 2: Geographic Location */}
+          <div className="pm-modal-section">
+            <div className="pm-section-header">
+              <h4>Geographic Location</h4>
+              <p>Jurisdiction, state or province, city municipality, and local operating timezone</p>
+            </div>
+            <div className="pm-form-grid">
+              <label>
+                Country <span className="pm-required">*</span>
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+                  placeholder="e.g. United States, Germany, China"
+                  required
+                  maxLength={100}
+                />
+              </label>
 
-          <label>
-            State / Province
-            <input
-              type="text"
-              value={form.state}
-              onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
-              placeholder="e.g. California, Hamburg"
-              maxLength={100}
-            />
-          </label>
+              <label>
+                State / Province
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
+                  placeholder="e.g. California, Hamburg"
+                  maxLength={100}
+                />
+              </label>
 
-          <label>
-            City
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-              placeholder="e.g. Los Angeles"
-              maxLength={100}
-            />
-          </label>
+              <label>
+                City
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                  placeholder="e.g. Los Angeles"
+                  maxLength={100}
+                />
+              </label>
 
-          <label>
-            Timezone
-            <input
-              type="text"
-              value={form.timezone}
-              onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))}
-              placeholder="e.g. America/Los_Angeles, UTC"
-              maxLength={50}
-            />
-          </label>
+              <label>
+                Timezone
+                <input
+                  type="text"
+                  value={form.timezone}
+                  onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))}
+                  placeholder="e.g. America/Los_Angeles, UTC"
+                  maxLength={50}
+                />
+              </label>
+            </div>
+          </div>
 
-          <label>
-            Latitude (-90 to 90)
-            <input
-              type="number"
-              step="any"
-              min="-90"
-              max="90"
-              value={form.lat}
-              onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))}
-              placeholder="e.g. 33.743"
-            />
-          </label>
+          {/* Section 3: Geographic Coordinates */}
+          <div className="pm-modal-section">
+            <div className="pm-section-header">
+              <h4>Geographic Coordinates</h4>
+              <p>GPS navigation coordinates for automated dispatch routing and map plotting</p>
+            </div>
+            <div className="pm-form-grid">
+              <label>
+                Latitude (-90 to 90)
+                <input
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  value={form.lat}
+                  onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))}
+                  placeholder="e.g. 33.743"
+                />
+              </label>
 
-          <label>
-            Longitude (-180 to 180)
-            <input
-              type="number"
-              step="any"
-              min="-180"
-              max="180"
-              value={form.lng}
-              onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))}
-              placeholder="e.g. -118.267"
-            />
-          </label>
+              <label>
+                Longitude (-180 to 180)
+                <input
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  value={form.lng}
+                  onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))}
+                  placeholder="e.g. -118.267"
+                />
+              </label>
+            </div>
+          </div>
 
-          <label className="pm-form-full-width">
-            Audit Reason (Optional)
-            <input
-              type="text"
-              value={form.reason}
-              onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
-              placeholder="e.g. Annual reference database sync, UN/LOCODE correction"
-              maxLength={250}
-            />
-          </label>
+          {/* Section 4: Audit & Compliance */}
+          <div className="pm-modal-section">
+            <div className="pm-section-header">
+              <h4>Audit & Compliance</h4>
+              <p>Optional compliance note for the change audit log</p>
+            </div>
+            <div className="pm-form-grid">
+              <label className="pm-form-full-width">
+                Audit Reason (Optional)
+                <input
+                  type="text"
+                  value={form.reason}
+                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="e.g. Reference database sync, UN/LOCODE correction"
+                  maxLength={250}
+                />
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -1193,10 +1225,7 @@ export default function PortMaster({
       {/* ── Page Header ── */}
       <header className="pm-page-header">
         <div className="pm-page-header-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Anchor size={28} style={{ color: 'var(--blue, #005fdc)' }} />
-            <h1>Port Master</h1>
-          </div>
+          <h1>Ports</h1>
           <p>Global directory of commercial seaports, inland container terminals, rail ramps, and air cargo hubs.</p>
         </div>
 
@@ -1221,7 +1250,7 @@ export default function PortMaster({
               className="btn primary"
               onClick={() => setModal({ kind: 'add' })}
             >
-              <Plus size={16} />
+              <Plus size={18} />
               <span>Add Port</span>
             </button>
           )}
@@ -1262,7 +1291,7 @@ export default function PortMaster({
           <input
             type="text"
             aria-label="Search ports"
-            placeholder="Search by code, name, city, country…"
+            placeholder="Search ports..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -1307,7 +1336,7 @@ export default function PortMaster({
             setPage(1);
           }}
         >
-          <option value="all">All Statuses</option>
+          <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
@@ -1404,7 +1433,7 @@ export default function PortMaster({
                         <h3>No Ports Found</h3>
                         <p>
                           {searchQuery || statusFilter !== 'all' || typeFilter !== 'all' || countryFilter
-                            ? 'No ports match your current search and filter criteria.'
+                            ? 'No ports match your search or filter criteria. Try clearing filters or adjusting your query.'
                             : 'No ports registered in the directory yet. Click "Add Port" to register the first transport hub.'}
                         </p>
                         {(searchQuery || statusFilter !== 'all' || typeFilter !== 'all' || countryFilter) && (
@@ -1417,7 +1446,7 @@ export default function PortMaster({
                             className="btn primary"
                             onClick={() => setModal({ kind: 'add' })}
                           >
-                            <Plus size={16} /> Add First Port
+                            <Plus size={16} /> Add Port
                           </button>
                         )}
                       </div>
@@ -1474,7 +1503,7 @@ export default function PortMaster({
                             aria-label={`View details for ${port.port_code}`}
                             onClick={() => setModal({ kind: 'detail', portId: port.id, tab: 'overview' })}
                           >
-                            <Eye size={17} />
+                            <Eye size={14} /> View
                           </button>
 
                           <button
@@ -1484,7 +1513,7 @@ export default function PortMaster({
                             aria-label={`Audit history for ${port.port_code}`}
                             onClick={() => setModal({ kind: 'detail', portId: port.id, tab: 'audit' })}
                           >
-                            <ClockCounterClockwise size={17} />
+                            <ClockCounterClockwise size={14} /> Audit
                           </button>
 
                           {canUpdate && (
@@ -1496,7 +1525,7 @@ export default function PortMaster({
                                 aria-label={`Edit ${port.port_code}`}
                                 onClick={() => setModal({ kind: 'edit', port })}
                               >
-                                <NotePencil size={17} />
+                                <NotePencil size={14} /> Edit
                               </button>
 
                               <button
@@ -1506,7 +1535,7 @@ export default function PortMaster({
                                 aria-label={`Change status for ${port.port_code}`}
                                 onClick={() => setModal({ kind: 'status', port })}
                               >
-                                <ShieldCheck size={17} />
+                                <ShieldCheck size={14} /> Status
                               </button>
                             </>
                           )}
@@ -1520,7 +1549,7 @@ export default function PortMaster({
                               disabled={port.status === 'inactive'}
                               onClick={() => setModal({ kind: 'delete', port })}
                             >
-                              <Trash size={17} />
+                              <Trash size={14} /> Deactivate
                             </button>
                           )}
                         </div>

@@ -62,21 +62,29 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadPorts = hasPermission('ports', 'read');
   const canReadCfs = hasPermission('cfs', 'read');
   const canReadDrivers = hasPermission('drivers', 'read');
-  const canReadMasters = canReadUsers || canReadRoles || canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents || canReadPorts || canReadCfs || canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet;
 
-  const [mastersOpen, setMastersOpen] = useState(true);
+  const canReadPeople = canReadUsers || canReadRoles;
+  const canReadBusiness = canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents;
+  const canReadLocations = canReadPorts || canReadCfs;
+  const canReadTransportation = canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet;
+  const canReadManage = canReadPeople || canReadBusiness || canReadLocations || canReadTransportation;
 
-  // Automatically keep Masters dropdown OPEN when one of its child pages is active
+  const [manageOpen, setManageOpen] = useState(true);
+
+  // Automatically keep Manage dropdown OPEN when one of its child pages is active
   useEffect(() => {
     if (isChildActive) {
-      setMastersOpen(true);
+      setManageOpen(true);
     }
   }, [isChildActive]);
 
-  const handleMastersClick = () => {
+  const handleManageClick = () => {
     if (!isChildActive) {
-      setMastersOpen(true);
-      if (canReadCustomers) openModule('customers');
+      setManageOpen(true);
+      if (canReadUsers) openModule('users');
+      else if (canReadRoles) openModule('roles');
+      else if (canReadOrg) openModule('organization');
+      else if (canReadCustomers) openModule('customers');
       else if (canReadVendors) openModule('vendors');
       else if (canReadBranches) openModule('branches');
       else if (canReadAgents) openModule('agents');
@@ -86,42 +94,39 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
       else if (canReadLoadBoard) openModule('load_board');
       else if (canReadQuotes) openModule('quotes');
       else if (canReadFleet) openModule('fleet');
-      else if (canReadUsers) openModule('users');
-      else if (canReadRoles) openModule('roles');
-      else if (canReadOrg) openModule('organization');
     } else {
-      setMastersOpen(v => !v);
+      setManageOpen(v => !v);
     }
   };
 
   const handleCaretClick = (e) => {
     e.stopPropagation();
-    setMastersOpen(v => !v);
+    setManageOpen(v => !v);
   };
 
   return (
     <nav className="module-navigation" aria-label="Freight modules">
       <section className="module-nav-group">
-        {/* 1. Exactly ONE Masters row directly below All modules */}
-        {canReadMasters && (
-          <div className="masters-group">
+        {/* Manage section */}
+        {canReadManage && (
+          <div className="manage-group masters-group">
             <button
               type="button"
-              className={'module-nav-item masters-dropdown-toggle ' + (isChildActive ? 'selected' : '')}
-              aria-expanded={mastersOpen}
-              aria-controls="masters-menu"
+              className={'module-nav-item manage-dropdown-toggle masters-dropdown-toggle ' + (isChildActive ? 'selected' : '')}
+              aria-expanded={manageOpen}
+              aria-controls="manage-menu"
               aria-current={isChildActive ? 'page' : undefined}
-              title="Masters"
-              onClick={handleMastersClick}
+              title="Manage"
+              onClick={handleManageClick}
             >
               <Stack size={20} />
-              <span>Masters</span>
+              <span>Manage</span>
               <span
-                className="masters-caret"
+                className="manage-caret masters-caret"
                 role="button"
                 tabIndex={0}
-                title={mastersOpen ? "Collapse Masters" : "Expand Masters"}
-                aria-label={mastersOpen ? "Collapse Masters" : "Expand Masters"}
+                title={manageOpen ? "Collapse Manage" : "Expand Manage"}
+                aria-label={manageOpen ? "Collapse Manage" : "Expand Manage"}
                 onClick={handleCaretClick}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -130,203 +135,227 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                   }
                 }}
               >
-                {mastersOpen ? <CaretUp size={14} /> : <CaretDown size={14} />}
+                {manageOpen ? <CaretUp size={14} /> : <CaretDown size={14} />}
               </span>
             </button>
 
-            {/* Child items under Masters: Users, Roles & Permissions, Organization */}
-            {mastersOpen && (
-              <div id="masters-menu" className="masters-sub-menu" role="region" aria-label="Masters sub-menu">
-                {canReadUsers && (
-                  <button
-                    key="users"
-                    className={'module-nav-item sub-item ' + (isUsersSelected ? 'selected' : '')}
-                    aria-current={isUsersSelected ? 'page' : undefined}
-                    title="Users"
-                    onClick={() => openModule('users')}
-                  >
-                    <UsersThree size={20} />
-                    <span>Users</span>
-                    <span className="module-record-count">{records.users?.length ?? ''}</span>
-                  </button>
+            {/* Subgroups under Manage: People, Business, Locations, Transportation */}
+            {manageOpen && (
+              <div id="manage-menu" className="manage-sub-menu masters-sub-menu" role="region" aria-label="Manage sub-menu">
+                {/* People Group */}
+                {canReadPeople && (
+                  <div className="nav-subgroup">
+                    <div className="nav-subgroup-label">People</div>
+                    {canReadUsers && (
+                      <button
+                        key="users"
+                        className={'module-nav-item sub-item ' + (isUsersSelected ? 'selected' : '')}
+                        aria-current={isUsersSelected ? 'page' : undefined}
+                        title="Users"
+                        onClick={() => openModule('users')}
+                      >
+                        <UsersThree size={20} />
+                        <span>Users</span>
+                        <span className="module-record-count">{records.users?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadRoles && (
+                      <button
+                        key="roles"
+                        className={'module-nav-item sub-item ' + (isRolesSelected ? 'selected' : '')}
+                        aria-current={isRolesSelected ? 'page' : undefined}
+                        title="Roles & Permissions"
+                        onClick={() => openModule('roles')}
+                      >
+                        <ShieldCheck size={20} />
+                        <span>Roles & Permissions</span>
+                        <span className="module-record-count">{records.roles?.length ?? ''}</span>
+                      </button>
+                    )}
+                  </div>
                 )}
 
-                {canReadRoles && (
-                  <button
-                    key="roles"
-                    className={'module-nav-item sub-item ' + (isRolesSelected ? 'selected' : '')}
-                    aria-current={isRolesSelected ? 'page' : undefined}
-                    title="Roles & Permissions"
-                    onClick={() => openModule('roles')}
-                  >
-                    <ShieldCheck size={20} />
-                    <span>Roles & Permissions</span>
-                    <span className="module-record-count">{records.roles?.length ?? ''}</span>
-                  </button>
+                {/* Business Group */}
+                {canReadBusiness && (
+                  <div className="nav-subgroup">
+                    <div className="nav-subgroup-label">Business</div>
+                    {canReadOrg && (
+                      <button
+                        key="organization"
+                        className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
+                        aria-current={isOrgSelected ? 'page' : undefined}
+                        title="Organization"
+                        onClick={() => openModule('organization')}
+                      >
+                        <Buildings size={20} />
+                        <span>Organization</span>
+                        <span className="module-record-count">{records.organization?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadCustomers && (
+                      <button
+                        key="customers"
+                        className={'module-nav-item sub-item ' + (isCustomersSelected ? 'selected' : '')}
+                        aria-current={isCustomersSelected ? 'page' : undefined}
+                        title="Customers"
+                        onClick={() => openModule('customers')}
+                      >
+                        <ShoppingBag size={20} />
+                        <span>Customers</span>
+                      </button>
+                    )}
+
+                    {canReadVendors && (
+                      <button
+                        key="vendors"
+                        className={'module-nav-item sub-item ' + (isVendorsSelected ? 'selected' : '')}
+                        aria-current={isVendorsSelected ? 'page' : undefined}
+                        title="Vendors"
+                        onClick={() => openModule('vendors')}
+                      >
+                        <Truck size={20} />
+                        <span>Vendors</span>
+                      </button>
+                    )}
+
+                    {canReadBranches && (
+                      <button
+                        key="branches"
+                        className={'module-nav-item sub-item ' + (isBranchesSelected ? 'selected' : '')}
+                        aria-current={isBranchesSelected ? 'page' : undefined}
+                        title="Branches"
+                        onClick={() => openModule('branches')}
+                      >
+                        <GitBranch size={20} />
+                        <span>Branches</span>
+                      </button>
+                    )}
+
+                    {canReadAgents && (
+                      <button
+                        key="agents"
+                        className={'module-nav-item sub-item ' + (isAgentsSelected ? 'selected' : '')}
+                        aria-current={isAgentsSelected ? 'page' : undefined}
+                        title="Agents"
+                        onClick={() => openModule('agents')}
+                      >
+                        <IdentificationBadge size={20} />
+                        <span>Agents</span>
+                      </button>
+                    )}
+                  </div>
                 )}
 
-                {canReadOrg && (
-                  <button
-                    key="organization"
-                    className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
-                    aria-current={isOrgSelected ? 'page' : undefined}
-                    title="Organization"
-                    onClick={() => openModule('organization')}
-                  >
-                    <Buildings size={20} />
-                    <span>Organization</span>
-                    <span className="module-record-count">{records.organization?.length ?? ''}</span>
-                  </button>
+                {/* Locations Group */}
+                {canReadLocations && (
+                  <div className="nav-subgroup">
+                    <div className="nav-subgroup-label">Locations</div>
+                    {canReadPorts && (
+                      <button
+                        key="ports"
+                        className={'module-nav-item sub-item ' + (isPortsSelected ? 'selected' : '')}
+                        aria-current={isPortsSelected ? 'page' : undefined}
+                        title="Ports"
+                        onClick={() => openModule('ports')}
+                      >
+                        <Anchor size={20} />
+                        <span>Ports</span>
+                      </button>
+                    )}
+
+                    {canReadCfs && (
+                      <button
+                        key="cfs"
+                        className={'module-nav-item sub-item ' + (isCfsSelected ? 'selected' : '')}
+                        aria-current={isCfsSelected ? 'page' : undefined}
+                        title="CFS Locations"
+                        onClick={() => openModule('cfs')}
+                      >
+                        <Package size={20} />
+                        <span>CFS Locations</span>
+                      </button>
+                    )}
+                  </div>
                 )}
 
-                {canReadCustomers && (
-                  <button
-                    key="customers"
-                    className={'module-nav-item sub-item ' + (isCustomersSelected ? 'selected' : '')}
-                    aria-current={isCustomersSelected ? 'page' : undefined}
-                    title="Customer Master"
-                    onClick={() => openModule('customers')}
-                  >
-                    <ShoppingBag size={20} />
-                    <span>Customer Master</span>
-                  </button>
-                )}
+                {/* Transportation Group */}
+                {canReadTransportation && (
+                  <div className="nav-subgroup">
+                    <div className="nav-subgroup-label">Transportation</div>
+                    {canReadDrivers && (
+                      <button
+                        key="drivers"
+                        className={'module-nav-item sub-item ' + (isDriversSelected ? 'selected' : '')}
+                        aria-current={isDriversSelected ? 'page' : undefined}
+                        title="Drivers"
+                        onClick={() => openModule('drivers')}
+                      >
+                        <Truck size={20} />
+                        <span>Drivers</span>
+                      </button>
+                    )}
 
-                {canReadVendors && (
-                  <button
-                    key="vendors"
-                    className={'module-nav-item sub-item ' + (isVendorsSelected ? 'selected' : '')}
-                    aria-current={isVendorsSelected ? 'page' : undefined}
-                    title="Vendor Master"
-                    onClick={() => openModule('vendors')}
-                  >
-                    <Truck size={20} />
-                    <span>Vendor Master</span>
-                  </button>
-                )}
+                    {canReadLoadBoard && (
+                      <button
+                        key="load_board"
+                        className={'module-nav-item sub-item ' + (isLoadBoardSelected ? 'selected' : '')}
+                        aria-current={isLoadBoardSelected ? 'page' : undefined}
+                        title="Find Loads"
+                        onClick={() => openModule('load_board')}
+                      >
+                        <Truck size={20} />
+                        <span>Find Loads</span>
+                        <span className="module-record-count">{records.load_board?.length ?? ''}</span>
+                      </button>
+                    )}
 
-                {canReadBranches && (
-                  <button
-                    key="branches"
-                    className={'module-nav-item sub-item ' + (isBranchesSelected ? 'selected' : '')}
-                    aria-current={isBranchesSelected ? 'page' : undefined}
-                    title="Branches"
-                    onClick={() => openModule('branches')}
-                  >
-                    <GitBranch size={20} />
-                    <span>Branches</span>
-                  </button>
-                )}
+                    {canReadQuotes && (
+                      <button
+                        key="quotes"
+                        className={'module-nav-item sub-item ' + (isQuotesSelected ? 'selected' : '')}
+                        aria-current={isQuotesSelected ? 'page' : undefined}
+                        title="Quotes & Rates"
+                        onClick={() => openModule('quotes')}
+                      >
+                        <Tag size={20} />
+                        <span>Quotes & Rates</span>
+                        <span className="module-record-count">{records.quotes?.length ?? ''}</span>
+                      </button>
+                    )}
 
-                {canReadAgents && (
-                  <button
-                    key="agents"
-                    className={'module-nav-item sub-item ' + (isAgentsSelected ? 'selected' : '')}
-                    aria-current={isAgentsSelected ? 'page' : undefined}
-                    title="Agent Master"
-                    onClick={() => openModule('agents')}
-                  >
-                    <IdentificationBadge size={20} />
-                    <span>Agent Master</span>
-                  </button>
-                )}
-
-                {canReadPorts && (
-                  <button
-                    key="ports"
-                    className={'module-nav-item sub-item ' + (isPortsSelected ? 'selected' : '')}
-                    aria-current={isPortsSelected ? 'page' : undefined}
-                    title="Port Master"
-                    onClick={() => openModule('ports')}
-                  >
-                    <Anchor size={20} />
-                    <span>Port Master</span>
-                  </button>
-                )}
-
-                {canReadCfs && (
-                  <button
-                    key="cfs"
-                    className={'module-nav-item sub-item ' + (isCfsSelected ? 'selected' : '')}
-                    aria-current={isCfsSelected ? 'page' : undefined}
-                    title="CFS Master"
-                    onClick={() => openModule('cfs')}
-                  >
-                    <Package size={20} />
-                    <span>CFS Master</span>
-                  </button>
-                )}
-
-                {canReadDrivers && (
-                  <button
-                    key="drivers"
-                    className={'module-nav-item sub-item ' + (isDriversSelected ? 'selected' : '')}
-                    aria-current={isDriversSelected ? 'page' : undefined}
-                    title="Driver Master"
-                    onClick={() => openModule('drivers')}
-                  >
-                    <Truck size={20} />
-                    <span>Driver Master</span>
-                  </button>
-                )}
-
-                {canReadLoadBoard && (
-                  <button
-                    key="load_board"
-                    className={'module-nav-item sub-item ' + (isLoadBoardSelected ? 'selected' : '')}
-                    aria-current={isLoadBoardSelected ? 'page' : undefined}
-                    title="Load Board"
-                    onClick={() => openModule('load_board')}
-                  >
-                    <Truck size={20} />
-                    <span>Load Board</span>
-                    <span className="module-record-count">{records.load_board?.length ?? ''}</span>
-                  </button>
-                )}
-
-                {canReadQuotes && (
-                  <button
-                    key="quotes"
-                    className={'module-nav-item sub-item ' + (isQuotesSelected ? 'selected' : '')}
-                    aria-current={isQuotesSelected ? 'page' : undefined}
-                    title="Quotes & Rates"
-                    onClick={() => openModule('quotes')}
-                  >
-                    <Tag size={20} />
-                    <span>Quotes & Rates</span>
-                    <span className="module-record-count">{records.quotes?.length ?? ''}</span>
-                  </button>
-                )}
-
-                {canReadFleet && (
-                  <button
-                    key="fleet"
-                    className={'module-nav-item sub-item ' + (isFleetSelected ? 'selected' : '')}
-                    aria-current={isFleetSelected ? 'page' : undefined}
-                    title="Carrier & Fleet"
-                    onClick={() => openModule('fleet')}
-                  >
-                    <Truck size={20} />
-                    <span>Carrier & Fleet</span>
-                    <span className="module-record-count">{records.fleet?.length ?? ''}</span>
-                  </button>
+                    {canReadFleet && (
+                      <button
+                        key="fleet"
+                        className={'module-nav-item sub-item ' + (isFleetSelected ? 'selected' : '')}
+                        aria-current={isFleetSelected ? 'page' : undefined}
+                        title="Carriers & Fleet"
+                        onClick={() => openModule('fleet')}
+                      >
+                        <Truck size={20} />
+                        <span>Carriers & Fleet</span>
+                        <span className="module-record-count">{records.fleet?.length ?? ''}</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
           </div>
         )}
 
-        {/* 2. Exactly ONE System Settings row below Masters */}
+        {/* Settings row below Manage */}
         {canReadSettings && (
           <button
             key="admin"
             className={'module-nav-item ' + (isAdminSelected ? 'selected' : '')}
             aria-current={isAdminSelected ? 'page' : undefined}
-            title="System settings"
+            title="Settings"
             onClick={() => openModule('admin')}
           >
             <GearSix size={20} />
-            <span>System settings</span>
+            <span>Settings</span>
             <span className="module-record-count">{records.admin?.length ?? ''}</span>
           </button>
         )}

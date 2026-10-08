@@ -555,9 +555,12 @@ export default function CarrierFleetManagement({
       {/* ─── HEADER ─── */}
       <header className="cf-header">
         <div className="cf-header-title">
-          <h1>Carrier & Fleet Management</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Truck size={28} style={{ color: 'var(--blue, #005fdc)' }} />
+            <h1>Carriers & Fleet</h1>
+          </div>
           <p>
-            Unified registry for fleet assets, vehicle maintenance, FMCSA HOS compliance, insurance, carrier scorecard, and load assignment.
+            Manage carrier assets, drivers, compliance, maintenance, and fleet operations.
           </p>
         </div>
         <div className="cf-header-actions">
@@ -599,7 +602,7 @@ export default function CarrierFleetManagement({
             className={`cf-tab-btn ${activeTab === 'fleet' ? 'active' : ''}`}
             onClick={() => setActiveTab('fleet')}
           >
-            <Truck size={17} /> Fleet Assets (FR-5.1)
+            <Truck size={17} /> Fleet Assets 
           </button>
         )}
         {!isDriver && (
@@ -608,7 +611,7 @@ export default function CarrierFleetManagement({
             className={`cf-tab-btn ${activeTab === 'maintenance' ? 'active' : ''}`}
             onClick={() => setActiveTab('maintenance')}
           >
-            <Wrench size={17} /> Maintenance & Availability (FR-5.2)
+            <Wrench size={17} /> Maintenance & Availability
           </button>
         )}
         <button
@@ -616,7 +619,7 @@ export default function CarrierFleetManagement({
           className={`cf-tab-btn ${activeTab === 'drivers' ? 'active' : ''}`}
           onClick={() => setActiveTab('drivers')}
         >
-          <UsersThree size={17} /> {isDriver ? 'My Duty Status & HOS' : 'Driver Roster & HOS (FR-5.3)'}
+          <UsersThree size={17} /> {isDriver ? 'My Duty Status & HOS' : 'Driver Roster & HOS'}
         </button>
         {!isDriver && (
           <button
@@ -624,7 +627,7 @@ export default function CarrierFleetManagement({
             className={`cf-tab-btn ${activeTab === 'compliance' ? 'active' : ''}`}
             onClick={() => setActiveTab('compliance')}
           >
-            <ShieldCheck size={17} /> Insurance & Compliance (FR-5.4)
+            <ShieldCheck size={17} /> Insurance & Compliance 
           </button>
         )}
         {!isDriver && (
@@ -633,7 +636,7 @@ export default function CarrierFleetManagement({
             className={`cf-tab-btn ${activeTab === 'scorecard' ? 'active' : ''}`}
             onClick={() => setActiveTab('scorecard')}
           >
-            <ChartBar size={17} /> Carrier Scorecard (FR-5.5)
+            <ChartBar size={17} /> Carrier Scorecard 
           </button>
         )}
         {!isDriver && (
@@ -642,7 +645,7 @@ export default function CarrierFleetManagement({
             className={`cf-tab-btn ${activeTab === 'tiers' ? 'active' : ''}`}
             onClick={() => setActiveTab('tiers')}
           >
-            <Stack size={17} /> Network Tiers (FR-5.6)
+            <Stack size={17} /> Network Tiers
           </button>
         )}
         {!isDriver && (
@@ -651,7 +654,7 @@ export default function CarrierFleetManagement({
             className={`cf-tab-btn ${activeTab === 'assignments' ? 'active' : ''}`}
             onClick={() => setActiveTab('assignments')}
           >
-            <ArrowsLeftRight size={17} /> Fleet Assignment (FR-5.7)
+            <ArrowsLeftRight size={17} /> Fleet Assignment 
           </button>
         )}
         <button
@@ -659,7 +662,7 @@ export default function CarrierFleetManagement({
           className={`cf-tab-btn ${activeTab === 'eld' ? 'active' : ''}`}
           onClick={() => setActiveTab('eld')}
         >
-          <Clock size={17} /> ELD & Telematics (FR-5.8)
+          <Clock size={17} /> ELD & Telematics 
         </button>
       </nav>
 
@@ -671,26 +674,26 @@ export default function CarrierFleetManagement({
           {/* KPI Metrics */}
           <div className="cf-metrics-grid">
             <div className="cf-metric-card">
-              <span className="cf-metric-label">Total Fleet Units</span>
+              <span className="cf-metric-label">TOTAL FLEET</span>
               <span className="cf-metric-value">{vehicleStats.total}</span>
-              <span className="cf-metric-sub">Registered power units & trailers</span>
+              <span className="cf-metric-sub">Fleet units registered</span>
             </div>
-            <div className="cf-metric-card">
-              <span className="cf-metric-label">Available for Dispatch</span>
+            <div className="cf-metric-card cf-metric-available">
+              <span className="cf-metric-label">AVAILABLE FOR DISPATCH</span>
               <span className="cf-metric-value" style={{ color: '#059669' }}>
                 {vehicleStats.available}
               </span>
               <span className="cf-metric-sub">Active & unassigned</span>
             </div>
-            <div className="cf-metric-card">
-              <span className="cf-metric-label">In Maintenance</span>
+            <div className="cf-metric-card cf-metric-maintenance">
+              <span className="cf-metric-label">IN MAINTENANCE</span>
               <span className="cf-metric-value" style={{ color: '#b45309' }}>
                 {vehicleStats.inMaint}
               </span>
               <span className="cf-metric-sub">Scheduled or in-shop</span>
             </div>
-            <div className="cf-metric-card">
-              <span className="cf-metric-label">Out of Service</span>
+            <div className="cf-metric-card cf-metric-out-of-service">
+              <span className="cf-metric-label">OUT OF SERVICE</span>
               <span className="cf-metric-value" style={{ color: '#dc2626' }}>
                 {vehicleStats.outOfService}
               </span>
@@ -786,16 +789,12 @@ export default function CarrierFleetManagement({
               <table className="cf-table">
                 <thead>
                   <tr>
-                    <th>Unit #</th>
-                    <th>Type</th>
-                    <th>Equipment</th>
-                    <th>Make / Model / Year</th>
-                    <th>VIN</th>
-                    <th>Plate</th>
-                    <th>Capacity (lbs)</th>
+                    <th>Unit & Vehicle Details</th>
+                    <th>Equipment & Type</th>
+                    <th>Registration & Capacity</th>
                     <th>Odometer</th>
-                    <th>Status</th>
-                    <th>Assignment</th>
+                    <th>Operational Status</th>
+                    <th>Dispatch Availability</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -803,30 +802,39 @@ export default function CarrierFleetManagement({
                   {vehicles.map((v) => (
                     <tr key={v.id}>
                       <td>
-                        <strong>{v.unit_number}</strong>
-                      </td>
-                      <td>
-                        <span className="cf-badge" style={{ background: '#f8fafc', color: '#475569' }}>
-                          {v.type?.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>{v.equipment_type || '—'}</td>
-                      <td>
-                        <div>
-                          {v.year ? `${v.year} ` : ''}{v.make || ''} {v.model || ''}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span className="cf-unit-id">{v.unit_number}</span>
+                          <span className="cf-unit-sub">
+                            {v.year ? `${v.year} ` : ''}{v.make || ''} {v.model || ''}
+                            {v.vin && (
+                              <>
+                                {' · '}
+                                <code className="cf-vin-code">VIN: {v.vin}</code>
+                              </>
+                            )}
+                          </span>
                         </div>
                       </td>
                       <td>
-                        <code style={{ fontSize: '11.5px', color: '#475569' }}>{v.vin}</code>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 600, color: '#0f172a' }}>{v.equipment_type || '—'}</span>
+                          <span className="cf-type-badge">{v.type?.toUpperCase()}</span>
+                        </div>
                       </td>
                       <td>
-                        {v.plate_number ? `${v.plate_number} (${v.plate_state || '—'})` : '—'}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 500, color: '#1e293b' }}>
+                            {v.plate_number ? `${v.plate_number} (${v.plate_state || '—'})` : '—'}
+                          </span>
+                          <span className="cf-text-muted">
+                            {v.max_payload_lbs ? `${Number(v.max_payload_lbs).toLocaleString()} lbs cap` : '—'}
+                          </span>
+                        </div>
                       </td>
                       <td>
-                        {v.max_payload_lbs ? `${Number(v.max_payload_lbs).toLocaleString()} lbs` : '—'}
-                      </td>
-                      <td>
-                        {v.current_odometer ? `${Number(v.current_odometer).toLocaleString()} mi` : '—'}
+                        <strong style={{ color: '#0f172a' }}>
+                          {v.current_odometer ? `${Number(v.current_odometer).toLocaleString()} mi` : '—'}
+                        </strong>
                       </td>
                       <td>
                         <span className={`cf-badge cf-badge-${v.status || 'active'}`}>
@@ -839,33 +847,36 @@ export default function CarrierFleetManagement({
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
+                        <div className="cf-row-actions">
                           <button
                             type="button"
-                            className="cf-btn cf-btn-secondary cf-btn-sm"
+                            className="cf-action-btn cf-action-btn-secondary"
                             onClick={() => setSelectedVehicleDetail(v)}
                             title="View Vehicle Specs"
                           >
-                            <Eye size={14} />
+                            <Eye size={13} />
+                            <span>Specs</span>
                           </button>
                           {canManageVehicles && (
                             <button
                               type="button"
-                              className="cf-btn cf-btn-secondary cf-btn-sm"
+                              className="cf-action-btn cf-action-btn-secondary"
                               onClick={() => setEditingVehicle(v)}
                               title="Edit Vehicle"
                             >
-                              <Pen size={14} />
+                              <Pen size={13} />
+                              <span>Edit</span>
                             </button>
                           )}
                           {canManageVehicles && v.status !== 'decommissioned' && (
                             <button
                               type="button"
-                              className="cf-btn cf-btn-danger cf-btn-sm"
+                              className="cf-action-btn cf-action-btn-danger"
                               onClick={() => setDecommissioningVehicle(v)}
                               title="Decommission Vehicle"
                             >
-                              <Trash size={14} />
+                              <Trash size={13} />
+                              <span>Decommission</span>
                             </button>
                           )}
                         </div>
@@ -1041,13 +1052,16 @@ export default function CarrierFleetManagement({
                         </td>
                         <td>
                           {canManageMaintenance && (
-                            <button
-                              type="button"
-                              className="cf-btn cf-btn-secondary cf-btn-sm"
-                              onClick={() => setEditingMaintRecord(m)}
-                            >
-                              Update Status
-                            </button>
+                            <div className="cf-row-actions">
+                              <button
+                                type="button"
+                                className="cf-action-btn cf-action-btn-secondary"
+                                onClick={() => setEditingMaintRecord(m)}
+                              >
+                                <Pen size={13} />
+                                <span>Update Status</span>
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -1144,9 +1158,28 @@ export default function CarrierFleetManagement({
           {/* Roster Table (Carrier Staff View) */}
           {!isDriver && (
             <div style={{ marginBottom: '24px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 10px', color: '#0f172a' }}>
-                Carrier Driver Roster (FR-5.3)
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 2px', color: '#0f172a' }}>
+                    {activeTab === 'eld' ? 'Carrier Fleet ELD & Telematics ' : 'Carrier Driver Roster '}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
+                    {activeTab === 'eld'
+                      ? 'Real-time Electronic Logging Device (ELD) status, FMCSA engine telemetry, and driver logs.'
+                      : 'Qualified commercial drivers, CDL endorsements, medical certifications, and active duty status.'}
+                  </p>
+                </div>
+                {activeTab === 'eld' && eldProviders?.length > 0 && (
+                  <div className="cf-eld-providers-strip">
+                    <span className="cf-eld-providers-label">Certified Gateways:</span>
+                    {eldProviders.map((p, idx) => (
+                      <span key={p.id || p.provider || idx} className="cf-badge cf-badge-active">
+                        {p.name || p.provider || String(p)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               {loadingDrivers ? (
                 <div className="cf-loading-box">
                   <ArrowClockwise size={24} className="cf-spin" />
@@ -1213,16 +1246,19 @@ export default function CarrierFleetManagement({
                             )}
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className="cf-btn cf-btn-secondary cf-btn-sm"
-                              onClick={() => {
-                                setSelectedDriverId(String(d.id));
-                                fetchDriverHosData(d.id);
-                              }}
-                            >
-                              View HOS Clocks
-                            </button>
+                            <div className="cf-row-actions">
+                              <button
+                                type="button"
+                                className="cf-action-btn cf-action-btn-secondary"
+                                onClick={() => {
+                                  setSelectedDriverId(String(d.id));
+                                  fetchDriverHosData(d.id);
+                                }}
+                              >
+                                <Clock size={13} />
+                                <span>View HOS Clocks</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1383,7 +1419,7 @@ export default function CarrierFleetManagement({
               >
                 <div>
                   <h4 style={{ fontSize: '13.5px', fontWeight: 600, margin: '0 0 2px', color: '#0f172a' }}>
-                    ELD Device Telematics (FR-5.8)
+                    ELD Device Telematics 
                   </h4>
                   <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
                     Certified Provider: <strong>{driverEld?.provider || 'Samsara ELD Gateway'}</strong> · Engine ECM: {driverEld?.engine_state || 'RUNNING'} · Last Telematics Ping: {driverEld?.last_sync_at ? new Date(driverEld.last_sync_at).toLocaleTimeString() : 'Just now'}
@@ -1549,13 +1585,16 @@ export default function CarrierFleetManagement({
                         </td>
                         <td>
                           {canManageCompliance && (
-                            <button
-                              type="button"
-                              className="cf-btn cf-btn-secondary cf-btn-sm"
-                              onClick={() => setEditingInsurance(pol)}
-                            >
-                              Update Policy
-                            </button>
+                            <div className="cf-row-actions">
+                              <button
+                                type="button"
+                                className="cf-action-btn cf-action-btn-secondary"
+                                onClick={() => setEditingInsurance(pol)}
+                              >
+                                <Pen size={13} />
+                                <span>Update Policy</span>
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -1577,7 +1616,7 @@ export default function CarrierFleetManagement({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px', color: '#0f172a' }}>
-                  Carrier Performance Scorecard (FR-5.5)
+                  Carrier Performance Scorecard 
                 </h2>
                 <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
                   Authoritative carrier performance evaluation, on-time service metrics, and safety standards.
@@ -1936,7 +1975,7 @@ export default function CarrierFleetManagement({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px', color: '#0f172a' }}>
-                  Carrier Network Tier Classification (FR-5.6)
+                  Carrier Network Tier Classification 
                 </h2>
                 <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
                   Governs load board early access window, automated load matching priority, and dispatch eligibility.
@@ -2114,7 +2153,7 @@ export default function CarrierFleetManagement({
           <div className="cf-assignment-stepper">
             <div>
               <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px', color: '#0f172a' }}>
-                Fleet Asset & Driver Load Assignment (FR-5.7)
+                Fleet Asset & Driver Load Assignment 
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
                 Assign an active power unit, compatible trailer, and qualified driver to a booked shipment with backend double-booking and HOS validation.
@@ -2174,13 +2213,14 @@ export default function CarrierFleetManagement({
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="cf-row-actions">
                   <button
                     type="button"
-                    className="cf-btn cf-btn-danger"
+                    className="cf-action-btn cf-action-btn-danger"
                     onClick={handleRemoveAssignment}
                   >
-                    Release / Unassign Combination
+                    <Trash size={13} />
+                    <span>Release / Unassign Combination</span>
                   </button>
                 </div>
               </div>
@@ -2316,8 +2356,8 @@ export default function CarrierFleetManagement({
           MODAL 4: DECOMMISSION CONFIRMATION
           ═══════════════════════════════════════════════════════ */}
       {decommissioningVehicle && (
-        <div className="cf-modal-backdrop">
-          <div className="cf-modal">
+        <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setDecommissioningVehicle(null); }}>
+          <div className="cf-modal" role="dialog" aria-modal="true">
             <header className="cf-modal-header">
               <h2>Confirm Vehicle Decommission</h2>
               <button type="button" className="icon-btn" onClick={() => setDecommissioningVehicle(null)}>
@@ -2431,13 +2471,18 @@ export default function CarrierFleetManagement({
       )}
 
       {/* ═══════════════════════════════════════════════════════
-          MODAL 10: REGISTER INSURANCE
+          MODAL 10: REGISTER / UPDATE INSURANCE
           ═══════════════════════════════════════════════════════ */}
-      {showNewInsuranceModal && (
+      {(showNewInsuranceModal || editingInsurance) && (
         <NewInsuranceModal
-          onClose={() => setShowNewInsuranceModal(false)}
+          policy={editingInsurance}
+          onClose={() => {
+            setShowNewInsuranceModal(false);
+            setEditingInsurance(null);
+          }}
           onSuccess={() => {
             setShowNewInsuranceModal(false);
+            setEditingInsurance(null);
             fetchCompliance();
           }}
           notify={notify}
@@ -2531,11 +2576,19 @@ function NewVehicleModal({ onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal wide">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal wide" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
-          <h2>Register Fleet Vehicle (FR-5.1)</h2>
+          <h2>Register Fleet Vehicle</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>
@@ -2718,9 +2771,17 @@ function EditVehicleModal({ vehicle, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>Edit Vehicle #{vehicle.unit_number}</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -2791,9 +2852,17 @@ function EditVehicleModal({ vehicle, onClose, onSuccess, notify }) {
 // SUB-COMPONENT: VEHICLE DETAIL MODAL
 // ─────────────────────────────────────────────────────────────
 function VehicleDetailModal({ vehicle, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <div>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>
@@ -2863,9 +2932,17 @@ function NewMaintenanceModal({ vehicleId, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>Schedule Maintenance Service</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -2973,9 +3050,17 @@ function EditMaintenanceModal({ record, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>Update Maintenance Status #{record.id}</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -3045,9 +3130,17 @@ function NewInspectionModal({ vehicleId, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>Record Vehicle Safety Inspection</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -3139,9 +3232,17 @@ function RecordDutyStatusModal({ driverId, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>Change Driver Duty Status</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -3227,9 +3328,17 @@ function CheckHosEligibilityModal({ driverId, onClose, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>Check Driver HOS Trip Eligibility</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -3316,16 +3425,28 @@ function CheckHosEligibilityModal({ driverId, onClose, notify }) {
 // ─────────────────────────────────────────────────────────────
 // SUB-COMPONENT: NEW INSURANCE POLICY (FR-5.4)
 // ─────────────────────────────────────────────────────────────
-function NewInsuranceModal({ onClose, onSuccess, notify }) {
-  const [type, setType] = useState('cargo_insurance');
-  const [policyNumber, setPolicyNumber] = useState('');
-  const [insurerName, setInsurerName] = useState('Travelers Commercial Lines');
-  const [coverageAmount, setCoverageAmount] = useState('1000000');
+function NewInsuranceModal({ policy, onClose, onSuccess, notify }) {
+  const [type, setType] = useState(policy?.type || 'cargo_insurance');
+  const [policyNumber, setPolicyNumber] = useState(policy?.policy_number || '');
+  const [insurerName, setInsurerName] = useState(policy?.insurer_name || 'Travelers Commercial Lines');
+  const [coverageAmount, setCoverageAmount] = useState(
+    policy?.coverage_amount != null ? String(policy.coverage_amount) : '1000000'
+  );
   const [expiryDate, setExpiryDate] = useState(
-    new Date(Date.now() + 365 * 86400 * 1000).toISOString().split('T')[0]
+    policy?.expiry_date
+      ? new Date(policy.expiry_date).toISOString().split('T')[0]
+      : new Date(Date.now() + 365 * 86400 * 1000).toISOString().split('T')[0]
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -3336,28 +3457,34 @@ function NewInsuranceModal({ onClose, onSuccess, notify }) {
     setSubmitting(true);
     setError('');
     try {
-      await createInsurancePolicy({
+      const payload = {
         type,
         policy_number: policyNumber.trim(),
         insurer_name: insurerName.trim(),
         coverage_amount: Number(coverageAmount),
         expiry_date: new Date(expiryDate).toISOString(),
         verification_status: 'valid',
-      });
-      notify?.('Insurance policy registered successfully');
+      };
+      if (policy?.id) {
+        await updateInsurancePolicy(policy.id, payload);
+        notify?.('Insurance policy updated successfully');
+      } else {
+        await createInsurancePolicy(payload);
+        notify?.('Insurance policy registered successfully');
+      }
       onSuccess?.();
     } catch (err) {
-      setError(err.message || 'Failed to register policy');
+      setError(err.message || 'Failed to save policy');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
-          <h2>Register Carrier Insurance Policy</h2>
+          <h2>{policy ? 'Update Carrier Insurance Policy' : 'Register Carrier Insurance Policy'}</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>
@@ -3426,7 +3553,7 @@ function NewInsuranceModal({ onClose, onSuccess, notify }) {
               Cancel
             </button>
             <button type="submit" className="cf-btn cf-btn-primary" disabled={submitting}>
-              {submitting ? 'Registering...' : 'Register Policy'}
+              {submitting ? (policy ? 'Saving...' : 'Registering...') : (policy ? 'Update Policy' : 'Register Policy')}
             </button>
           </footer>
         </form>
@@ -3465,9 +3592,17 @@ function SuspendCarrierModal({ currentStatus, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
           <h2>{isCurrentlySuspended ? 'Reinstate Carrier' : 'Suspend Carrier Operations'}</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -3558,12 +3693,19 @@ function UpdateCarrierTierModal({ currentTier, carrierOrgId, onClose, onSuccess,
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   return (
-    <div className="cf-modal-backdrop">
-      <div className="cf-modal">
+    <div className="cf-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="cf-modal" role="dialog" aria-modal="true">
         <header className="cf-modal-header">
-          <h2>Update Network Tier Classification (FR-5.6)</h2>
+          <h2>Update Network Tier Classification</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>

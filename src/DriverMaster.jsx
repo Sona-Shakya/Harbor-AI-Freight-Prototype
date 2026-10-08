@@ -271,7 +271,7 @@ function CreateDriverModal({ onClose, onSuccess, notify, currentUser }) {
   };
 
   return (
-    <ModalShell title="Onboard New Driver" onClose={onClose}>
+    <ModalShell title="Add Driver" onClose={onClose} wide>
       <form onSubmit={handleSubmit}>
         {errors.form && (
           <div className="driver-warning-box" role="alert">
@@ -280,166 +280,185 @@ function CreateDriverModal({ onClose, onSuccess, notify, currentUser }) {
           </div>
         )}
 
-        <h4 style={{ margin: '0 0 10px', fontSize: '14px', color: 'var(--ink)' }}>
-          1. Driver Basic Information
-        </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              Full Name *
-            </label>
-            <input
-              type="text"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              placeholder="e.g. John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            {errors.name && <small style={{ color: '#b91c1c' }}>{errors.name}</small>}
+        <div className="driver-modal-sections">
+          {/* Section 1: Driver Information */}
+          <div className="driver-modal-section">
+            <div className="driver-section-header">
+              <h4>Driver Information</h4>
+              <p>Personal profile, credentials, and contact details</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  placeholder="e.g. John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+                {errors.name && <small style={{ color: '#b91c1c' }}>{errors.name}</small>}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  placeholder="john@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                {errors.email && <small style={{ color: '#b91c1c' }}>{errors.email}</small>}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  placeholder="+1-555-0199"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  Temporary Password
+                </label>
+                <input
+                  type="text"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              Email Address *
-            </label>
-            <input
-              type="email"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              placeholder="john@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            {errors.email && <small style={{ color: '#b91c1c' }}>{errors.email}</small>}
+
+          {/* Section 2: Carrier & License Assignment */}
+          <div className="driver-modal-section">
+            <div className="driver-section-header">
+              <h4>Carrier & License Assignment</h4>
+              <p>Fleet operator assignment and state CDL credentials</p>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                Carrier Organization *
+              </label>
+              {isPlatformAdmin ? (
+                <select
+                  className="driver-select"
+                  style={{ width: '100%' }}
+                  value={orgId}
+                  onChange={(e) => setOrgId(e.target.value)}
+                >
+                  <option value="">Select Carrier Organization</option>
+                  {carriers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.legal_name || c.name} (ID: {c.id})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  disabled
+                  value={currentUser?.organization_roles?.[0]?.organization?.legal_name || 'Current Organization'}
+                />
+              )}
+              {errors.orgId && <small style={{ color: '#b91c1c' }}>{errors.orgId}</small>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  License Number *
+                </label>
+                <input
+                  type="text"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  placeholder="DL-XXXXXXX"
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  required
+                />
+                {errors.licenseNumber && <small style={{ color: '#b91c1c' }}>{errors.licenseNumber}</small>}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  State *
+                </label>
+                <input
+                  type="text"
+                  maxLength={2}
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px', textTransform: 'uppercase' }}
+                  placeholder="CA"
+                  value={licenseState}
+                  onChange={(e) => setLicenseState(e.target.value.toUpperCase())}
+                  required
+                />
+                {errors.licenseState && <small style={{ color: '#b91c1c' }}>{errors.licenseState}</small>}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
+                  License Expiry *
+                </label>
+                <input
+                  type="date"
+                  className="driver-search-input"
+                  style={{ paddingLeft: '12px' }}
+                  value={licenseExpiry}
+                  onChange={(e) => setLicenseExpiry(e.target.value)}
+                  required
+                />
+                {errors.licenseExpiry && <small style={{ color: '#b91c1c' }}>{errors.licenseExpiry}</small>}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Additional Notes */}
+          <div className="driver-modal-section">
+            <div className="driver-section-header">
+              <h4>Additional Notes</h4>
+              <p>Driver endorsements, CDL class, or special handling notes</p>
+            </div>
+            <div>
+              <textarea
+                rows={2}
+                className="driver-search-input"
+                style={{ paddingLeft: '12px', resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                placeholder="Driver endorsements, CDL class, or special handling notes..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              placeholder="+1-555-0199"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              Temporary Password
-            </label>
-            <input
-              type="text"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <h4 style={{ margin: '14px 0 10px', fontSize: '14px', color: 'var(--ink)' }}>
-          2. Organization & License Assignment
-        </h4>
-        <div style={{ marginBottom: '14px' }}>
-          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-            Carrier Organization *
-          </label>
-          {isPlatformAdmin ? (
-            <select
-              className="driver-select"
-              style={{ width: '100%' }}
-              value={orgId}
-              onChange={(e) => setOrgId(e.target.value)}
-            >
-              <option value="">Select Carrier Organization</option>
-              {carriers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.legal_name || c.name} (ID: {c.id})
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type="text"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              disabled
-              value={currentUser?.organization_roles?.[0]?.organization?.legal_name || 'Current Organization'}
-            />
-          )}
-          {errors.orgId && <small style={{ color: '#b91c1c' }}>{errors.orgId}</small>}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: '12px', marginBottom: '14px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              License Number *
-            </label>
-            <input
-              type="text"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              placeholder="DL-XXXXXXX"
-              value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
-            />
-            {errors.licenseNumber && <small style={{ color: '#b91c1c' }}>{errors.licenseNumber}</small>}
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              State *
-            </label>
-            <input
-              type="text"
-              maxLength={2}
-              className="driver-search-input"
-              style={{ paddingLeft: '12px', textTransform: 'uppercase' }}
-              placeholder="CA"
-              value={licenseState}
-              onChange={(e) => setLicenseState(e.target.value.toUpperCase())}
-            />
-            {errors.licenseState && <small style={{ color: '#b91c1c' }}>{errors.licenseState}</small>}
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-              License Expiry *
-            </label>
-            <input
-              type="date"
-              className="driver-search-input"
-              style={{ paddingLeft: '12px' }}
-              value={licenseExpiry}
-              onChange={(e) => setLicenseExpiry(e.target.value)}
-            />
-            {errors.licenseExpiry && <small style={{ color: '#b91c1c' }}>{errors.licenseExpiry}</small>}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-            Internal Notes
-          </label>
-          <textarea
-            rows={2}
-            className="driver-search-input"
-            style={{ paddingLeft: '12px', resize: 'vertical' }}
-            placeholder="Driver endorsements, CDL class, or special handling notes..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
           <button type="button" className="btn outline" onClick={onClose} disabled={submitting}>
             Cancel
           </button>
           <button type="submit" className="btn primary" disabled={submitting}>
-            {submitting ? 'Creating Profile...' : 'Create Driver Profile'}
+            {submitting ? 'Creating Profile...' : 'Add Driver'}
           </button>
         </div>
       </form>
@@ -632,7 +651,7 @@ function DriverDetailModal({ driverId, onClose, onSuccess, notify, canUpdate, cu
 
   return (
     <ModalShell
-      title={`Driver Onboarding: ${driver?.name || 'Driver Details'}`}
+      title={driver?.name ? `Driver Details — ${driver.name}` : 'Driver Details'}
       onClose={onClose}
       wide
     >
@@ -1224,20 +1243,24 @@ export default function DriverMaster({
       {/* Page Header */}
       <div className="driver-page-header">
         <div className="driver-page-header-left">
-          <h1>Driver Onboarding & Master</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Truck size={28} style={{ color: 'var(--blue, #005fdc)' }} />
+            <h1>Drivers</h1>
+          </div>
           <p>
-            Enterprise driver qualification workflow, CDL verification, medical card compliance, and background screening (FR-1.7).
+            Manage driver profiles, CDL qualifications, medical certifications, and compliance onboarding.
           </p>
         </div>
         <div className="driver-header-actions">
           <button
             type="button"
-            className="icon-btn"
+            className="btn"
             title="Refresh driver list"
             onClick={fetchDrivers}
             disabled={loading}
           >
-            <ArrowClockwise size={18} className={loading ? 'spinning' : ''} />
+            <ArrowClockwise size={16} className={loading ? 'spinning' : ''} />
+            <span>Refresh</span>
           </button>
           {canCreate && (
             <button
@@ -1245,8 +1268,8 @@ export default function DriverMaster({
               className="btn primary"
               onClick={() => setShowCreateModal(true)}
             >
-              <Plus size={18} />
-              <span> Onboard Driver</span>
+              <Plus size={16} />
+              <span>Add Driver</span>
             </button>
           )}
         </div>
@@ -1285,18 +1308,29 @@ export default function DriverMaster({
       {/* Toolbar */}
       <div className="driver-toolbar">
         <div className="driver-search-wrap">
-          <MagnifyingGlass size={18} />
+          <MagnifyingGlass size={17} />
           <input
             type="text"
             className="driver-search-input"
-            placeholder="Search drivers by name, email, license number..."
+            placeholder="Search drivers..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              className="driver-search-clear-btn"
+              aria-label="Clear search"
+              onClick={() => setSearch('')}
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         <select
           className="driver-select"
+          aria-label="Filter by onboarding status"
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
@@ -1309,6 +1343,21 @@ export default function DriverMaster({
             </option>
           ))}
         </select>
+
+        {(search || statusFilter !== 'all') && (
+          <button
+            type="button"
+            className="driver-reset-btn"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('all');
+              setPage(1);
+            }}
+            title="Reset filters"
+          >
+            <X size={14} /> Clear filters
+          </button>
+        )}
       </div>
 
       {/* Error state */}
@@ -1330,7 +1379,7 @@ export default function DriverMaster({
               <th>Medical Expiry</th>
               <th>Background Check</th>
               <th>Onboarding Status</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
+              <th className="driver-th-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1344,8 +1393,37 @@ export default function DriverMaster({
             ) : filteredDrivers.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
-                  <Truck size={30} style={{ opacity: 0.5, marginBottom: '6px' }} />
-                  <div>No driver profiles found matching current filters.</div>
+                  <Truck size={32} style={{ opacity: 0.5, marginBottom: '8px' }} />
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>No Drivers Found</div>
+                  <div style={{ fontSize: '13px', marginTop: '4px' }}>
+                    {search || statusFilter !== 'all'
+                      ? 'No driver profiles match your current search and filter criteria.'
+                      : 'No drivers registered yet. Click "Add Driver" to onboard your first driver.'}
+                  </div>
+                  {(search || statusFilter !== 'all') && (
+                    <button
+                      type="button"
+                      className="btn outline small"
+                      style={{ marginTop: '12px' }}
+                      onClick={() => {
+                        setSearch('');
+                        setStatusFilter('all');
+                        setPage(1);
+                      }}
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                  {!search && statusFilter === 'all' && canCreate && (
+                    <button
+                      type="button"
+                      className="btn primary small"
+                      style={{ marginTop: '12px' }}
+                      onClick={() => setShowCreateModal(true)}
+                    >
+                      <Plus size={14} /> Add First Driver
+                    </button>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -1396,15 +1474,17 @@ export default function DriverMaster({
                         {d.onboarding_status || 'pending'}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        className="btn small outline"
-                        onClick={() => setDetailDriverId(d.user_id || d.id)}
-                      >
-                        <Eye size={14} />
-                        <span>View / Onboard</span>
-                      </button>
+                    <td>
+                      <div className="driver-row-actions">
+                        <button
+                          type="button"
+                          className="driver-action-btn"
+                          title="View Driver & Onboarding Details"
+                          onClick={() => setDetailDriverId(d.user_id || d.id)}
+                        >
+                          <Eye size={14} /> View / Onboard
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

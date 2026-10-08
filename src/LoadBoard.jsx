@@ -180,6 +180,50 @@ export default function LoadBoard({
   const isPlatformAdmin = currentRoleName === 'Platform Admin';
   const isShipper = currentOrg?.type === 'shipper' || isPlatformAdmin;
   const isCarrier = currentOrg?.type === 'carrier' || isPlatformAdmin || currentRoleName === 'Dispatcher';
+  const canRead = typeof hasPermission === 'function' ? hasPermission('load_board', 'read') : true;
+
+  // KPI calculations
+  const bookableCount = postings.filter((p) => p.status === 'posted' && p.allow_book_now).length;
+  const biddableCount = postings.filter((p) => p.status === 'posted' && p.allow_bids).length;
+  const privateCount = postings.filter((p) => p.visibility === 'private').length;
+
+  // Active filters helper
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() ||
+    destQuery.trim() ||
+    (selectedEquipment && selectedEquipment !== 'all') ||
+    (statusFilter && statusFilter !== 'posted') ||
+    deadheadRadius > 0 ||
+    minRpmFilter ||
+    originSearchCity.trim()
+  );
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setDestQuery('');
+    setSelectedEquipment('all');
+    setStatusFilter('posted');
+    setDeadheadRadius(0);
+    setMinRpmFilter('');
+    setOriginSearchCity('');
+    setPage(1);
+  };
+
+  // Keyboard shortcut: Escape to close modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowBookModal(null);
+        setShowBidsManager(null);
+        setShowMatchesModal(null);
+        setShowPostModal(false);
+        setShowAddPrefModal(false);
+        setShowBidModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   /* ─── Real-Time Socket.io Connection (FR-3.7) ──────────────────── */
   useEffect(() => {
@@ -552,15 +596,31 @@ export default function LoadBoard({
     }
   };
 
+  if (!canRead) {
+    return (
+      <div className="lb-container" data-testid="load-board-container">
+        <div className="lb-warning-box" style={{ margin: '30px auto', maxWidth: '600px' }}>
+          <WarningCircle size={24} />
+          <div>
+            <h3 style={{ margin: '0 0 6px', fontSize: '16px' }}>Access Restricted</h3>
+            <p style={{ margin: 0, fontSize: '13.5px' }}>
+              Your account does not possess permission to view or manage load board postings. Contact your organization administrator for access.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="lb-container" data-testid="load-board-container">
       {/* ─── Page Header ────────────────────────────────────────── */}
       <header className="lb-header">
         <div className="lb-header-titles">
-          <h1>
-            <Truck size={28} />
-            Load Board & Freight Matching
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Truck size={28} style={{ color: 'var(--lb-blue, #005fdc)' }} />
+            <h1>Find Loads</h1>
+          </div>
           <p>
             Public and private freight marketplace, automated carrier scoring, live bidding, and concurrency-safe
             booking.
@@ -705,15 +765,45 @@ export default function LoadBoard({
       {/* ─── TAB 1: Available Loads & TAB 2: My Postings ─────────── */}
       {(activeTab === 'available' || activeTab === 'my_postings') && (
         <>
+          {/* Summary / KPI Cards Bar */}
+          <div className="lb-summary-cards">
+            <div className="lb-summary-card">
+              <span className="lb-summary-card-label">Marketplace Loads</span>
+              <span className="lb-summary-card-val">{totalPostings}</span>
+              <span className="lb-summary-card-sub">Active listings</span>
+            </div>
+            <div className="lb-summary-card">
+              <span className="lb-summary-card-label">Instant Book</span>
+              <span className="lb-summary-card-val" style={{ color: '#059669' }}>
+                {bookableCount}
+              </span>
+              <span className="lb-summary-card-sub">Direct award loads</span>
+            </div>
+            <div className="lb-summary-card">
+              <span className="lb-summary-card-label">Open for Bidding</span>
+              <span className="lb-summary-card-val" style={{ color: '#005fdc' }}>
+                {biddableCount}
+              </span>
+              <span className="lb-summary-card-sub">Accepting carrier offers</span>
+            </div>
+            <div className="lb-summary-card">
+              <span className="lb-summary-card-label">Private Network</span>
+              <span className="lb-summary-card-val" style={{ color: '#7e22ce' }}>
+                {privateCount}
+              </span>
+              <span className="lb-summary-card-sub">Restricted access loads</span>
+            </div>
+          </div>
+
           {/* Filter Toolbar */}
           <div className="lb-toolbar">
             <div className="lb-toolbar-row">
               {/* Origin search (FR-3.2) */}
               <div className="lb-search-box">
-                <MapPin size={18} />
+                <MapPin size={17} />
                 <input
                   type="text"
-                  placeholder="Origin city/state..."
+                  placeholder="Filter origin (city, state)..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -722,14 +812,27 @@ export default function LoadBoard({
                   onKeyDown={(e) => e.key === 'Enter' && fetchPostings()}
                   aria-label="Filter origin"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="lb-search-clear-btn"
+                    aria-label="Clear origin filter"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setPage(1);
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
 
               {/* Destination search (FR-3.2) */}
               <div className="lb-search-box">
-                <MapPin size={18} />
+                <MapPin size={17} />
                 <input
                   type="text"
-                  placeholder="Destination city/state..."
+                  placeholder="Filter destination (city, state)..."
                   value={destQuery}
                   onChange={(e) => {
                     setDestQuery(e.target.value);
@@ -738,6 +841,19 @@ export default function LoadBoard({
                   onKeyDown={(e) => e.key === 'Enter' && fetchPostings()}
                   aria-label="Filter destination"
                 />
+                {destQuery && (
+                  <button
+                    type="button"
+                    className="lb-search-clear-btn"
+                    aria-label="Clear destination filter"
+                    onClick={() => {
+                      setDestQuery('');
+                      setPage(1);
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
 
               {/* Status filter */}
@@ -821,8 +937,21 @@ export default function LoadBoard({
               )}
 
               <button type="button" className="btn small primary" onClick={() => fetchPostings()}>
-                Apply Filters
+                <MagnifyingGlass size={14} />
+                <span>Apply Filters</span>
               </button>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="lb-reset-btn"
+                  onClick={resetFilters}
+                  title="Clear all active filters"
+                >
+                  <X size={14} />
+                  <span>Clear filters</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -836,9 +965,28 @@ export default function LoadBoard({
             <div className="lb-empty-state">
               <Truck size={48} weight="light" />
               <h3>No Load Postings Found</h3>
-              <p>No loads matched your current filters. Adjust your deadhead radius, equipment, or origin query.</p>
-              {isShipper && (
-                <button type="button" className="btn primary" onClick={openNewPostingModal} style={{ marginTop: '8px' }}>
+              <p>
+                {hasActiveFilters
+                  ? 'No loads matched your current filters. Adjust your deadhead radius, equipment, or origin query.'
+                  : 'There are currently no active loads posted to the marketplace.'}
+              </p>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="btn outline small"
+                  onClick={resetFilters}
+                  style={{ marginTop: '8px' }}
+                >
+                  <X size={14} /> Clear Filters
+                </button>
+              )}
+              {isShipper && !hasActiveFilters && (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={openNewPostingModal}
+                  style={{ marginTop: '8px' }}
+                >
                   <Plus size={16} />
                   Post a New Load
                 </button>
@@ -850,14 +998,14 @@ export default function LoadBoard({
               <table className="lb-table">
                 <thead>
                   <tr>
-                    <th>Posting / Ref</th>
-                    <th>Lane (Origin → Dest)</th>
+                    <th style={{ width: '130px' }}>Load Ref</th>
+                    <th>Corridor Lane</th>
                     <th>Equipment</th>
                     <th>Posted Rate</th>
                     <th>Visibility</th>
                     <th>Bids</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th style={{ textAlign: 'right', paddingRight: '16px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -877,8 +1025,8 @@ export default function LoadBoard({
                       <tr key={p.id}>
                         {/* ID & Ref */}
                         <td>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>#{p.id}</div>
-                          <small style={{ color: '#64748b' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--lb-ink, #0f172a)' }}>#{p.id}</div>
+                          <small style={{ color: 'var(--lb-muted, #64748b)' }}>
                             {p.shipment?.reference_number ? `Shipment: ${p.shipment.reference_number}` : `Shipment #${p.shipment_id}`}
                           </small>
                         </td>
@@ -931,7 +1079,7 @@ export default function LoadBoard({
                         {/* Bids Count (FR-3.3) */}
                         <td>
                           <span style={{ fontWeight: 600 }}>{p._count?.bids ?? (p.bids?.length || 0)}</span>
-                          <small style={{ color: '#64748b', marginLeft: '4px' }}>bids</small>
+                          <small style={{ color: 'var(--lb-muted, #64748b)', marginLeft: '4px' }}>bids</small>
                         </td>
 
                         {/* Status */}
@@ -942,19 +1090,19 @@ export default function LoadBoard({
                         </td>
 
                         {/* Actions */}
-                        <td>
-                          <div className="lb-actions-cell">
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="lb-row-actions">
                             {/* Instant Book Now (FR-3.5) */}
                             {canBook && (
                               <button
                                 type="button"
-                                className="lb-btn-book"
+                                className="lb-action-btn book"
                                 onClick={() => setShowBookModal(p)}
                                 disabled={submittingAction}
                                 title="Book Now instantly at posted rate"
                               >
-                                <Lightning size={14} weight="fill" />
-                                Book Now
+                                <Lightning size={13} weight="fill" />
+                                <span>Book Now</span>
                               </button>
                             )}
 
@@ -962,12 +1110,13 @@ export default function LoadBoard({
                             {canBid && (
                               <button
                                 type="button"
-                                className="lb-btn-bid"
+                                className="lb-action-btn bid"
                                 onClick={() => setShowBidModal(p)}
                                 disabled={submittingAction}
                                 title="Submit a carrier rate bid"
                               >
-                                Submit Bid
+                                <CurrencyDollar size={13} />
+                                <span>Submit Bid</span>
                               </button>
                             )}
 
@@ -975,11 +1124,12 @@ export default function LoadBoard({
                             {(isPoster || isPlatformAdmin) && (
                               <button
                                 type="button"
-                                className="lb-btn-secondary"
+                                className="lb-action-btn"
                                 onClick={() => openBidsForPosting(p)}
                                 title="Inspect incoming bids and counter-offers"
                               >
-                                Bids ({p._count?.bids ?? (p.bids?.length || 0)})
+                                <Handshake size={13} />
+                                <span>Bids ({p._count?.bids ?? (p.bids?.length || 0)})</span>
                               </button>
                             )}
 
@@ -987,11 +1137,12 @@ export default function LoadBoard({
                             {(isPoster || isPlatformAdmin) && (
                               <button
                                 type="button"
-                                className="lb-btn-secondary"
+                                className="lb-action-btn"
                                 onClick={() => openMatchesForPosting(p)}
                                 title="Automated carrier matching recommendations"
                               >
-                                Matches
+                                <UsersThree size={13} />
+                                <span>Matches</span>
                               </button>
                             )}
 
@@ -999,11 +1150,12 @@ export default function LoadBoard({
                             {(isPoster || isPlatformAdmin) && p.status === 'posted' && (
                               <button
                                 type="button"
-                                className="lb-btn-danger"
+                                className="lb-action-btn danger"
                                 onClick={() => handleCancelPosting(p.id)}
                                 title="Cancel this load posting"
                               >
-                                Cancel
+                                <X size={13} />
+                                <span>Cancel</span>
                               </button>
                             )}
                           </div>
@@ -1270,10 +1422,16 @@ export default function LoadBoard({
 
       {/* ─── MODAL 2: Instant Book Now Confirmation (FR-3.5) ────── */}
       {showBookModal && (
-        <div className="lb-modal-overlay">
+        <div
+          className="lb-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lb-book-title"
+          onMouseDown={(e) => e.target === e.currentTarget && setShowBookModal(null)}
+        >
           <div className="lb-modal-box">
             <div className="lb-modal-header">
-              <h2>
+              <h2 id="lb-book-title">
                 <Lightning size={22} weight="fill" style={{ color: '#10b981' }} />
                 Instant Book Now Confirmation
               </h2>
@@ -1366,10 +1524,16 @@ export default function LoadBoard({
 
       {/* ─── MODAL 4: Bids Manager & Counter-Offers (FR-3.3) ─────── */}
       {showBidsManager && (
-        <div className="lb-modal-overlay">
+        <div
+          className="lb-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lb-bids-mgr-title"
+          onMouseDown={(e) => e.target === e.currentTarget && setShowBidsManager(null)}
+        >
           <div className="lb-modal-box wide">
             <div className="lb-modal-header">
-              <h2>
+              <h2 id="lb-bids-mgr-title">
                 <Handshake size={22} />
                 Bids on Load #{showBidsManager.id} ({showBidsManager.origin_city} → {showBidsManager.dest_city})
               </h2>
@@ -1404,7 +1568,7 @@ export default function LoadBoard({
                         <th>Bid Amount</th>
                         <th>Counter Amount</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th style={{ textAlign: 'right', paddingRight: '14px' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1445,22 +1609,23 @@ export default function LoadBoard({
                                 {b.status?.toUpperCase()}
                               </span>
                             </td>
-                            <td>
-                              <div className="lb-actions-cell">
+                            <td style={{ textAlign: 'right' }}>
+                              <div className="lb-row-actions">
                                 {isShipper && ['submitted', 'countered'].includes(b.status) && (
                                   <>
                                     <button
                                       type="button"
-                                      className="lb-btn-book"
+                                      className="lb-action-btn book"
                                       onClick={() => handleAcceptBid(showBidsManager.id, b.id)}
                                       disabled={submittingAction}
                                       title="Accept this bid and award the load"
                                     >
-                                      Accept
+                                      <Check size={13} weight="bold" />
+                                      <span>Accept</span>
                                     </button>
                                     <button
                                       type="button"
-                                      className="lb-btn-secondary"
+                                      className="lb-action-btn"
                                       onClick={() =>
                                         setCounterInput((prev) => ({
                                           ...prev,
@@ -1468,15 +1633,17 @@ export default function LoadBoard({
                                         }))
                                       }
                                     >
-                                      {isCountering ? 'Cancel' : 'Counter'}
+                                      <ArrowsLeftRight size={13} />
+                                      <span>{isCountering ? 'Cancel' : 'Counter'}</span>
                                     </button>
                                     <button
                                       type="button"
-                                      className="lb-btn-danger"
+                                      className="lb-action-btn danger"
                                       onClick={() => handleRejectBid(showBidsManager.id, b.id, 'Declined by poster')}
                                       disabled={submittingAction}
                                     >
-                                      Reject
+                                      <X size={13} />
+                                      <span>Reject</span>
                                     </button>
                                   </>
                                 )}
@@ -1484,11 +1651,12 @@ export default function LoadBoard({
                                 {isCarrier && ['submitted', 'countered'].includes(b.status) && (
                                   <button
                                     type="button"
-                                    className="lb-btn-danger"
+                                    className="lb-action-btn danger"
                                     onClick={() => handleWithdrawBid(showBidsManager.id, b.id)}
                                     disabled={submittingAction}
                                   >
-                                    Withdraw
+                                    <X size={13} />
+                                    <span>Withdraw</span>
                                   </button>
                                 )}
                               </div>
@@ -1545,10 +1713,16 @@ export default function LoadBoard({
 
       {/* ─── MODAL 5: Automated Carrier Matches (FR-3.4) ─────────── */}
       {showMatchesModal && (
-        <div className="lb-modal-overlay">
+        <div
+          className="lb-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lb-matches-title"
+          onMouseDown={(e) => e.target === e.currentTarget && setShowMatchesModal(null)}
+        >
           <div className="lb-modal-box wide">
             <div className="lb-modal-header">
-              <h2>
+              <h2 id="lb-matches-title">
                 <UsersThree size={22} />
                 Automated Carrier Matches for Load #{showMatchesModal.id}
               </h2>
@@ -1786,10 +1960,16 @@ function PostLoadModal({ shipments = [], onClose, onSuccess, notify }) {
   };
 
   return (
-    <div className="lb-modal-overlay">
+    <div
+      className="lb-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lb-post-modal-title"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="lb-modal-box wide">
         <div className="lb-modal-header">
-          <h2>
+          <h2 id="lb-post-modal-title">
             <Tag size={22} />
             Post Shipment to Load Board
           </h2>
@@ -1989,10 +2169,16 @@ function SubmitBidModal({ posting, onClose, onSubmit, submitting }) {
   };
 
   return (
-    <div className="lb-modal-overlay">
+    <div
+      className="lb-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lb-bid-modal-title"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="lb-modal-box">
         <div className="lb-modal-header">
-          <h2>
+          <h2 id="lb-bid-modal-title">
             <CurrencyDollar size={22} />
             Submit Carrier Bid on Load #{posting.id}
           </h2>
@@ -2101,10 +2287,16 @@ function AddCarrierPreferenceModal({ onClose, onSuccess, notify }) {
   };
 
   return (
-    <div className="lb-modal-overlay">
+    <div
+      className="lb-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lb-pref-modal-title"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="lb-modal-box">
         <div className="lb-modal-header">
-          <h2>
+          <h2 id="lb-pref-modal-title">
             <Sliders size={22} />
             Add Preferred Operating Corridor
           </h2>

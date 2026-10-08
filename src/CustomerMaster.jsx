@@ -115,9 +115,10 @@ function ModalShell({ title, onClose, children, wide = false }) {
 function CustomerFormModal({ customer, onClose, onSuccess, notify }) {
   const isEdit = Boolean(customer);
   const [form, setForm] = useState({
-    legal_name:   customer?.legal_name   ?? '',
-    tax_id:       customer?.tax_id       ?? '',
-    is_enterprise: customer?.is_enterprise ?? false,
+    legal_name:       customer?.legal_name       ?? '',
+    tax_id:           customer?.tax_id           ?? '',
+    is_enterprise:    customer?.is_enterprise    ?? false,
+    operating_status: customer?.operating_status ?? '',
   });
   const [error, setError]   = useState('');
   const [saving, setSaving] = useState(false);
@@ -143,6 +144,9 @@ function CustomerFormModal({ customer, onClose, onSuccess, notify }) {
         tax_id:        form.tax_id.trim() || undefined,
         is_enterprise: Boolean(form.is_enterprise),
       };
+      if (form.operating_status?.trim()) {
+        payload.operating_status = form.operating_status.trim();
+      }
       if (isEdit) {
         await updateCustomer(customer.id, payload);
         notify('Customer updated successfully.');
@@ -166,8 +170,8 @@ function CustomerFormModal({ customer, onClose, onSuccess, notify }) {
       <form onSubmit={handleSubmit} noValidate>
         <p className="cm-modal-description">
           {isEdit
-            ? 'Update the customer organization profile.'
-            : 'Create a new Shipper customer organization. The type is fixed as Shipper.'}
+            ? 'Update customer organization information and operational profile.'
+            : 'Register a new shipper customer organization and configure initial profile details.'}
         </p>
 
         {error && (
@@ -177,62 +181,115 @@ function CustomerFormModal({ customer, onClose, onSuccess, notify }) {
           </div>
         )}
 
-        <div className="cm-form-grid">
-          {/* Legal Name */}
-          <label className="cm-form-full-width">
-            Legal Name <span className="required">*</span>
-            <input
-              type="text"
-              value={form.legal_name}
-              onChange={(e) => setForm(prev => ({ ...prev, legal_name: e.target.value }))}
-              placeholder="e.g. Apex Freight Ltd."
-              required
-              maxLength={200}
-              autoFocus
-            />
-          </label>
+        <div className="cm-modal-sections">
+          {/* Section 1: Customer Information */}
+          <div className="cm-modal-section">
+            <div className="cm-section-header">
+              <h4>Customer Information</h4>
+              <p>Core organizational identity and legal registration</p>
+            </div>
+            <div className="cm-form-grid">
+              {/* Legal Name */}
+              <label className="cm-form-full-width">
+                Legal Company Name <span className="required">*</span>
+                <input
+                  type="text"
+                  value={form.legal_name}
+                  onChange={(e) => setForm(prev => ({ ...prev, legal_name: e.target.value }))}
+                  placeholder="e.g. Apex Freight Ltd."
+                  required
+                  maxLength={200}
+                  autoFocus
+                />
+              </label>
 
-          {/* Tax ID */}
-          <label className="cm-form-full-width">
-            Tax ID {!isEdit && <span className="required">*</span>}
-            <input
-              type="text"
-              value={form.tax_id}
-              onChange={(e) => setForm(prev => ({ ...prev, tax_id: e.target.value }))}
-              placeholder="e.g. 12-3456789"
-              maxLength={80}
-            />
-          </label>
+              {/* Tax ID */}
+              <label className="cm-form-full-width">
+                Tax ID / Registration Number {!isEdit && <span className="required">*</span>}
+                <input
+                  type="text"
+                  value={form.tax_id}
+                  onChange={(e) => setForm(prev => ({ ...prev, tax_id: e.target.value }))}
+                  placeholder="e.g. 12-3456789"
+                  maxLength={80}
+                />
+              </label>
 
-          {/* Type — read-only */}
-          <label>
-            Customer Type
-            <input type="text" value="Shipper" readOnly />
-          </label>
+              {/* Enterprise Account Flag */}
+              <div className="cm-checkbox-row cm-form-full-width">
+                <input
+                  type="checkbox"
+                  id="cm-enterprise-flag"
+                  checked={Boolean(form.is_enterprise)}
+                  onChange={(e) => setForm(prev => ({ ...prev, is_enterprise: e.target.checked }))}
+                />
+                <div>
+                  <label htmlFor="cm-enterprise-flag" style={{ cursor: 'pointer', fontWeight: 600 }}>
+                    Enterprise Account
+                  </label>
+                  <span className="cm-form-subtext">
+                    Designate this customer as high-volume enterprise tier with priority dispatch and custom reporting.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          {/* Status — read-only (backend authoritative) */}
-          <label>
-            Status
-            <input
-              type="text"
-              value={isEdit ? (customer?.status || 'active') : 'Active (set by backend)'}
-              readOnly
-            />
-          </label>
+          {/* Section 2: Operational Profile */}
+          <div className="cm-modal-section">
+            <div className="cm-section-header">
+              <h4>Operational Profile</h4>
+              <p>Account classification and service settings</p>
+            </div>
+            <div className="cm-form-grid">
+              {/* Type — read-only */}
+              <label>
+                Customer Type
+                <input type="text" value="Shipper" readOnly />
+                <span className="cm-form-subtext">Customers are strictly classified as Shippers.</span>
+              </label>
 
-          {/* Enterprise flag */}
-          <div className="cm-checkbox-row cm-form-full-width">
-            <input
-              type="checkbox"
-              id="cm-enterprise-flag"
-              checked={Boolean(form.is_enterprise)}
-              onChange={(e) => setForm(prev => ({ ...prev, is_enterprise: e.target.checked }))}
-            />
-            <label htmlFor="cm-enterprise-flag">Enterprise customer</label>
+              {/* Operating Status */}
+              <label>
+                Operating Status
+                <input
+                  type="text"
+                  value={form.operating_status}
+                  onChange={(e) => setForm(prev => ({ ...prev, operating_status: e.target.value }))}
+                  placeholder="e.g. Standard Operations"
+                  maxLength={100}
+                />
+                <span className="cm-form-subtext">Optional operational status or SLA tier notes.</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Section 3: Account Status */}
+          <div className="cm-modal-section">
+            <div className="cm-section-header">
+              <h4>Account Status</h4>
+              <p>Platform access and lifecycle status</p>
+            </div>
+            <div className="cm-form-grid">
+              <div className="cm-form-full-width">
+                <div className="cm-status-readout">
+                  <span className={statusBadgeClass(isEdit ? customer?.status : 'active')}>
+                    {isEdit
+                      ? (customer?.status ? customer.status.toUpperCase() : 'ACTIVE')
+                      : 'ACTIVE (DEFAULT)'}
+                  </span>
+                  <span className="cm-status-readout-note">
+                    {isEdit
+                      ? 'Account status transitions (Active ↔ Suspended ↔ Terminated) are recorded in the audit trail. Use the Status action button in the table to modify.'
+                      : 'New customer accounts are activated upon creation.'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="modal-actions">
+        <div className="modal-actions" style={{ marginTop: '20px' }}>
           <button
             type="button"
             className="btn"
@@ -246,7 +303,7 @@ function CustomerFormModal({ customer, onClose, onSuccess, notify }) {
             className="btn primary"
             disabled={saving}
           >
-            {saving ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save changes' : 'Create customer')}
+            {saving ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Create Customer')}
           </button>
         </div>
       </form>
@@ -278,7 +335,7 @@ function CustomerDetailModal({ customerId, onClose, onInvite }) {
   }, [customerId]);
 
   return (
-    <ModalShell title="Customer Details" onClose={onClose}>
+    <ModalShell title="Customer Profile" onClose={onClose}>
       {loading && (
         <div className="cm-state-panel">
           <div className="cm-loading-spinner">
@@ -298,50 +355,79 @@ function CustomerDetailModal({ customerId, onClose, onInvite }) {
       )}
       {!loading && customer && (
         <>
-          <div className="cm-detail-grid">
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Legal Name</span>
-              <span className="cm-detail-value">{customer.legal_name || '—'}</span>
-            </div>
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Tax ID</span>
-              <span className="cm-detail-value mono">{customer.tax_id || '—'}</span>
-            </div>
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Customer Type</span>
-              <span className="cm-detail-value">Shipper</span>
-            </div>
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Status</span>
-              <span>
-                <span className={statusBadgeClass(customer.status)}>
-                  {customer.status || '—'}
-                </span>
-              </span>
-            </div>
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Enterprise</span>
-              <span className="cm-detail-value">
-                {customer.is_enterprise ? 'Yes' : 'No'}
-              </span>
-            </div>
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Created</span>
-              <span className="cm-detail-value">{formatDate(customer.created_at)}</span>
-            </div>
-            {customer.updated_at && (
-              <div className="cm-detail-field">
-                <span className="cm-detail-label">Last Updated</span>
-                <span className="cm-detail-value">{formatDate(customer.updated_at)}</span>
+          <div className="cm-modal-sections">
+            {/* Organization Profile */}
+            <div className="cm-modal-section">
+              <div className="cm-section-header">
+                <h4>Organization Information</h4>
+                <p>Registration and business identifiers</p>
               </div>
-            )}
-            <div className="cm-detail-field">
-              <span className="cm-detail-label">Organization ID</span>
-              <span className="cm-detail-value mono">{customer.id}</span>
+              <div className="cm-detail-grid">
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Legal Name</span>
+                  <span className="cm-detail-value">{customer.legal_name || '—'}</span>
+                </div>
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Tax ID</span>
+                  <span className="cm-detail-value mono">{customer.tax_id || '—'}</span>
+                </div>
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Customer Type</span>
+                  <span className="cm-detail-value">Shipper</span>
+                </div>
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Account Tier</span>
+                  <span className="cm-detail-value">
+                    {customer.is_enterprise ? (
+                      <span className="cm-badge cm-badge-enterprise">Enterprise</span>
+                    ) : (
+                      'Standard Tier'
+                    )}
+                  </span>
+                </div>
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Operating Status</span>
+                  <span className="cm-detail-value">{customer.operating_status || 'Standard'}</span>
+                </div>
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Organization ID</span>
+                  <span className="cm-detail-value mono">Org #{customer.id}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Lifecycle */}
+            <div className="cm-modal-section">
+              <div className="cm-section-header">
+                <h4>Account Lifecycle & Audit</h4>
+                <p>Status and timestamp tracking</p>
+              </div>
+              <div className="cm-detail-grid">
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Current Status</span>
+                  <span>
+                    <span className={statusBadgeClass(customer.status)}>
+                      {customer.status
+                        ? customer.status.charAt(0).toUpperCase() + customer.status.slice(1)
+                        : '—'}
+                    </span>
+                  </span>
+                </div>
+                <div className="cm-detail-field">
+                  <span className="cm-detail-label">Created Date</span>
+                  <span className="cm-detail-value">{formatDate(customer.created_at)}</span>
+                </div>
+                {customer.updated_at && (
+                  <div className="cm-detail-field">
+                    <span className="cm-detail-label">Last Updated</span>
+                    <span className="cm-detail-value">{formatDate(customer.updated_at)}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: '20px' }}>
             {onInvite && customer && customer.status !== 'terminated' && (
               <button
                 type="button"
@@ -1105,8 +1191,8 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
       {/* ── Page header ── */}
       <div className="cm-page-header">
         <div className="cm-page-header-left">
-          <h1>Customer Master</h1>
-          <p>Manage shipper customer organizations registered in this platform.</p>
+          <h1>Customers</h1>
+          <p>Manage shipper customer organizations, accounts, and portal access.</p>
         </div>
         <div className="cm-header-actions">
           <button
@@ -1159,7 +1245,7 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
           <span className="cm-summary-card-value enterprise">
             {loading ? '—' : summary.enterprise}
           </span>
-          <span className="cm-summary-card-sub">Enterprise flag enabled</span>
+          <span className="cm-summary-card-sub">Enterprise tier enabled</span>
         </div>
       </div>
 
@@ -1170,7 +1256,7 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
           <MagnifyingGlass size={18} />
           <input
             aria-label="Search customers by legal name or tax ID"
-            placeholder="Search by name or Tax ID…"
+            placeholder="Search customers..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -1243,11 +1329,20 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
             </h3>
             <p>
               {searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your filters.'
-                : canCreate
-                  ? 'Add the first customer using the Add Customer button.'
-                  : 'No customer records exist yet.'}
+                ? 'Try adjusting your search or filters.'
+                : 'No customer records exist yet. Try adjusting your search or add a new customer.'}
             </p>
+            {canCreate && !searchQuery && statusFilter === 'all' && (
+              <button
+                type="button"
+                className="btn primary"
+                style={{ marginTop: '8px' }}
+                onClick={() => setModal({ kind: 'add' })}
+              >
+                <Plus size={16} />
+                Add Customer
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -1255,11 +1350,11 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
           <table className="cm-table" aria-label="Customer list">
             <thead>
               <tr>
-                <th>Customer / Legal Name</th>
+                <th>Company Name</th>
                 <th>Tax ID</th>
-                <th>Type</th>
+                <th>Account Type</th>
+                <th>Operating Status</th>
                 <th>Status</th>
-                <th>Enterprise</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -1275,7 +1370,15 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
                     <span className="cm-tax-id">{c.tax_id || '—'}</span>
                   </td>
                   <td>
-                    <span className="cm-badge-type">Shipper</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className="cm-badge-type">Shipper</span>
+                      {c.is_enterprise && (
+                        <span className="cm-badge cm-badge-enterprise">Enterprise</span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="cm-operating-status">{c.operating_status || 'Standard'}</span>
                   </td>
                   <td>
                     <span className={statusBadgeClass(c.status)}>
@@ -1284,11 +1387,6 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
                         : '—'}
                     </span>
                   </td>
-                  <td>
-                    {c.is_enterprise
-                      ? <span className="cm-badge cm-badge-enterprise">Enterprise</span>
-                      : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}
-                  </td>
                   <td>{formatDate(c.created_at)}</td>
                   <td>
                     <div className="cm-actions-cell">
@@ -1296,7 +1394,7 @@ export default function CustomerMaster({ hasPermission, notify, profileLoading =
                       <button
                         type="button"
                         className="cm-action-btn"
-                        title="View customer details"
+                        title="View customer profile"
                         onClick={() => setModal({ kind: 'view', customer: c })}
                       >
                         <Eye size={14} /> View

@@ -23,6 +23,8 @@ import {
   Scales,
   Buildings,
   MagnifyingGlass,
+  Eye,
+  Trash,
 } from '@phosphor-icons/react';
 import {
   getQuotes,
@@ -308,11 +310,11 @@ export default function QuoteRateManagement({
       <header className="qr-header">
         <div className="qr-header-titles">
           <h1>
-            <Tag size={28} weight="duotone" style={{ color: '#0284c7' }} />
-            Quoting & Rate Management
+            <Tag size={28} style={{ color: 'var(--blue, #005fdc)' }} />
+            Quotes & Rates
           </h1>
           <p>
-            Generate instant spot quotes, manage contract rate agreements, calculate LTL tariffs, compare multi-carrier quotes, and execute electronic rate confirmations.
+            Create, manage, compare, and maintain freight pricing for your shipments and customers.
           </p>
         </div>
         <div className="qr-header-actions">
@@ -322,8 +324,8 @@ export default function QuoteRateManagement({
               className="qr-btn qr-btn-primary"
               onClick={() => setShowNewQuoteModal(true)}
             >
-              <Calculator size={18} />
-              Calculate & Generate Quote
+              <Plus size={16} />
+              New Quote
             </button>
           )}
           {activeTab === 'agreements' && canManageAgreements && (
@@ -332,7 +334,7 @@ export default function QuoteRateManagement({
               className="qr-btn qr-btn-primary"
               onClick={() => setShowNewAgreementModal(true)}
             >
-              <Plus size={18} />
+              <Plus size={16} />
               New Rate Agreement
             </button>
           )}
@@ -560,24 +562,26 @@ export default function QuoteRateManagement({
                         </td>
 
                         <td>
-                          <div style={{ display: 'flex', gap: '6px' }}>
+                          <div className="qr-row-actions">
                             <button
                               type="button"
-                              className="qr-btn qr-btn-secondary"
+                              className="qr-action-btn qr-action-btn-secondary"
                               onClick={() => setSelectedQuoteDetail(q)}
-                              style={{ padding: '4px 8px', fontSize: '12px' }}
+                              title="View Quote Breakdown & Details"
                             >
-                              Details
+                              <Eye size={13} />
+                              <span>Details</span>
                             </button>
 
                             {canBookQuote && q.status === 'active' && (
                               <button
                                 type="button"
-                                className="qr-btn qr-btn-primary"
+                                className="qr-action-btn qr-action-btn-primary"
                                 onClick={() => setBookingQuote(q)}
-                                style={{ padding: '4px 8px', fontSize: '12px' }}
+                                title="Book Quote into Shipment"
                               >
-                                Book
+                                <Check size={13} />
+                                <span>Book</span>
                               </button>
                             )}
                           </div>
@@ -773,20 +777,21 @@ export default function QuoteRateManagement({
                       </td>
 
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
+                        <div className="qr-row-actions">
                           {canManageAgreements && (
                             <>
                               <button
                                 type="button"
-                                className="qr-btn qr-btn-secondary"
+                                className="qr-action-btn qr-action-btn-secondary"
                                 onClick={() => setEditingAgreement(a)}
-                                style={{ padding: '4px 8px', fontSize: '12px' }}
+                                title="Edit Rate Agreement Terms"
                               >
-                                Edit
+                                <Pen size={13} />
+                                <span>Edit</span>
                               </button>
                               <button
                                 type="button"
-                                className="qr-btn qr-btn-danger"
+                                className="qr-action-btn qr-action-btn-danger"
                                 onClick={async () => {
                                   if (window.confirm(`Delete or cancel rate agreement ${a.agreement_number}?`)) {
                                     try {
@@ -798,9 +803,10 @@ export default function QuoteRateManagement({
                                     }
                                   }
                                 }}
-                                style={{ padding: '4px 8px', fontSize: '12px' }}
+                                title="Cancel Rate Agreement"
                               >
-                                Cancel
+                                <Trash size={13} />
+                                <span>Cancel</span>
                               </button>
                             </>
                           )}
@@ -1380,8 +1386,8 @@ export default function QuoteRateManagement({
           MODAL 3: BOOK QUOTE CONFIRMATION
           ═══════════════════════════════════════════════════════ */}
       {bookingQuote && (
-        <div className="qr-modal-backdrop">
-          <div className="qr-modal">
+        <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setBookingQuote(null); }}>
+          <div className="qr-modal" role="dialog" aria-modal="true">
             <header className="qr-modal-header">
               <h2>Confirm Quote Booking</h2>
               <button
@@ -1598,9 +1604,17 @@ function NewQuoteModal({ onClose, onSuccess, notify, currentOrg, shipments }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="qr-modal-backdrop">
-      <div className="qr-modal wide">
+    <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="qr-modal wide" role="dialog" aria-modal="true">
         <header className="qr-modal-header">
           <h2>Generate Instant Freight Quote</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -1881,14 +1895,22 @@ function QuoteDetailModal({ quote, onClose, onBook, canBook }) {
   const isBooked = quote.status === 'booked';
   const isExpired = quote.status === 'expired';
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const formatMoney = (val) => {
     if (val === null || val === undefined) return '$0.00';
     return `$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
-    <div className="qr-modal-backdrop">
-      <div className="qr-modal">
+    <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="qr-modal" role="dialog" aria-modal="true">
         <header className="qr-modal-header">
           <div>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>
@@ -2046,9 +2068,17 @@ function NewRateAgreementModal({ onClose, onSuccess, notify, carriers, currentOr
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="qr-modal-backdrop">
-      <div className="qr-modal wide">
+    <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="qr-modal wide" role="dialog" aria-modal="true">
         <header className="qr-modal-header">
           <h2>Create Contract Rate Agreement</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -2256,9 +2286,17 @@ function EditRateAgreementModal({ agreement, onClose, onSuccess, notify }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="qr-modal-backdrop">
-      <div className="qr-modal">
+    <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="qr-modal" role="dialog" aria-modal="true">
         <header className="qr-modal-header">
           <h2>Edit Rate Agreement #{agreement.agreement_number || agreement.id}</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -2353,9 +2391,17 @@ function GenerateRateConfirmationModal({ onClose, onSuccess, notify, shipments }
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="qr-modal-backdrop">
-      <div className="qr-modal">
+    <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="qr-modal" role="dialog" aria-modal="true">
         <header className="qr-modal-header">
           <h2>Generate Rate Confirmation Document</h2>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -2473,9 +2519,17 @@ function SignConfirmationModal({ confirmation, onClose, onSuccess, currentUser, 
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="qr-modal-backdrop">
-      <div className="qr-modal">
+    <div className="qr-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="qr-modal" role="dialog" aria-modal="true">
         <header className="qr-modal-header">
           <h2>Execute Carrier Electronic Signature</h2>
           <button type="button" className="icon-btn" onClick={onClose}>

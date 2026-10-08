@@ -239,9 +239,9 @@
   background: #fbfdff;
 }
 
-.cfs-th-actions {
-  text-align: right;
-  padding-right: 20px !important;
+.cfs-table th.cfs-th-actions {
+  text-align: left;
+  white-space: nowrap;
 }
 
 /* ── Badges ── */
@@ -354,39 +354,49 @@
 .cfs-row-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 5px;
+  white-space: nowrap;
 }
 
 .cfs-action-btn {
+  background: #fff;
+  border: 1px solid #d5deee;
+  border-radius: 5px;
+  padding: 5px 9px;
+  color: var(--ink, #10203c);
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--line, #d5e0ee);
-  background: #fff;
-  color: var(--muted, #506484);
-  cursor: pointer;
-  transition: all 0.15s ease;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.12s ease;
 }
 
 .cfs-action-btn:hover:not(:disabled) {
-  background: var(--chip, #ebf1f9);
+  background: #f1f6ff;
+  border-color: #8ab4f5;
   color: var(--ink, #10203c);
-  border-color: #b0c4de;
+}
+
+.cfs-action-btn.danger {
+  color: #c81e1e;
+  border-color: #fca5a5;
+}
+
+.cfs-action-btn.danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
 }
 
 .cfs-action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.cfs-action-btn.danger:hover:not(:disabled) {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fca5a5;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
 }
 
 /* ── Pagination ── */
@@ -644,6 +654,49 @@
 }
 
 /* ── Forms ── */
+.cfs-modal-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.cfs-modal-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.cfs-section-header {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #edf2f7;
+  padding-bottom: 8px;
+}
+
+.cfs-section-header h4 {
+  margin: 0 0 2px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink, #10203c);
+  letter-spacing: -0.2px;
+}
+
+.cfs-section-header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted, #506484);
+}
+
+.cfs-form-subtext {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted, #506484);
+  margin-top: 4px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
 .cfs-form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -886,6 +939,13 @@
   }
   .cfs-detail-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .cfs-row-actions {
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }
 

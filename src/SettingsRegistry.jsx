@@ -77,6 +77,27 @@ function actionChipClass(action) {
   }
 }
 
+function parseAuditPayload(val) {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'object') return val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    if (
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+  return val;
+}
+
 /* ─── Modal Shell Component ───────────────────────────────────── */
 function ModalShell({ title, onClose, children, wide = false }) {
   const boxRef = useRef(null);
@@ -160,7 +181,7 @@ export default function SettingsRegistry({
     propSettings?.length ? propSettings : seedSettingCategories
   );
   const [selectedCatId, setSelectedCatId] = useState(null);
-  const [tab, setTab] = useState('Values'); // 'Values' | 'Org overrides' | 'Audit log' | 'Facade'
+  const [tab, setTab] = useState('Values'); // 'Values' | 'Org overrides' | 'Audit log'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchCatQuery, setSearchCatQuery] = useState('');
@@ -174,10 +195,7 @@ export default function SettingsRegistry({
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState(propSettingAudit || []);
   const [auditLoading, setAuditLoading] = useState(false);
-
-  // Facade / Config Map State
-  const [configData, setConfigData] = useState(null);
-  const [copiedConfig, setCopiedConfig] = useState(false);
+  const [selectedAuditDiff, setSelectedAuditDiff] = useState(null);
 
   // Modals State
   const [modal, setModal] = useState(null);
@@ -324,10 +342,8 @@ export default function SettingsRegistry({
   useEffect(() => {
     if (tab === 'Audit log') {
       fetchAuditLogs();
-    } else if (tab === 'Facade') {
-      fetchConfigFacade();
     }
-  }, [tab, fetchAuditLogs, fetchConfigFacade]);
+  }, [tab, fetchAuditLogs]);
 
   /* ─── Active Category Resolution ────────────────────────────── */
   const activeCategory =
@@ -595,12 +611,11 @@ export default function SettingsRegistry({
       <div className="sr-page-header">
         <div className="sr-header-left">
           <div className="sr-eyebrow">
-            SYSTEM SETTINGS · CONFIGURATION REGISTRY
+            SYSTEM SETTINGS (M17) · CONFIGURATION REGISTRY
           </div>
-          <h1>System Settings Master</h1>
+          <h1>Settings</h1>
           <p>
-            Central source of truth for equipment types, accessorials, cutoff
-            rules, and operational statuses across all freight workflows.
+            Administrators manage configurable system categories, default operational values, and organization-specific overrides across the freight platform.
           </p>
         </div>
 
@@ -612,7 +627,7 @@ export default function SettingsRegistry({
             title="Refresh settings from server"
             disabled={loading}
           >
-            <ArrowClockwise size={16} className={loading ? 'spin' : ''} />
+            <ArrowClockwise size={15} className={loading ? 'spin' : ''} />
             Refresh
           </button>
 
@@ -622,7 +637,7 @@ export default function SettingsRegistry({
             onClick={exportSettingsJson}
             title="Export settings registry JSON"
           >
-            <DownloadSimple size={16} />
+            <DownloadSimple size={15} />
             Export JSON
           </button>
 
@@ -632,52 +647,49 @@ export default function SettingsRegistry({
               className="btn primary"
               onClick={() => setModal({ kind: 'add_category' })}
             >
-              <Plus size={16} />
+              <Plus size={15} />
               New Category
             </button>
           )}
 
-          <span
-            className="badge"
-            style={{
-              background: isPlatformAdmin ? '#dbeafe' : '#f1f5f9',
-              color: isPlatformAdmin ? '#1e40af' : '#475569',
-              fontWeight: 600,
-              padding: '6px 12px',
-              borderRadius: '6px',
-            }}
-          >
-            <ShieldCheck size={14} style={{ marginRight: '4px' }} />
+          <span className="sr-role-pill">
+            <ShieldCheck size={14} />
             {resolvedRole || 'User'}
           </span>
         </div>
       </div>
 
-      {/* ─── Summary KPI Cards ─────────────────────────────────── */}
-      <div className="sr-summary-cards">
-        <div className="sr-metric-card">
-          <div className="label">Total Categories</div>
-          <div className="val">{categories.length}</div>
+      {/* ─── Compact Operational Summary Strip ─────────────────── */}
+      <div className="sr-summary-bar">
+        <div className="sr-summary-item">
+          <span className="sr-summary-label">Configured Categories</span>
+          <strong className="sr-summary-val">{categories.length}</strong>
         </div>
-        <div className="sr-metric-card">
-          <div className="label">Active Values (Current)</div>
-          <div className="val">
+        <div className="sr-summary-divider" />
+        <div className="sr-summary-item">
+          <span className="sr-summary-label">Values in Category</span>
+          <strong className="sr-summary-val">
             {activeCategory?.values?.filter((v) => v.isActive || v.is_active).length || 0}
-          </div>
+            <span style={{ color: '#64748b', fontWeight: 500, fontSize: '12px', marginLeft: '3px' }}>
+              active / {activeCategory?.values?.length || 0} total
+            </span>
+          </strong>
         </div>
-        <div className="sr-metric-card">
-          <div className="label">System Protected Values</div>
-          <div className="val">
+        <div className="sr-summary-divider" />
+        <div className="sr-summary-item">
+          <span className="sr-summary-label">Protected System Values</span>
+          <strong className="sr-summary-val">
             {activeCategory?.values?.filter(
               (v) => v.isSystemDefined || v.is_system_defined
             ).length || 0}
-          </div>
+          </strong>
         </div>
-        <div className="sr-metric-card">
-          <div className="label">Org Overrides Active</div>
-          <div className="val">
+        <div className="sr-summary-divider" />
+        <div className="sr-summary-item">
+          <span className="sr-summary-label">Active Org Overrides</span>
+          <strong className="sr-summary-val">
             {activeCategory?.overrides?.filter((o) => o.is_active || o.isActive).length || 0}
-          </div>
+          </strong>
         </div>
       </div>
 
@@ -839,16 +851,6 @@ export default function SettingsRegistry({
                   Audit Trail
                   <span className="sr-tab-badge">{auditLogs.length}</span>
                 </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === 'Facade'}
-                  className={`sr-tab-btn ${tab === 'Facade' ? 'active' : ''}`}
-                  onClick={() => setTab('Facade')}
-                >
-                  Config Facade (API)
-                </button>
               </div>
 
               {/* ─── TAB 1: VALUES CATALOG ───────────────────────── */}
@@ -859,12 +861,12 @@ export default function SettingsRegistry({
                       <thead>
                         <tr>
                           <th style={{ width: '80px' }}>Order</th>
-                          <th>Key / Slug</th>
+                          <th style={{ width: '160px' }}>Value Code</th>
                           <th>Display Label</th>
                           <th style={{ width: '100px' }}>Status</th>
-                          <th style={{ width: '130px' }}>Protection</th>
+                          <th style={{ width: '140px' }}>Type</th>
                           <th style={{ width: '90px' }}>Default</th>
-                          {canConfigure && <th style={{ width: '100px' }}>Actions</th>}
+                          {canConfigure && <th style={{ width: '110px' }}>Actions</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -930,7 +932,7 @@ export default function SettingsRegistry({
                                       <input
                                         type="text"
                                         className="sr-label-input"
-                                        style={{ border: '1px solid #075fc4' }}
+                                        style={{ border: '1px solid #005fdc' }}
                                         value={editingValueLabel}
                                         onChange={(e) =>
                                           setEditingValueLabel(e.target.value)
@@ -991,16 +993,7 @@ export default function SettingsRegistry({
 
                                 <td>
                                   {isDef ? (
-                                    <span
-                                      style={{
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        color: '#075fc4',
-                                        background: '#eaf3ff',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                      }}
-                                    >
+                                    <span className="sr-default-badge">
                                       Default
                                     </span>
                                   ) : canConfigure && !isSys ? (
@@ -1022,13 +1015,8 @@ export default function SettingsRegistry({
                                 {canConfigure && (
                                   <td>
                                     {isSys ? (
-                                      <span
-                                        style={{
-                                          fontSize: '11px',
-                                          color: '#94a3b8',
-                                          fontStyle: 'italic',
-                                        }}
-                                      >
+                                      <span className="sr-protected-text">
+                                        <LockKey size={12} />
                                         Protected
                                       </span>
                                     ) : (
@@ -1081,6 +1069,27 @@ export default function SettingsRegistry({
                               </tr>
                             );
                           })}
+
+                        {(!activeCategory.values || activeCategory.values.length === 0) && (
+                          <tr>
+                            <td
+                              colSpan={canConfigure ? 7 : 6}
+                              style={{
+                                textAlign: 'center',
+                                padding: '36px 16px',
+                                color: '#94a3b8',
+                              }}
+                            >
+                              <GearSix size={32} style={{ margin: '0 auto 8px', color: '#cbd5e1' }} />
+                              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#475569' }}>
+                                No values configured for {activeCategory.name}
+                              </p>
+                              <small style={{ color: '#94a3b8' }}>
+                                Use the form below to add initial custom values to this category.
+                              </small>
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1145,6 +1154,13 @@ export default function SettingsRegistry({
               {/* ─── TAB 2: ORGANIZATION OVERRIDES ──────────────── */}
               {tab === 'Org overrides' && (
                 <div>
+                  <div className="sr-overrides-hierarchy-banner">
+                    <Info size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                    <div>
+                      <strong>Additive Tenant Scoping:</strong> Organization overrides are tenant-scoped configurations that take precedence over platform global values for your organization while leaving default platform configurations intact for all other tenants. Consuming modules resolve system defaults first, then apply active tenant overrides.
+                    </div>
+                  </div>
+
                   <div className="sr-overrides-header">
                     <div>
                       <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>
@@ -1371,7 +1387,7 @@ export default function SettingsRegistry({
                           <th>Target Type</th>
                           <th>Target ID</th>
                           <th>Changed By</th>
-                          <th>Change Diff Details</th>
+                          <th>Change Details</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1413,20 +1429,15 @@ export default function SettingsRegistry({
                               </td>
 
                               <td>
-                                <div className="sr-diff-box">
-                                  {log.old_value && log.new_value ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                      <div><span style={{ color: '#dc2626', fontWeight: 600 }}>Old:</span> {typeof log.old_value === 'object' ? JSON.stringify(log.old_value) : String(log.old_value)}</div>
-                                      <div><span style={{ color: '#16a34a', fontWeight: 600 }}>New:</span> {typeof log.new_value === 'object' ? JSON.stringify(log.new_value) : String(log.new_value)}</div>
-                                    </div>
-                                  ) : log.new_value ? (
-                                    <div><span style={{ color: '#16a34a', fontWeight: 600 }}>New:</span> {typeof log.new_value === 'object' ? JSON.stringify(log.new_value) : String(log.new_value)}</div>
-                                  ) : log.old_value ? (
-                                    <div><span style={{ color: '#dc2626', fontWeight: 600 }}>Old:</span> {typeof log.old_value === 'object' ? JSON.stringify(log.old_value) : String(log.old_value)}</div>
-                                  ) : (
-                                    'No payload diff'
-                                  )}
-                                </div>
+                                <button
+                                  type="button"
+                                  className="sr-diff-trigger-btn"
+                                  onClick={() => setSelectedAuditDiff(log)}
+                                  title="View audit change details"
+                                >
+                                  <Eye size={13} />
+                                  <span>View details</span>
+                                </button>
                               </td>
                             </tr>
                           ))
@@ -1449,63 +1460,6 @@ export default function SettingsRegistry({
                         )}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ─── TAB 4: FACADE (CONFIG MAP) ────────────────── */}
-              {tab === 'Facade' && (
-                <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '16px',
-                    }}
-                  >
-                    <div>
-                      <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>
-                        Aggregated Admin Configuration Facade
-                      </h3>
-                      <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                        Real-time schema map exposed via{' '}
-                        <code>GET /v1/admin/config</code> for PDF and service
-                        consumption.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        if (configData) {
-                          navigator.clipboard.writeText(
-                            JSON.stringify(configData, null, 2)
-                          );
-                          setCopiedConfig(true);
-                          setTimeout(() => setCopiedConfig(false), 2000);
-                        }
-                      }}
-                    >
-                      {copiedConfig ? (
-                        <>
-                          <Check size={16} /> Copied JSON
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={16} /> Copy JSON
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="sr-facade-panel">
-                    <pre style={{ margin: 0 }}>
-                      {configData
-                        ? JSON.stringify(configData, null, 2)
-                        : '// Loading configuration facade from /v1/admin/config…'}
-                    </pre>
                   </div>
                 </div>
               )}
@@ -1667,6 +1621,15 @@ export default function SettingsRegistry({
           onSubmit={modal.kind === 'edit_override'
             ? (patch) => handleUpdateOverride(modal.override.id, patch)
             : handleCreateOverride}
+        />
+      )}
+
+      {/* ─── MODAL: AUDIT CHANGE DETAILS ──────────────────────── */}
+      {selectedAuditDiff && (
+        <ChangeDiffModal
+          log={selectedAuditDiff}
+          categories={categories}
+          onClose={() => setSelectedAuditDiff(null)}
         />
       )}
     </section>
@@ -1833,6 +1796,383 @@ function OverrideModal({
           </button>
         </div>
       </form>
+    </ModalShell>
+  );
+}
+
+/* ─── Sub-component: Audit Trail Change Diff Modal ─────────────── */
+function ChangeDiffModal({ log, categories = [], onClose }) {
+  if (!log) return null;
+
+  const oldParsed = parseAuditPayload(log.old_value);
+  const newParsed = parseAuditPayload(log.new_value);
+  const hasDiffData = oldParsed !== null || newParsed !== null;
+
+  function formatKeyLabel(key) {
+    if (!key) return '';
+    const lower = String(key).toLowerCase();
+    if (lower === 'org_id' || lower === 'orgid' || lower === 'organization_id') return 'Organization';
+    if (lower === 'category_id' || lower === 'categoryid') return 'Category';
+    if (lower === 'is_active' || lower === 'isactive') return 'Active';
+    if (lower === 'sort_order' || lower === 'sortorder') return 'Sort Order';
+    if (lower === 'setting_value_id') return 'Setting Value ID';
+    if (lower === 'created_at' || lower === 'createdat') return 'Created At';
+    if (lower === 'updated_at' || lower === 'updatedat') return 'Updated At';
+    return String(key)
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function formatHumanValue(val) {
+    if (val === null || val === undefined) {
+      return <span className="sr-diff-val-empty">—</span>;
+    }
+    if (typeof val === 'boolean') {
+      return (
+        <span className={`sr-diff-val-bool ${val ? 'true' : 'false'}`}>
+          {val ? 'Yes' : 'No'}
+        </span>
+      );
+    }
+    if (Array.isArray(val)) {
+      if (val.length === 0) return <span className="sr-diff-val-empty">Empty list</span>;
+      const allPrimitives = val.every((v) => typeof v !== 'object' || v === null);
+      if (allPrimitives) {
+        return val.map((v) => (v === null ? 'null' : String(v))).join(', ');
+      }
+      return <code className="sr-diff-code-inline">{JSON.stringify(val)}</code>;
+    }
+    if (typeof val === 'object') {
+      try {
+        return <code className="sr-diff-code-inline">{JSON.stringify(val)}</code>;
+      } catch {
+        return String(val);
+      }
+    }
+    return String(val);
+  }
+
+  const isOldObj =
+    oldParsed !== null && typeof oldParsed === 'object' && !Array.isArray(oldParsed);
+  const isNewObj =
+    newParsed !== null && typeof newParsed === 'object' && !Array.isArray(newParsed);
+  const isObjectDiff = isOldObj || isNewObj;
+
+  // Resolve property keys for breakdown table
+  let fieldKeys = [];
+  if (isObjectDiff) {
+    const keysSet = new Set([
+      ...Object.keys(oldParsed || {}),
+      ...Object.keys(newParsed || {}),
+    ]);
+    fieldKeys = Array.from(keysSet);
+  }
+
+  // Resolve associated category information
+  const targetId = log.target_id ?? log.setting_value_id;
+  const targetType = (log.target_type || '').toLowerCase();
+
+  const explicitCatId =
+    log.category_id ??
+    log.target_category_id ??
+    (typeof newParsed === 'object' ? (newParsed?.category_id ?? newParsed?.categoryId) : null) ??
+    (typeof oldParsed === 'object' ? (oldParsed?.category_id ?? oldParsed?.categoryId) : null);
+
+  const explicitCatKey =
+    log.category_key ??
+    log.target_category_key ??
+    (typeof newParsed === 'object' ? (newParsed?.category_key ?? newParsed?.categoryKey) : null) ??
+    (typeof oldParsed === 'object' ? (oldParsed?.category_key ?? oldParsed?.categoryKey) : null) ??
+    (typeof newParsed === 'object' && typeof newParsed?.category === 'string' ? newParsed.category : null) ??
+    (typeof oldParsed === 'object' && typeof oldParsed?.category === 'string' ? oldParsed.category : null);
+
+  const resolvedCategory =
+    (explicitCatId ? categories.find((c) => c.id === explicitCatId || String(c.id) === String(explicitCatId)) : null) ||
+    (explicitCatKey ? categories.find((c) => c.key === explicitCatKey) : null) ||
+    (targetType === 'setting_category' ? categories.find((c) => c.id === targetId || c.key === targetId) : null) ||
+    (targetType === 'override' && targetId ? categories.find((c) => (c.overrides || []).some((o) => o.id === targetId || String(o.id) === String(targetId))) : null) ||
+    (targetId ? categories.find((c) => (c.values || []).some((v) => v.id === targetId || String(v.id) === String(targetId))) : null) ||
+    (log.category && typeof log.category === 'object' ? log.category : null);
+
+  const categoryName =
+    resolvedCategory?.name ||
+    (typeof log.category === 'string' && !log.category.includes('.') ? log.category : null) ||
+    (log.category_name ?? null);
+
+  const categoryKey =
+    resolvedCategory?.key ||
+    explicitCatKey ||
+    (typeof log.category === 'string' && log.category.includes('.') ? log.category : null);
+
+  function getFieldStatus(key) {
+    const inOld = oldParsed && Object.prototype.hasOwnProperty.call(oldParsed, key);
+    const inNew = newParsed && Object.prototype.hasOwnProperty.call(newParsed, key);
+    if (!inOld && inNew) {
+      return { type: 'added', label: 'Added', className: 'sr-diff-tag added' };
+    }
+    if (inOld && !inNew) {
+      return { type: 'removed', label: 'Removed', className: 'sr-diff-tag removed' };
+    }
+    const valOldStr = JSON.stringify(oldParsed[key]);
+    const valNewStr = JSON.stringify(newParsed[key]);
+    if (valOldStr !== valNewStr) {
+      return { type: 'modified', label: 'Modified', className: 'sr-diff-tag modified' };
+    }
+    return { type: 'unchanged', label: 'Unchanged', className: 'sr-diff-tag unchanged' };
+  }
+
+  function renderVal(val) {
+    if (val === null || val === undefined) {
+      return <span className="sr-diff-val-empty">null</span>;
+    }
+    if (typeof val === 'boolean') {
+      return (
+        <span className={`sr-diff-val-bool ${val ? 'true' : 'false'}`}>
+          {val ? 'true' : 'false'}
+        </span>
+      );
+    }
+    if (typeof val === 'object') {
+      return (
+        <code className="sr-diff-code-inline">{JSON.stringify(val)}</code>
+      );
+    }
+    return <span className="sr-diff-val-text">{String(val)}</span>;
+  }
+
+  return (
+    <ModalShell title="Audit Change Details" onClose={onClose} wide={true}>
+      <div className="sr-diff-modal-body">
+        {/* Metadata Summary Header */}
+        <div className="sr-diff-meta-grid">
+          <div className="sr-diff-meta-item">
+            <span className="sr-diff-meta-label">Timestamp</span>
+            <span className="sr-diff-meta-value">
+              {formatDate(log.changed_at || log.created_at)}
+            </span>
+          </div>
+
+          <div className="sr-diff-meta-item">
+            <span className="sr-diff-meta-label">Action</span>
+            <span className="sr-diff-meta-value">
+              <span className={actionChipClass(log.action)}>
+                {log.action}
+              </span>
+            </span>
+          </div>
+
+          <div className="sr-diff-meta-item">
+            <span className="sr-diff-meta-label">Target Entity</span>
+            <span className="sr-diff-meta-value">
+              <code>{log.target_type || 'setting_value'}</code> #{log.target_id || log.setting_value_id || '—'}
+            </span>
+          </div>
+
+          <div className="sr-diff-meta-item">
+            <span className="sr-diff-meta-label">System Category</span>
+            <span className="sr-diff-meta-value">
+              {categoryName && categoryKey ? (
+                <>
+                  <strong className="sr-diff-cat-name">{categoryName}</strong>
+                  <span className="sr-diff-cat-key">{categoryKey}</span>
+                </>
+              ) : categoryName ? (
+                <strong className="sr-diff-cat-name">{categoryName}</strong>
+              ) : categoryKey ? (
+                <span className="sr-diff-cat-key">{categoryKey}</span>
+              ) : (
+                <span className="sr-diff-val-empty">Category unavailable</span>
+              )}
+            </span>
+          </div>
+
+          <div className="sr-diff-meta-item">
+            <span className="sr-diff-meta-label">Performed By</span>
+            <span className="sr-diff-meta-value">
+              <strong>
+                {log.user?.name || (log.changed_by ? `User #${log.changed_by}` : 'System')}
+              </strong>
+              {log.user?.email && (
+                <span className="sr-diff-meta-sub">{log.user.email}</span>
+              )}
+            </span>
+          </div>
+
+          {(log.org_id || log.organization_id) && (
+            <div className="sr-diff-meta-item">
+              <span className="sr-diff-meta-label">Scope / Org</span>
+              <span className="sr-diff-meta-value">
+                Organization #{log.org_id || log.organization_id}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Change Comparison Content */}
+        {!hasDiffData ? (
+          <div className="sr-diff-empty-state">
+            <Clock size={36} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
+            <p className="sr-diff-empty-title">
+              No detailed change information is available for this audit record.
+            </p>
+            <span className="sr-diff-empty-sub">
+              This action was logged without explicit before/after payload snapshots.
+            </span>
+          </div>
+        ) : (
+          <div className="sr-diff-content">
+            {/* Side-by-Side Before vs After Panels */}
+            <div className="sr-diff-panels">
+              <div className="sr-diff-panel before">
+                <div className="sr-diff-panel-header">
+                  <span className="sr-diff-panel-title">Before (Previous State)</span>
+                  {oldParsed === null && (
+                    <span className="sr-diff-panel-pill">Initial Record Creation</span>
+                  )}
+                </div>
+                <div className="sr-diff-panel-body">
+                  {oldParsed === null || oldParsed === undefined ? (
+                    <div className="sr-diff-empty-panel">
+                      No previous state exists (new item was created)
+                    </div>
+                  ) : typeof oldParsed === 'object' ? (
+                    <div className="sr-diff-summary-list">
+                      {Object.entries(oldParsed).map(([key, val]) => (
+                        <div key={key} className="sr-diff-summary-row">
+                          <span className="sr-diff-summary-key">{formatKeyLabel(key)}</span>
+                          <span className="sr-diff-summary-val">{formatHumanValue(val)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="sr-diff-summary-list">
+                      <div className="sr-diff-summary-row">
+                        <span className="sr-diff-summary-key">Value</span>
+                        <span className="sr-diff-summary-val">{String(oldParsed)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="sr-diff-panel after">
+                <div className="sr-diff-panel-header">
+                  <span className="sr-diff-panel-title">After (New State)</span>
+                  {newParsed === null && (
+                    <span className="sr-diff-panel-pill warn">Record Removed / Deactivated</span>
+                  )}
+                </div>
+                <div className="sr-diff-panel-body">
+                  {newParsed === null || newParsed === undefined ? (
+                    <div className="sr-diff-empty-panel">
+                      No new state exists (item deactivated or deleted)
+                    </div>
+                  ) : typeof newParsed === 'object' ? (
+                    <div className="sr-diff-summary-list">
+                      {Object.entries(newParsed).map(([key, val]) => (
+                        <div key={key} className="sr-diff-summary-row">
+                          <span className="sr-diff-summary-key">{formatKeyLabel(key)}</span>
+                          <span className="sr-diff-summary-val">{formatHumanValue(val)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="sr-diff-summary-list">
+                      <div className="sr-diff-summary-row">
+                        <span className="sr-diff-summary-key">Value</span>
+                        <span className="sr-diff-summary-val">{String(newParsed)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Property-by-Property Breakdown Table */}
+            {isObjectDiff && fieldKeys.length > 0 && (
+              <div className="sr-diff-fields-section">
+                <div className="sr-diff-fields-header">
+                  <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--ink, #102247)' }}>
+                    Property-Level Breakdown
+                  </h4>
+                  <span className="sr-diff-fields-count">
+                    {fieldKeys.length} {fieldKeys.length === 1 ? 'property' : 'properties'} evaluated
+                  </span>
+                </div>
+
+                <div className="sr-table-wrap" style={{ marginTop: '10px' }}>
+                  <table className="sr-table sr-diff-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '180px' }}>Property</th>
+                        <th style={{ width: '110px' }}>Status</th>
+                        <th>Before</th>
+                        <th>After</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fieldKeys.map((key) => {
+                        const status = getFieldStatus(key);
+                        const vOld =
+                          oldParsed && Object.prototype.hasOwnProperty.call(oldParsed, key)
+                            ? oldParsed[key]
+                            : undefined;
+                        const vNew =
+                          newParsed && Object.prototype.hasOwnProperty.call(newParsed, key)
+                            ? newParsed[key]
+                            : undefined;
+
+                        return (
+                          <tr key={key} className={`sr-diff-row ${status.type}`}>
+                            <td>
+                              <code className="sr-diff-prop-code">{key}</code>
+                            </td>
+                            <td>
+                              <span className={status.className}>{status.label}</span>
+                            </td>
+                            <td className="sr-diff-cell before">
+                              {vOld !== undefined ? (
+                                renderVal(vOld)
+                              ) : (
+                                <span className="sr-diff-val-empty">—</span>
+                              )}
+                            </td>
+                            <td className="sr-diff-cell after">
+                              {vNew !== undefined ? (
+                                renderVal(vNew)
+                              ) : (
+                                <span className="sr-diff-val-empty">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal Actions Footer */}
+        <div
+          className="modal-actions"
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            marginTop: '20px',
+            paddingTop: '14px',
+            borderTop: '1px solid #e2e8f0',
+          }}
+        >
+          <button type="button" className="btn primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
     </ModalShell>
   );
 }

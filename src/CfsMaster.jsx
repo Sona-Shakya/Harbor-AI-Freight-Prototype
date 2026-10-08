@@ -344,7 +344,7 @@ function CfsFormModal({ station, onClose, onSuccess, notify }) {
 
   return (
     <ModalShell
-      title={isEdit ? `Edit CFS Station — ${station.cfs_code}` : 'Register New CFS Station'}
+      title={isEdit ? `Edit CFS Location — ${station.cfs_code}` : 'Register New CFS Location'}
       onClose={onClose}
       wide
     >
@@ -356,226 +356,255 @@ function CfsFormModal({ station, onClose, onSuccess, notify }) {
           </div>
         )}
 
-        <div className="cfs-section-title">Identity & Facility Classification</div>
-        <div className="cfs-form-grid">
-          <label>
-            CFS Code <span className="cfs-required">*</span>
-            <input
-              type="text"
-              value={form.cfs_code}
-              onChange={(e) => setForm((p) => ({ ...p, cfs_code: e.target.value.toUpperCase() }))}
-              placeholder="e.g. CFS-LAX-01, ORD-CFS-HUB"
-              required
-              maxLength={30}
-              autoFocus={!isEdit}
-            />
-          </label>
+        <div className="cfs-modal-sections">
+          {/* Section 1: CFS Location Information */}
+          <div className="cfs-modal-section">
+            <div className="cfs-section-header">
+              <h4>CFS Location Information</h4>
+              <p>Core identity, facility classification, customs FIRMS designation, and port linkage</p>
+            </div>
+            <div className="cfs-form-grid">
+              <label>
+                CFS Code <span className="cfs-required">*</span>
+                <input
+                  type="text"
+                  value={form.cfs_code}
+                  onChange={(e) => setForm((p) => ({ ...p, cfs_code: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. CFS-LAX-01, ORD-CFS-HUB"
+                  required
+                  maxLength={30}
+                  autoFocus={!isEdit}
+                />
+              </label>
 
-          <label>
-            Station Name <span className="cfs-required">*</span>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="e.g. Harbor West Logistics CFS"
-              required
-              maxLength={150}
-            />
-          </label>
+              <label>
+                Station Name <span className="cfs-required">*</span>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Harbor West Logistics CFS"
+                  required
+                  maxLength={150}
+                />
+              </label>
 
-          <label>
-            FIRMS Code (US Customs)
-            <input
-              type="text"
-              value={form.firms_code}
-              onChange={(e) => setForm((p) => ({ ...p, firms_code: e.target.value.toUpperCase() }))}
-              placeholder="e.g. W123, Y999 (4-10 chars)"
-              maxLength={10}
-            />
-          </label>
+              <label>
+                FIRMS Code (US Customs)
+                <input
+                  type="text"
+                  value={form.firms_code}
+                  onChange={(e) => setForm((p) => ({ ...p, firms_code: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. W123, Y999 (4-10 chars)"
+                  maxLength={10}
+                />
+              </label>
 
-          <label>
-            Facility Type
-            <select
-              value={form.facility_type}
-              onChange={(e) => setForm((p) => ({ ...p, facility_type: e.target.value }))}
-            >
-              <option value="cfs">Container Freight Station (CFS)</option>
-              <option value="bonded_warehouse">Bonded Warehouse</option>
-              <option value="icd">Inland Container Depot (ICD)</option>
-              <option value="deconsolidation">Deconsolidation Center</option>
-              <option value="intermodal_hub">Rail / Intermodal Hub</option>
-            </select>
-          </label>
+              <label>
+                Facility Type
+                <select
+                  value={form.facility_type}
+                  onChange={(e) => setForm((p) => ({ ...p, facility_type: e.target.value }))}
+                >
+                  <option value="cfs">Container Freight Station (CFS)</option>
+                  <option value="bonded_warehouse">Bonded Warehouse</option>
+                  <option value="icd">Inland Container Depot (ICD)</option>
+                  <option value="deconsolidation">Deconsolidation Center</option>
+                  <option value="intermodal_hub">Rail / Intermodal Hub</option>
+                </select>
+              </label>
 
-          <label>
-            Associated Port (Optional)
-            <select
-              value={form.port_id}
-              onChange={(e) => setForm((p) => ({ ...p, port_id: e.target.value }))}
-            >
-              <option value="">— No linked port —</option>
-              {portOptions.map((pt) => (
-                <option key={pt.id} value={pt.id}>
-                  {pt.port_code} — {pt.name} ({pt.city || pt.country})
-                </option>
-              ))}
-            </select>
-          </label>
+              <label>
+                Associated Port (Optional)
+                <select
+                  value={form.port_id}
+                  onChange={(e) => setForm((p) => ({ ...p, port_id: e.target.value }))}
+                >
+                  <option value="">— No linked port —</option>
+                  {portOptions.map((pt) => (
+                    <option key={pt.id} value={pt.id}>
+                      {pt.port_code} — {pt.name} ({pt.city || pt.country})
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label>
-            Operational Status
-            <select
-              value={form.status}
-              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
-        </div>
+              <label>
+                Operational Status
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
-        <div className="cfs-section-title">Physical Address & Location</div>
-        <div className="cfs-form-grid">
-          <label className="cfs-form-full-width">
-            Address Line 1
-            <input
-              type="text"
-              value={form.address_line1}
-              onChange={(e) => setForm((p) => ({ ...p, address_line1: e.target.value }))}
-              placeholder="e.g. 123 Ocean Blvd, Terminal Island"
-              maxLength={255}
-            />
-          </label>
+          {/* Section 2: Location / Address */}
+          <div className="cfs-modal-section">
+            <div className="cfs-section-header">
+              <h4>Location / Address</h4>
+              <p>Physical depot address and GPS coordinates for dispatch routing</p>
+            </div>
+            <div className="cfs-form-grid">
+              <label className="cfs-form-full-width">
+                Address Line 1
+                <input
+                  type="text"
+                  value={form.address_line1}
+                  onChange={(e) => setForm((p) => ({ ...p, address_line1: e.target.value }))}
+                  placeholder="e.g. 123 Ocean Blvd, Terminal Island"
+                  maxLength={255}
+                />
+              </label>
 
-          <label className="cfs-form-full-width">
-            Address Line 2
-            <input
-              type="text"
-              value={form.address_line2}
-              onChange={(e) => setForm((p) => ({ ...p, address_line2: e.target.value }))}
-              placeholder="e.g. Building 4B, Gate 12"
-              maxLength={255}
-            />
-          </label>
+              <label className="cfs-form-full-width">
+                Address Line 2
+                <input
+                  type="text"
+                  value={form.address_line2}
+                  onChange={(e) => setForm((p) => ({ ...p, address_line2: e.target.value }))}
+                  placeholder="e.g. Building 4B, Gate 12"
+                  maxLength={255}
+                />
+              </label>
 
-          <label>
-            Country <span className="cfs-required">*</span>
-            <input
-              type="text"
-              value={form.country}
-              onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
-              placeholder="e.g. United States, Germany, India"
-              required
-              maxLength={100}
-            />
-          </label>
+              <label>
+                Country <span className="cfs-required">*</span>
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+                  placeholder="e.g. United States, Germany, India"
+                  required
+                  maxLength={100}
+                />
+              </label>
 
-          <label>
-            State / Province
-            <input
-              type="text"
-              value={form.state}
-              onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
-              placeholder="e.g. California, Hamburg, Maharashtra"
-              maxLength={100}
-            />
-          </label>
+              <label>
+                State / Province
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
+                  placeholder="e.g. California, Hamburg, Maharashtra"
+                  maxLength={100}
+                />
+              </label>
 
-          <label>
-            City
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-              placeholder="e.g. Long Beach, Hamburg, Mumbai"
-              maxLength={100}
-            />
-          </label>
+              <label>
+                City
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                  placeholder="e.g. Long Beach, Hamburg, Mumbai"
+                  maxLength={100}
+                />
+              </label>
 
-          <label>
-            Postal Code / ZIP
-            <input
-              type="text"
-              value={form.postal_code}
-              onChange={(e) => setForm((p) => ({ ...p, postal_code: e.target.value }))}
-              placeholder="e.g. 90802"
-              maxLength={20}
-            />
-          </label>
+              <label>
+                Postal Code / ZIP
+                <input
+                  type="text"
+                  value={form.postal_code}
+                  onChange={(e) => setForm((p) => ({ ...p, postal_code: e.target.value }))}
+                  placeholder="e.g. 90802"
+                  maxLength={20}
+                />
+              </label>
 
-          <label>
-            Latitude (-90 to 90)
-            <input
-              type="number"
-              step="any"
-              min="-90"
-              max="90"
-              value={form.lat}
-              onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))}
-              placeholder="e.g. 33.7701"
-            />
-          </label>
+              <label>
+                Latitude (-90 to 90)
+                <input
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  value={form.lat}
+                  onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))}
+                  placeholder="e.g. 33.7701"
+                />
+              </label>
 
-          <label>
-            Longitude (-180 to 180)
-            <input
-              type="number"
-              step="any"
-              min="-180"
-              max="180"
-              value={form.lng}
-              onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))}
-              placeholder="e.g. -118.1937"
-            />
-          </label>
-        </div>
+              <label>
+                Longitude (-180 to 180)
+                <input
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  value={form.lng}
+                  onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))}
+                  placeholder="e.g. -118.1937"
+                />
+              </label>
+            </div>
+          </div>
 
-        <div className="cfs-section-title">Contact & Operating Information</div>
-        <div className="cfs-form-grid">
-          <label>
-            Contact Phone
-            <input
-              type="text"
-              value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              placeholder="e.g. +1-555-0199"
-              maxLength={30}
-            />
-          </label>
+          {/* Section 3: Contact & Operations */}
+          <div className="cfs-modal-section">
+            <div className="cfs-section-header">
+              <h4>Contact & Operations</h4>
+              <p>Terminal operating hours and primary dispatch contact channels</p>
+            </div>
+            <div className="cfs-form-grid">
+              <label>
+                Contact Phone
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="e.g. +1-555-0199"
+                  maxLength={30}
+                />
+              </label>
 
-          <label>
-            Contact Email
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-              placeholder="e.g. dispatch@harborcfs.test"
-              maxLength={254}
-            />
-          </label>
+              <label>
+                Contact Email
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="e.g. dispatch@harborcfs.test"
+                  maxLength={254}
+                />
+              </label>
 
-          <label className="cfs-form-full-width">
-            Operating Hours
-            <input
-              type="text"
-              value={form.operating_hours}
-              onChange={(e) => setForm((p) => ({ ...p, operating_hours: e.target.value }))}
-              placeholder="e.g. Mon-Fri 08:00-17:00, Sat 08:00-12:00"
-              maxLength={255}
-            />
-          </label>
+              <label className="cfs-form-full-width">
+                Operating Hours
+                <input
+                  type="text"
+                  value={form.operating_hours}
+                  onChange={(e) => setForm((p) => ({ ...p, operating_hours: e.target.value }))}
+                  placeholder="e.g. Mon-Fri 08:00-17:00, Sat 08:00-12:00"
+                  maxLength={255}
+                />
+              </label>
+            </div>
+          </div>
 
-          <label className="cfs-form-full-width">
-            Audit Reason (Optional)
-            <input
-              type="text"
-              value={form.reason}
-              onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
-              placeholder="e.g. Initial station commissioning, Customs FIRMS code assignment"
-              maxLength={250}
-            />
-          </label>
+          {/* Section 4: Additional Information */}
+          <div className="cfs-modal-section">
+            <div className="cfs-section-header">
+              <h4>Additional Information</h4>
+              <p>Optional audit explanation for station lifecycle records</p>
+            </div>
+            <div className="cfs-form-grid">
+              <label className="cfs-form-full-width">
+                Audit Reason (Optional)
+                <input
+                  type="text"
+                  value={form.reason}
+                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="e.g. Initial station commissioning, Customs FIRMS code assignment"
+                  maxLength={250}
+                />
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="modal-actions" style={{ marginTop: '20px' }}>
@@ -592,7 +621,7 @@ function CfsFormModal({ station, onClose, onSuccess, notify }) {
             className="btn primary"
             disabled={saving}
           >
-            {saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create CFS Station')}
+            {saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create CFS Location')}
           </button>
         </div>
       </form>
@@ -672,7 +701,7 @@ function CfsDetailModal({
 
   return (
     <ModalShell
-      title={station ? `${station.name} (${station.cfs_code})` : 'CFS Station Details'}
+      title={station ? `${station.name} (${station.cfs_code})` : 'CFS Location Details'}
       onClose={onClose}
       wide
     >
@@ -695,7 +724,7 @@ function CfsDetailModal({
           {/* Header Row */}
           <div className="cfs-detail-header">
             <div className="cfs-detail-title">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <h2>{station.name}</h2>
                 <span className="cfs-code-badge">{station.cfs_code}</span>
                 <span className={statusBadgeClass(station.status)}>
@@ -705,6 +734,29 @@ function CfsDetailModal({
               <p>
                 {facilityTypeDisplay(station.facility_type)} · {station.city || '—'}, {station.country}
               </p>
+            </div>
+
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              {canUpdate && (
+                <>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ fontSize: '12.5px', padding: '6px 12px' }}
+                    onClick={() => onEdit(station)}
+                  >
+                    <NotePencil size={15} /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ fontSize: '12.5px', padding: '6px 12px' }}
+                    onClick={() => onChangeStatus(station)}
+                  >
+                    <ShieldCheck size={15} /> Status
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1114,7 +1166,7 @@ function CfsDeactivateModal({ station, onClose, onSuccess, notify }) {
 
     try {
       await deleteCfsStation(station.id, reason.trim() || undefined);
-      notify(`CFS Station '${station.cfs_code}' deactivated successfully.`);
+      notify(`CFS Location '${station.cfs_code}' deactivated successfully.`);
       onSuccess();
     } catch (ex) {
       setError(mapApiError(ex));
@@ -1124,7 +1176,7 @@ function CfsDeactivateModal({ station, onClose, onSuccess, notify }) {
   }
 
   return (
-    <ModalShell title={`Deactivate CFS — ${station.cfs_code}`} onClose={onClose}>
+    <ModalShell title={`Deactivate CFS Location — ${station.cfs_code}`} onClose={onClose}>
       <p className="cfs-modal-description">
         Are you sure you want to deactivate <strong>{station.name}</strong> ({station.cfs_code})?
         This soft-deactivates the station by setting status to <strong>Inactive</strong> and logs an audit event.
@@ -1356,9 +1408,9 @@ export default function CfsMaster({
         <div className="cfs-page-header-left">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Package size={28} style={{ color: 'var(--blue, #005fdc)' }} />
-            <h1>CFS Master</h1>
+            <h1>CFS Locations</h1>
           </div>
-          <p>Global directory of Container Freight Stations, inland container depots, bonded warehouses, and deconsolidation hubs.</p>
+          <p>Manage container freight stations, bonded warehouses, and inland container depots.</p>
         </div>
 
         <div className="cfs-header-actions">
@@ -1370,7 +1422,7 @@ export default function CfsMaster({
               fetchSummaryMetrics();
             }}
             disabled={loading}
-            title="Refresh CFS stations"
+            title="Refresh CFS locations"
           >
             <ArrowClockwise className={loading ? 'toggle-collapsed-icon' : ''} size={16} />
             <span>Refresh</span>
@@ -1383,7 +1435,7 @@ export default function CfsMaster({
               onClick={() => setModal({ kind: 'add' })}
             >
               <Plus size={16} />
-              <span>Add CFS</span>
+              <span>Add CFS Location</span>
             </button>
           )}
         </div>
@@ -1422,8 +1474,8 @@ export default function CfsMaster({
           <MagnifyingGlass size={17} />
           <input
             type="text"
-            aria-label="Search CFS stations"
-            placeholder="Search code, name, FIRMS, city, country…"
+            aria-label="Search CFS locations"
+            placeholder="Search CFS locations..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -1563,11 +1615,11 @@ export default function CfsMaster({
                         <div className="cfs-empty-icon">
                           <Package size={28} />
                         </div>
-                        <h3>No CFS Stations Found</h3>
+                        <h3>No CFS Locations Found</h3>
                         <p>
                           {searchQuery || statusFilter !== 'all' || facilityTypeFilter !== 'all' || countryFilter
-                            ? 'No CFS stations match your current search and filter criteria.'
-                            : 'No CFS stations registered in the directory yet. Click "Add CFS" to register the first container freight depot.'}
+                            ? 'No CFS locations match your current search and filter criteria.'
+                            : 'No CFS locations registered in the directory yet. Click "Add CFS Location" to register the first container freight depot.'}
                         </p>
                         {(searchQuery || statusFilter !== 'all' || facilityTypeFilter !== 'all' || countryFilter) && (
                           <button type="button" className="btn" onClick={handleReset}>
@@ -1580,7 +1632,7 @@ export default function CfsMaster({
                             className="btn primary"
                             onClick={() => setModal({ kind: 'add' })}
                           >
-                            <Plus size={16} /> Add First CFS
+                            <Plus size={16} /> Add First CFS Location
                           </button>
                         )}
                       </div>
@@ -1650,7 +1702,7 @@ export default function CfsMaster({
                             aria-label={`View details for ${st.cfs_code}`}
                             onClick={() => setModal({ kind: 'detail', cfsId: st.id, tab: 'overview' })}
                           >
-                            <Eye size={17} />
+                            <Eye size={14} /> View
                           </button>
 
                           <button
@@ -1660,7 +1712,7 @@ export default function CfsMaster({
                             aria-label={`Audit history for ${st.cfs_code}`}
                             onClick={() => setModal({ kind: 'detail', cfsId: st.id, tab: 'audit' })}
                           >
-                            <ClockCounterClockwise size={17} />
+                            <ClockCounterClockwise size={14} /> Audit
                           </button>
 
                           {canUpdate && (
@@ -1668,11 +1720,11 @@ export default function CfsMaster({
                               <button
                                 type="button"
                                 className="cfs-action-btn"
-                                title="Edit CFS Station"
+                                title="Edit CFS Location"
                                 aria-label={`Edit ${st.cfs_code}`}
                                 onClick={() => setModal({ kind: 'edit', station: st })}
                               >
-                                <NotePencil size={17} />
+                                <NotePencil size={14} /> Edit
                               </button>
 
                               <button
@@ -1682,7 +1734,7 @@ export default function CfsMaster({
                                 aria-label={`Change status for ${st.cfs_code}`}
                                 onClick={() => setModal({ kind: 'status', station: st })}
                               >
-                                <ShieldCheck size={17} />
+                                <ShieldCheck size={14} /> Status
                               </button>
                             </>
                           )}
@@ -1691,12 +1743,12 @@ export default function CfsMaster({
                             <button
                               type="button"
                               className="cfs-action-btn danger"
-                              title={st.status === 'inactive' ? 'Station already inactive' : 'Deactivate CFS Station'}
+                              title={st.status === 'inactive' ? 'Station already inactive' : 'Deactivate CFS Location'}
                               aria-label={`Deactivate ${st.cfs_code}`}
                               disabled={st.status === 'inactive'}
                               onClick={() => setModal({ kind: 'delete', station: st })}
                             >
-                              <Trash size={17} />
+                              <Trash size={14} /> Deactivate
                             </button>
                           )}
                         </div>

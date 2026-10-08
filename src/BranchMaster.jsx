@@ -304,232 +304,268 @@ function AddBranchModal({ accounts, onClose, onSuccess, notify }) {
       )}
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="bm-form-grid">
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-code">
-              Branch Code <span className="req">*</span>
-            </label>
-            <input
-              id="bm-add-code"
-              name="branch_code"
-              type="text"
-              required
-              className="bm-input"
-              placeholder="e.g. CHI-01, NYC-MAIN"
-              maxLength={30}
-              value={form.branch_code}
-              onChange={handleChange}
-              onBlur={handleBranchCodeBlur}
-              disabled={saving}
-              autoFocus
-            />
-            <span className="bm-hint">Unique identifier within your organization (auto-uppercased).</span>
-          </div>
+        <div className="bm-modal-sections">
+          {/* Section 1: Branch Information */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Branch Information</h4>
+              <p>Primary identifiers and designations for this branch</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-code">
+                  Branch Code <span className="req">*</span>
+                </label>
+                <input
+                  id="bm-add-code"
+                  name="branch_code"
+                  type="text"
+                  required
+                  className="bm-input"
+                  placeholder="e.g. CHI-01, NYC-MAIN"
+                  maxLength={30}
+                  value={form.branch_code}
+                  onChange={handleChange}
+                  onBlur={handleBranchCodeBlur}
+                  disabled={saving}
+                  autoFocus
+                />
+                <span className="bm-hint">Unique identifier within your organization (auto-uppercased).</span>
+              </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-name">
-              Branch Name <span className="req">*</span>
-            </label>
-            <input
-              id="bm-add-name"
-              name="name"
-              type="text"
-              required
-              className="bm-input"
-              placeholder="e.g. Chicago Central Terminal"
-              maxLength={150}
-              value={form.name}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-name">
+                  Branch Name <span className="req">*</span>
+                </label>
+                <input
+                  id="bm-add-name"
+                  name="name"
+                  type="text"
+                  required
+                  className="bm-input"
+                  placeholder="e.g. Chicago Central Terminal"
+                  maxLength={150}
+                  value={form.name}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-status">
-              Status
-            </label>
-            <select
-              id="bm-add-status"
-              name="status"
-              className="bm-form-select"
-              value={form.status}
-              onChange={handleChange}
-              disabled={saving}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-manager">
-              Manager
-            </label>
-            <select
-              id="bm-add-manager"
-              name="manager_user_id"
-              className="bm-form-select"
-              value={form.manager_user_id}
-              onChange={handleChange}
-              disabled={saving}
-            >
-              <option value="">No manager</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name || acc.email} {acc.email ? `(${acc.email})` : ''}
-                </option>
-              ))}
-            </select>
-            <span className="bm-hint">Assign an active user belonging to your organization.</span>
-          </div>
-
-          <div className="bm-form-group full-width">
-            <div className="bm-checkbox-group">
-              <input
-                id="bm-add-hq"
-                name="is_headquarters"
-                type="checkbox"
-                checked={form.is_headquarters}
-                onChange={handleChange}
-                disabled={saving}
-              />
-              <label htmlFor="bm-add-hq" className="bm-checkbox-label">
-                <span className="bm-checkbox-title">Headquarters</span>
-                <span className="bm-checkbox-hint">
-                  {form.is_headquarters
-                    ? "This branch will be designated as the organization's headquarters."
-                    : "Designate as headquarters (an organization can have at most one headquarters branch)."}
-                </span>
-              </label>
+              <div className="bm-form-group full-width">
+                <div className="bm-checkbox-group">
+                  <input
+                    id="bm-add-hq"
+                    name="is_headquarters"
+                    type="checkbox"
+                    checked={form.is_headquarters}
+                    onChange={handleChange}
+                    disabled={saving}
+                  />
+                  <label htmlFor="bm-add-hq" className="bm-checkbox-label">
+                    <span className="bm-checkbox-title">Headquarters</span>
+                    <span className="bm-checkbox-hint">
+                      {form.is_headquarters
+                        ? "This branch will be designated as the organization's headquarters."
+                        : "Designate as headquarters (an organization can have at most one headquarters branch)."}
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-phone">
-              Phone
-            </label>
-            <input
-              id="bm-add-phone"
-              name="phone"
-              type="text"
-              className="bm-input"
-              placeholder="e.g. +1 312 555 0192"
-              value={form.phone}
-              onChange={handleChange}
-              disabled={saving}
-            />
+          {/* Section 2: Location & Address */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Location & Address</h4>
+              <p>Physical street address and postal details</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-add-addr1">
+                  Address Line 1
+                </label>
+                <input
+                  id="bm-add-addr1"
+                  name="address_line1"
+                  type="text"
+                  className="bm-input"
+                  placeholder="Street address or logistics park"
+                  value={form.address_line1}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-add-addr2">
+                  Address Line 2
+                </label>
+                <input
+                  id="bm-add-addr2"
+                  name="address_line2"
+                  type="text"
+                  className="bm-input"
+                  placeholder="Suite, Dock, Building number (optional)"
+                  value={form.address_line2}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-city">
+                  City
+                </label>
+                <input
+                  id="bm-add-city"
+                  name="city"
+                  type="text"
+                  className="bm-input"
+                  placeholder="City"
+                  value={form.city}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-state">
+                  State
+                </label>
+                <input
+                  id="bm-add-state"
+                  name="state"
+                  type="text"
+                  className="bm-input"
+                  placeholder="State or Region"
+                  value={form.state}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-country">
+                  Country
+                </label>
+                <input
+                  id="bm-add-country"
+                  name="country"
+                  type="text"
+                  className="bm-input"
+                  placeholder="e.g. USA, Canada"
+                  value={form.country}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-postal">
+                  Postal Code
+                </label>
+                <input
+                  id="bm-add-postal"
+                  name="postal_code"
+                  type="text"
+                  className="bm-input"
+                  placeholder="Postal / ZIP code"
+                  value={form.postal_code}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-email">
-              Email
-            </label>
-            <input
-              id="bm-add-email"
-              name="email"
-              type="email"
-              className="bm-input"
-              placeholder="e.g. chicago-ops@harbor.example"
-              value={form.email}
-              onChange={handleChange}
-              disabled={saving}
-            />
+          {/* Section 3: Contact & Management */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Contact & Management</h4>
+              <p>Branch manager and direct communication channels</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-manager">
+                  Branch Manager
+                </label>
+                <select
+                  id="bm-add-manager"
+                  name="manager_user_id"
+                  className="bm-form-select"
+                  value={form.manager_user_id}
+                  onChange={handleChange}
+                  disabled={saving}
+                >
+                  <option value="">No manager assigned</option>
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name || acc.email} {acc.email ? `(${acc.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="bm-hint">Assign an active user belonging to your organization.</span>
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-add-phone">
+                  Phone Number
+                </label>
+                <input
+                  id="bm-add-phone"
+                  name="phone"
+                  type="text"
+                  className="bm-input"
+                  placeholder="e.g. +1 312 555 0192"
+                  value={form.phone}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-add-email">
+                  Branch Email
+                </label>
+                <input
+                  id="bm-add-email"
+                  name="email"
+                  type="email"
+                  className="bm-input"
+                  placeholder="e.g. chicago-ops@harbor.example"
+                  value={form.email}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="bm-form-group full-width">
-            <label className="bm-label" htmlFor="bm-add-addr1">
-              Address Line 1
-            </label>
-            <input
-              id="bm-add-addr1"
-              name="address_line1"
-              type="text"
-              className="bm-input"
-              placeholder="Street address or logistics park"
-              value={form.address_line1}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group full-width">
-            <label className="bm-label" htmlFor="bm-add-addr2">
-              Address Line 2
-            </label>
-            <input
-              id="bm-add-addr2"
-              name="address_line2"
-              type="text"
-              className="bm-input"
-              placeholder="Suite, Dock, Building number (optional)"
-              value={form.address_line2}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-city">
-              City
-            </label>
-            <input
-              id="bm-add-city"
-              name="city"
-              type="text"
-              className="bm-input"
-              placeholder="City"
-              value={form.city}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-state">
-              State
-            </label>
-            <input
-              id="bm-add-state"
-              name="state"
-              type="text"
-              className="bm-input"
-              placeholder="State or Region"
-              value={form.state}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-country">
-              Country
-            </label>
-            <input
-              id="bm-add-country"
-              name="country"
-              type="text"
-              className="bm-input"
-              placeholder="e.g. USA, Canada"
-              value={form.country}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-add-postal">
-              Postal Code
-            </label>
-            <input
-              id="bm-add-postal"
-              name="postal_code"
-              type="text"
-              className="bm-input"
-              placeholder="Postal / ZIP code"
-              value={form.postal_code}
-              onChange={handleChange}
-              disabled={saving}
-            />
+          {/* Section 4: Lifecycle Status */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Lifecycle Status</h4>
+              <p>Current operational availability of the location</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-add-status">
+                  Operational Status
+                </label>
+                <select
+                  id="bm-add-status"
+                  name="status"
+                  className="bm-form-select"
+                  value={form.status}
+                  onChange={handleChange}
+                  disabled={saving}
+                >
+                  <option value="active">Active — Available for operations</option>
+                  <option value="inactive">Inactive — Suspended / Closed</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -680,219 +716,261 @@ function EditBranchModal({ branch, accounts, onClose, onSuccess, notify }) {
       )}
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="bm-form-grid">
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-code">
-              Branch Code <span className="req">*</span>
-            </label>
-            <input
-              id="bm-edit-code"
-              name="branch_code"
-              type="text"
-              required
-              className="bm-input"
-              maxLength={30}
-              value={form.branch_code}
-              onChange={handleChange}
-              onBlur={handleBranchCodeBlur}
-              disabled={saving}
-            />
-          </div>
+        <div className="bm-modal-sections">
+          {/* Section 1: Branch Information */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Branch Information</h4>
+              <p>Primary identifiers and designations for this branch</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-code">
+                  Branch Code <span className="req">*</span>
+                </label>
+                <input
+                  id="bm-edit-code"
+                  name="branch_code"
+                  type="text"
+                  required
+                  className="bm-input"
+                  maxLength={30}
+                  value={form.branch_code}
+                  onChange={handleChange}
+                  onBlur={handleBranchCodeBlur}
+                  disabled={saving}
+                />
+              </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-name">
-              Branch Name <span className="req">*</span>
-            </label>
-            <input
-              id="bm-edit-name"
-              name="name"
-              type="text"
-              required
-              className="bm-input"
-              maxLength={150}
-              value={form.name}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-name">
+                  Branch Name <span className="req">*</span>
+                </label>
+                <input
+                  id="bm-edit-name"
+                  name="name"
+                  type="text"
+                  required
+                  className="bm-input"
+                  maxLength={150}
+                  value={form.name}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-status">
-              Status
-            </label>
-            <select
-              id="bm-edit-status"
-              name="status"
-              className="bm-form-select"
-              value={form.status}
-              onChange={handleChange}
-              disabled={saving}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-manager">
-              Manager
-            </label>
-            <select
-              id="bm-edit-manager"
-              name="manager_user_id"
-              className="bm-form-select"
-              value={form.manager_user_id}
-              onChange={handleChange}
-              disabled={saving}
-            >
-              <option value="">No manager</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name || acc.email} {acc.email ? `(${acc.email})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bm-form-group full-width">
-            <div className="bm-checkbox-group">
-              <input
-                id="bm-edit-hq"
-                name="is_headquarters"
-                type="checkbox"
-                checked={form.is_headquarters}
-                onChange={handleChange}
-                disabled={saving}
-              />
-              <label htmlFor="bm-edit-hq" className="bm-checkbox-label">
-                <span className="bm-checkbox-title">Headquarters</span>
-                <span className="bm-checkbox-hint">
-                  {form.is_headquarters
-                    ? "This branch will be designated as the organization's headquarters."
-                    : "Designate as headquarters (an organization can have at most one headquarters branch)."}
-                </span>
-              </label>
+              <div className="bm-form-group full-width">
+                <div className="bm-checkbox-group">
+                  <input
+                    id="bm-edit-hq"
+                    name="is_headquarters"
+                    type="checkbox"
+                    checked={form.is_headquarters}
+                    onChange={handleChange}
+                    disabled={saving}
+                  />
+                  <label htmlFor="bm-edit-hq" className="bm-checkbox-label">
+                    <span className="bm-checkbox-title">Headquarters</span>
+                    <span className="bm-checkbox-hint">
+                      {form.is_headquarters
+                        ? "This branch will be designated as the organization's headquarters."
+                        : "Designate as headquarters (an organization can have at most one headquarters branch)."}
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-phone">
-              Phone
-            </label>
-            <input
-              id="bm-edit-phone"
-              name="phone"
-              type="text"
-              className="bm-input"
-              value={form.phone}
-              onChange={handleChange}
-              disabled={saving}
-            />
+          {/* Section 2: Location & Address */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Location & Address</h4>
+              <p>Physical street address and postal details</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-edit-addr1">
+                  Address Line 1
+                </label>
+                <input
+                  id="bm-edit-addr1"
+                  name="address_line1"
+                  type="text"
+                  className="bm-input"
+                  value={form.address_line1}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-edit-addr2">
+                  Address Line 2
+                </label>
+                <input
+                  id="bm-edit-addr2"
+                  name="address_line2"
+                  type="text"
+                  className="bm-input"
+                  value={form.address_line2}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-city">
+                  City
+                </label>
+                <input
+                  id="bm-edit-city"
+                  name="city"
+                  type="text"
+                  className="bm-input"
+                  value={form.city}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-state">
+                  State
+                </label>
+                <input
+                  id="bm-edit-state"
+                  name="state"
+                  type="text"
+                  className="bm-input"
+                  value={form.state}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-country">
+                  Country
+                </label>
+                <input
+                  id="bm-edit-country"
+                  name="country"
+                  type="text"
+                  className="bm-input"
+                  value={form.country}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-postal">
+                  Postal Code
+                </label>
+                <input
+                  id="bm-edit-postal"
+                  name="postal_code"
+                  type="text"
+                  className="bm-input"
+                  value={form.postal_code}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-email">
-              Email
-            </label>
-            <input
-              id="bm-edit-email"
-              name="email"
-              type="email"
-              className="bm-input"
-              value={form.email}
-              onChange={handleChange}
-              disabled={saving}
-            />
+          {/* Section 3: Contact & Management */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Contact & Management</h4>
+              <p>Branch manager and direct communication channels</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-manager">
+                  Branch Manager
+                </label>
+                <select
+                  id="bm-edit-manager"
+                  name="manager_user_id"
+                  className="bm-form-select"
+                  value={form.manager_user_id}
+                  onChange={handleChange}
+                  disabled={saving}
+                >
+                  <option value="">No manager assigned</option>
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name || acc.email} {acc.email ? `(${acc.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="bm-hint">Assign an active user belonging to your organization.</span>
+              </div>
+
+              <div className="bm-form-group">
+                <label className="bm-label" htmlFor="bm-edit-phone">
+                  Phone Number
+                </label>
+                <input
+                  id="bm-edit-phone"
+                  name="phone"
+                  type="text"
+                  className="bm-input"
+                  value={form.phone}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-edit-email">
+                  Branch Email
+                </label>
+                <input
+                  id="bm-edit-email"
+                  name="email"
+                  type="email"
+                  className="bm-input"
+                  value={form.email}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="bm-form-group full-width">
-            <label className="bm-label" htmlFor="bm-edit-addr1">
-              Address Line 1
-            </label>
-            <input
-              id="bm-edit-addr1"
-              name="address_line1"
-              type="text"
-              className="bm-input"
-              value={form.address_line1}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group full-width">
-            <label className="bm-label" htmlFor="bm-edit-addr2">
-              Address Line 2
-            </label>
-            <input
-              id="bm-edit-addr2"
-              name="address_line2"
-              type="text"
-              className="bm-input"
-              value={form.address_line2}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-city">
-              City
-            </label>
-            <input
-              id="bm-edit-city"
-              name="city"
-              type="text"
-              className="bm-input"
-              value={form.city}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-state">
-              State
-            </label>
-            <input
-              id="bm-edit-state"
-              name="state"
-              type="text"
-              className="bm-input"
-              value={form.state}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-country">
-              Country
-            </label>
-            <input
-              id="bm-edit-country"
-              name="country"
-              type="text"
-              className="bm-input"
-              value={form.country}
-              onChange={handleChange}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="bm-form-group">
-            <label className="bm-label" htmlFor="bm-edit-postal">
-              Postal Code
-            </label>
-            <input
-              id="bm-edit-postal"
-              name="postal_code"
-              type="text"
-              className="bm-input"
-              value={form.postal_code}
-              onChange={handleChange}
-              disabled={saving}
-            />
+          {/* Section 4: Lifecycle Status */}
+          <div className="bm-modal-section">
+            <div className="bm-section-header">
+              <h4>Lifecycle Status</h4>
+              <p>Current operational availability of the location</p>
+            </div>
+            <div className="bm-form-grid">
+              <div className="bm-form-group full-width">
+                <label className="bm-label" htmlFor="bm-edit-status">
+                  Operational Status
+                </label>
+                <select
+                  id="bm-edit-status"
+                  name="status"
+                  className="bm-form-select"
+                  value={form.status}
+                  onChange={handleChange}
+                  disabled={saving || (branch?.is_headquarters && form.status === 'active')}
+                >
+                  <option value="active">Active — Available for operations</option>
+                  <option value="inactive">Inactive — Suspended / Closed</option>
+                </select>
+                {branch?.is_headquarters && (
+                  <span className="bm-hint" style={{ marginTop: '4px', display: 'block' }}>
+                    Headquarters branch cannot be marked Inactive.
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1590,7 +1668,7 @@ export default function BranchMaster({
       <div className="bm-page-header">
         <div className="bm-page-header-left">
           <h1>Branches</h1>
-          <p>Manage operational branches for your organization.</p>
+          <p>Manage operational branches, hubs, and office locations for your organization.</p>
         </div>
         <div className="bm-header-actions">
           <button
@@ -1680,7 +1758,7 @@ export default function BranchMaster({
             setPage(1);
           }}
         >
-          <option value="all">All</option>
+          <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
@@ -1816,46 +1894,52 @@ export default function BranchMaster({
                             type="button"
                             className="bm-action-btn"
                             title="View Details"
+                            aria-label={`View ${b.name}`}
                             onClick={() => setModal({ kind: 'detail', branch: b })}
                           >
-                            <Eye size={17} />
+                            <Eye size={14} /> View
                           </button>
 
-                          <button
-                            type="button"
-                            className="bm-action-btn"
-                            title={canUpdate ? 'Edit Branch' : 'Permission required'}
-                            disabled={!canUpdate}
-                            onClick={() => setModal({ kind: 'edit', branch: b })}
-                          >
-                            <NotePencil size={17} />
-                          </button>
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              className="bm-action-btn"
+                              title="Edit Branch"
+                              aria-label={`Edit ${b.name}`}
+                              onClick={() => setModal({ kind: 'edit', branch: b })}
+                            >
+                              <NotePencil size={14} /> Edit
+                            </button>
+                          )}
 
-                          <button
-                            type="button"
-                            className="bm-action-btn"
-                            title={canUpdate ? (b.status === 'active' ? 'Deactivate' : 'Activate') : 'Permission required'}
-                            disabled={!canUpdate}
-                            onClick={() => setModal({ kind: 'status', branch: b })}
-                          >
-                            <ArrowClockwise size={17} />
-                          </button>
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              className="bm-action-btn"
+                              title={b.status === 'active' ? 'Deactivate Branch' : 'Activate Branch'}
+                              aria-label={`Change status for ${b.name}`}
+                              onClick={() => setModal({ kind: 'status', branch: b })}
+                            >
+                              <ArrowClockwise size={14} /> Status
+                            </button>
+                          )}
 
-                          <button
-                            type="button"
-                            className="bm-action-btn danger"
-                            title={
-                              b.is_headquarters
-                                ? 'Headquarters branch cannot be deactivated'
-                                : canDelete
-                                ? 'Deactivate Branch'
-                                : 'Permission required'
-                            }
-                            disabled={!canDelete || b.is_headquarters}
-                            onClick={() => setModal({ kind: 'delete', branch: b })}
-                          >
-                            <Trash size={17} />
-                          </button>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              className="bm-action-btn danger"
+                              title={
+                                b.is_headquarters
+                                  ? 'Headquarters branch cannot be deactivated'
+                                  : 'Deactivate Branch'
+                              }
+                              aria-label={`Deactivate ${b.name}`}
+                              disabled={b.is_headquarters}
+                              onClick={() => setModal({ kind: 'delete', branch: b })}
+                            >
+                              <Trash size={14} /> Deactivate
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

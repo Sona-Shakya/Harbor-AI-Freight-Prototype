@@ -297,198 +297,227 @@ function AgentFormModal({ agent, onClose, onSuccess, notify }) {
           </div>
         )}
 
-        <div className="am-section-title">Identity & Regulatory Authority</div>
-        <div className="am-form-grid">
-          <label className="am-form-full-width">
-            Legal Name <span className="am-required">*</span>
-            <input
-              type="text"
-              value={form.legal_name}
-              onChange={(e) => setForm((p) => ({ ...p, legal_name: e.target.value }))}
-              placeholder="e.g. Apex Brokerage Logistics LLC"
-              required
-              maxLength={200}
-              autoFocus
-            />
-          </label>
+        <div className="am-modal-sections">
+          {/* Section 1: Agent Information & Authority */}
+          <div className="am-modal-section">
+            <div className="am-section-header">
+              <h4>Agent Information & Authority</h4>
+              <p>Legal entity name, tax credentials, and FMCSA regulatory authority</p>
+            </div>
+            <div className="am-form-grid">
+              <label className="am-form-full-width">
+                Legal Name <span className="am-required">*</span>
+                <input
+                  type="text"
+                  value={form.legal_name}
+                  onChange={(e) => setForm((p) => ({ ...p, legal_name: e.target.value }))}
+                  placeholder="e.g. Apex Brokerage Logistics LLC"
+                  required
+                  maxLength={200}
+                  autoFocus
+                />
+              </label>
 
-          <label>
-            Tax ID / EIN
-            <input
-              type="text"
-              value={form.tax_id}
-              onChange={(e) => setForm((p) => ({ ...p, tax_id: e.target.value }))}
-              placeholder="XX-XXXXXXX"
-              maxLength={50}
-            />
-          </label>
+              <label>
+                Tax ID / EIN
+                <input
+                  type="text"
+                  value={form.tax_id}
+                  onChange={(e) => setForm((p) => ({ ...p, tax_id: e.target.value }))}
+                  placeholder="XX-XXXXXXX"
+                  maxLength={50}
+                />
+              </label>
 
-          <label>
-            MC Number / FF Number
-            <input
-              type="text"
-              value={form.mc_number}
-              onChange={(e) => setForm((p) => ({ ...p, mc_number: e.target.value }))}
-              placeholder="e.g. MC-123456"
-              maxLength={50}
-            />
-          </label>
+              <label>
+                MC Number / FF Number
+                <input
+                  type="text"
+                  value={form.mc_number}
+                  onChange={(e) => setForm((p) => ({ ...p, mc_number: e.target.value }))}
+                  placeholder="e.g. MC-123456"
+                  maxLength={50}
+                />
+              </label>
 
-          <label>
-            USDOT Number
-            <input
-              type="text"
-              value={form.dot_number}
-              onChange={(e) => setForm((p) => ({ ...p, dot_number: e.target.value }))}
-              placeholder="e.g. 7654321"
-              maxLength={50}
-            />
-          </label>
+              <label>
+                USDOT Number
+                <input
+                  type="text"
+                  value={form.dot_number}
+                  onChange={(e) => setForm((p) => ({ ...p, dot_number: e.target.value }))}
+                  placeholder="e.g. 7654321"
+                  maxLength={50}
+                />
+              </label>
 
-          <label>
-            Operating Authority Status
-            <select
-              value={form.operating_status}
-              onChange={(e) => setForm((p) => ({ ...p, operating_status: e.target.value }))}
-            >
-              <option value="authorized">Authorized</option>
-              <option value="not_authorized">Not Authorized</option>
-              <option value="pending">Pending</option>
-            </select>
-          </label>
+              <label>
+                Operating Authority Status
+                <select
+                  value={form.operating_status}
+                  onChange={(e) => setForm((p) => ({ ...p, operating_status: e.target.value }))}
+                >
+                  <option value="authorized">Authorized</option>
+                  <option value="not_authorized">Not Authorized</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </label>
 
-          <label>
-            Safety Rating
-            <select
-              value={form.safety_rating}
-              onChange={(e) => setForm((p) => ({ ...p, safety_rating: e.target.value }))}
-            >
-              <option value="satisfactory">Satisfactory</option>
-              <option value="conditional">Conditional</option>
-              <option value="unsatisfactory">Unsatisfactory</option>
-              <option value="none">None / Not Rated</option>
-            </select>
-          </label>
+              <label className="am-form-full-width">
+                Safety Rating
+                <select
+                  value={form.safety_rating}
+                  onChange={(e) => setForm((p) => ({ ...p, safety_rating: e.target.value }))}
+                >
+                  <option value="satisfactory">Satisfactory</option>
+                  <option value="conditional">Conditional</option>
+                  <option value="unsatisfactory">Unsatisfactory</option>
+                  <option value="none">None / Not Rated</option>
+                </select>
+              </label>
 
-          <label>
-            Lifecycle Status
-            <select
-              value={form.status}
-              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-            >
-              <option value="active">Active</option>
-              <option value="pending">Pending Review</option>
-              <option value="suspended">Suspended</option>
-              <option value="terminated">Terminated</option>
-            </select>
-          </label>
-
-          <div className="am-form-full-width">
-            <label className="am-checkbox-label">
-              <input
-                type="checkbox"
-                checked={form.is_enterprise}
-                onChange={(e) => setForm((p) => ({ ...p, is_enterprise: e.target.checked }))}
-              />
-              Enterprise Broker / Agent Account (Dedicated volume partner)
-            </label>
+              <div className="am-form-full-width">
+                <label className="am-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.is_enterprise}
+                    onChange={(e) => setForm((p) => ({ ...p, is_enterprise: e.target.checked }))}
+                  />
+                  Enterprise Broker / Agent Account (Dedicated volume partner)
+                </label>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="am-section-title">Physical Address</div>
-        <div className="am-form-grid">
-          <label className="am-form-full-width">
-            Address Line 1
-            <input
-              type="text"
-              value={form.address_line1}
-              onChange={(e) => setForm((p) => ({ ...p, address_line1: e.target.value }))}
-              placeholder="Street address, P.O. box"
-            />
-          </label>
+          {/* Section 2: Physical Address */}
+          <div className="am-modal-section">
+            <div className="am-section-header">
+              <h4>Physical Address</h4>
+              <p>Official corporate location and postal details</p>
+            </div>
+            <div className="am-form-grid">
+              <label className="am-form-full-width">
+                Address Line 1
+                <input
+                  type="text"
+                  value={form.address_line1}
+                  onChange={(e) => setForm((p) => ({ ...p, address_line1: e.target.value }))}
+                  placeholder="Street address, P.O. box"
+                />
+              </label>
 
-          <label className="am-form-full-width">
-            Address Line 2
-            <input
-              type="text"
-              value={form.address_line2}
-              onChange={(e) => setForm((p) => ({ ...p, address_line2: e.target.value }))}
-              placeholder="Suite, unit, building, floor"
-            />
-          </label>
+              <label className="am-form-full-width">
+                Address Line 2
+                <input
+                  type="text"
+                  value={form.address_line2}
+                  onChange={(e) => setForm((p) => ({ ...p, address_line2: e.target.value }))}
+                  placeholder="Suite, unit, building, floor"
+                />
+              </label>
 
-          <label>
-            City
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-              placeholder="City"
-            />
-          </label>
+              <label>
+                City
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                  placeholder="City"
+                />
+              </label>
 
-          <label>
-            State / Province
-            <input
-              type="text"
-              value={form.state}
-              onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
-              placeholder="State code (e.g. IL, TX)"
-            />
-          </label>
+              <label>
+                State / Province
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
+                  placeholder="State code (e.g. IL, TX)"
+                />
+              </label>
 
-          <label>
-            Postal Code
-            <input
-              type="text"
-              value={form.postal_code}
-              onChange={(e) => setForm((p) => ({ ...p, postal_code: e.target.value }))}
-              placeholder="ZIP / Postal code"
-            />
-          </label>
+              <label>
+                Postal Code
+                <input
+                  type="text"
+                  value={form.postal_code}
+                  onChange={(e) => setForm((p) => ({ ...p, postal_code: e.target.value }))}
+                  placeholder="ZIP / Postal code"
+                />
+              </label>
 
-          <label>
-            Country
-            <input
-              type="text"
-              value={form.country}
-              onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
-              placeholder="Country"
-            />
-          </label>
-        </div>
+              <label>
+                Country
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+                  placeholder="Country"
+                />
+              </label>
+            </div>
+          </div>
 
-        <div className="am-section-title">Operations & Contact Info</div>
-        <div className="am-form-grid">
-          <label>
-            Company Phone
-            <input
-              type="tel"
-              value={form.company_phone}
-              onChange={(e) => setForm((p) => ({ ...p, company_phone: e.target.value }))}
-              placeholder="+1 (555) 000-0000"
-            />
-          </label>
+          {/* Section 3: Contact & Operations */}
+          <div className="am-modal-section">
+            <div className="am-section-header">
+              <h4>Contact & Operations Channels</h4>
+              <p>Direct communication channels and dispatch contact info</p>
+            </div>
+            <div className="am-form-grid">
+              <label>
+                Company Phone
+                <input
+                  type="tel"
+                  value={form.company_phone}
+                  onChange={(e) => setForm((p) => ({ ...p, company_phone: e.target.value }))}
+                  placeholder="+1 (555) 000-0000"
+                />
+              </label>
 
-          <label>
-            Operations / Brokerage Email
-            <input
-              type="email"
-              value={form.company_email}
-              onChange={(e) => setForm((p) => ({ ...p, company_email: e.target.value }))}
-              placeholder="dispatch@broker.com"
-            />
-          </label>
+              <label>
+                Operations / Brokerage Email
+                <input
+                  type="email"
+                  value={form.company_email}
+                  onChange={(e) => setForm((p) => ({ ...p, company_email: e.target.value }))}
+                  placeholder="dispatch@broker.com"
+                />
+              </label>
 
-          <label className="am-form-full-width">
-            Website
-            <input
-              type="url"
-              value={form.website}
-              onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))}
-              placeholder="https://www.agentlogistics.com"
-            />
-          </label>
+              <label className="am-form-full-width">
+                Website
+                <input
+                  type="url"
+                  value={form.website}
+                  onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))}
+                  placeholder="https://www.agentlogistics.com"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Section 4: Lifecycle Status */}
+          <div className="am-modal-section">
+            <div className="am-section-header">
+              <h4>Lifecycle Status</h4>
+              <p>Operational partner standing within the freight network</p>
+            </div>
+            <div className="am-form-grid">
+              <label className="am-form-full-width">
+                Lifecycle Status
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
+                >
+                  <option value="active">Active — Authorized for broker assignments</option>
+                  <option value="pending">Pending Review — Verification in progress</option>
+                  <option value="suspended">Suspended — Temporarily on hold</option>
+                  <option value="terminated">Terminated — Inactive partner</option>
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -1340,10 +1369,7 @@ export default function AgentMaster({
       {/* ── Page Header ── */}
       <header className="am-page-header">
         <div className="am-page-header-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <IdentificationBadge size={28} style={{ color: 'var(--blue, #005fdc)' }} />
-            <h1>Agent Master</h1>
-          </div>
+          <h1>Agents</h1>
           <p>Manage freight brokers, booking agents, and intermediary logistics partners.</p>
         </div>
 
@@ -1368,7 +1394,7 @@ export default function AgentMaster({
               className="btn primary"
               onClick={() => setModal({ kind: 'add' })}
             >
-              <Plus size={16} />
+              <Plus size={18} />
               <span>Add Agent</span>
             </button>
           )}
@@ -1409,7 +1435,7 @@ export default function AgentMaster({
           <input
             type="text"
             aria-label="Search agents"
-            placeholder="Search by name, MC, DOT, Tax ID, email…"
+            placeholder="Search agents..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -1438,7 +1464,7 @@ export default function AgentMaster({
             setPage(1);
           }}
         >
-          <option value="all">All Statuses</option>
+          <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="pending">Pending Review</option>
           <option value="suspended">Suspended</option>
@@ -1523,8 +1549,8 @@ export default function AgentMaster({
                         <h3>No Agents Found</h3>
                         <p>
                           {searchQuery || statusFilter !== 'all'
-                            ? 'No broker records match your current search or filter criteria.'
-                            : 'No broker agents registered yet. Click "Add Agent" to register your first partner.'}
+                            ? 'No agents match your search or filter criteria. Try clearing filters or adjusting your query.'
+                            : 'No agents registered yet. Click "Add Agent" to register your first partner.'}
                         </p>
                         {(searchQuery || statusFilter !== 'all') && (
                           <button className="btn" onClick={handleReset}>
@@ -1536,7 +1562,7 @@ export default function AgentMaster({
                             className="btn primary"
                             onClick={() => setModal({ kind: 'add' })}
                           >
-                            <Plus size={16} /> Add First Agent
+                            <Plus size={16} /> Add Agent
                           </button>
                         )}
                       </div>
@@ -1617,7 +1643,7 @@ export default function AgentMaster({
                             aria-label={`View details for ${agent.legal_name}`}
                             onClick={() => setModal({ kind: 'detail', agentId: agent.id })}
                           >
-                            <Eye size={17} />
+                            <Eye size={14} /> View
                           </button>
 
                           {canUpdate && (
@@ -1629,7 +1655,7 @@ export default function AgentMaster({
                                 aria-label={`Edit ${agent.legal_name}`}
                                 onClick={() => setModal({ kind: 'edit', agent })}
                               >
-                                <NotePencil size={17} />
+                                <NotePencil size={14} /> Edit
                               </button>
 
                               <button
@@ -1639,7 +1665,7 @@ export default function AgentMaster({
                                 aria-label={`Change status for ${agent.legal_name}`}
                                 onClick={() => setModal({ kind: 'status', agent })}
                               >
-                                <ShieldCheck size={17} />
+                                <ShieldCheck size={14} /> Status
                               </button>
                             </>
                           )}
@@ -1653,7 +1679,7 @@ export default function AgentMaster({
                               disabled={agent.status === 'terminated'}
                               onClick={() => setModal({ kind: 'delete', agent })}
                             >
-                              <Trash size={17} />
+                              <Trash size={14} /> Deactivate
                             </button>
                           )}
                         </div>

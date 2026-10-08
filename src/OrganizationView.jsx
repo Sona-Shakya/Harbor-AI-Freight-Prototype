@@ -647,8 +647,8 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
       {/* ── Page Header ── */}
       <div className="org-page-header organization-header">
         <div className="org-page-header-left">
-          <h1>Company Master</h1>
-          <p>Tenant organization profile, regulatory compliance, enterprise SSO, and governance audit trail.</p>
+          <h1>Organization</h1>
+          <p>Manage your company profile, physical address, regulatory compliance, documents, and account status.</p>
         </div>
         <div className="org-page-header-actions organization-actions">
           <button
@@ -672,7 +672,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
               }}
             >
               <NotePencil size={17} />
-              <span>Edit Profile</span>
+              <span>Edit Organization</span>
             </button>
           )}
 
@@ -701,7 +701,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
               <h2>{org?.legal_name || 'Organization Profile'}</h2>
               <div className="org-tags-row">
                 <span className="org-type-label">
-                  Entity: <strong>{org?.type || 'Standard'}</strong>
+                  Entity Type: <strong style={{ textTransform: 'capitalize' }}>{org?.type || 'Standard'}</strong>
                 </span>
                 <span>•</span>
                 <span className={`org-badge org-badge-${status}`}>
@@ -749,11 +749,11 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
             <span className="org-stat-value">{org?.mc_number || '—'}</span>
           </div>
           <div className="org-stat-cell">
-            <span className="org-stat-label">Company Phone</span>
+            <span className="org-stat-label">Phone</span>
             <span className="org-stat-value">{org?.company_phone || '—'}</span>
           </div>
           <div className="org-stat-cell">
-            <span className="org-stat-label">Company Email</span>
+            <span className="org-stat-label">Email</span>
             <span className="org-stat-value">{org?.company_email || '—'}</span>
           </div>
         </div>
@@ -769,7 +769,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
           onClick={() => setActiveTab('profile')}
         >
           <IdentificationCard size={18} />
-          <span>Profile & Address</span>
+          <span>Company & Contact</span>
         </button>
 
         <button
@@ -780,7 +780,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
           onClick={() => setActiveTab('compliance')}
         >
           <ShieldCheck size={18} />
-          <span>Compliance Documents</span>
+          <span>Compliance & Documents</span>
           {complianceDocs.length > 0 && (
             <span className="org-tab-count">{complianceDocs.length}</span>
           )}
@@ -794,7 +794,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
           onClick={() => setActiveTab('sso')}
         >
           <Key size={18} />
-          <span>Enterprise SSO</span>
+          <span>Single Sign-On (SSO)</span>
           {ssoConfig?.enabled && (
             <span className="org-tab-count sso-active-count">Active</span>
           )}
@@ -808,25 +808,25 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
           onClick={() => setActiveTab('audit')}
         >
           <ClockCounterClockwise size={18} />
-          <span>Audit Log</span>
+          <span>Activity & Audit Log</span>
         </button>
       </nav>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          TAB 1: COMPANY PROFILE & ADDRESS / CONTACT & LIFECYCLE
+          TAB 1: COMPANY INFORMATION & CONTACT / ADDRESS & STATUS
          ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'profile' && (
         <div className="org-tab-pane">
-          {/* Identity & Legal Information Card */}
+          {/* Company Information Card */}
           <div className="org-card-section organization-section">
             <div className="org-card-header">
               <div className="org-card-title-group">
                 <Article size={20} color="#005fdc" />
-                <h3>Legal Entity & Regulatory Registration</h3>
+                <h3>Company Information</h3>
               </div>
             </div>
             <p className="org-card-desc">
-              Official registration identifiers and carrier regulatory credentials.
+              Official legal registration identifiers and carrier regulatory credentials.
             </p>
 
             <div className="org-info-grid organization-grid">
@@ -865,7 +865,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
                 <span className="org-field-val">{org?.operating_status || 'Authorized'}</span>
               </div>
               <div className="org-field-item organization-field">
-                <span className="org-field-label">Organization UUID</span>
+                <span className="org-field-label">Organization ID</span>
                 <span className="org-field-val org-mono-val">
                   {org?.id || '—'}
                 </span>
@@ -878,11 +878,11 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
             <div className="org-card-header">
               <div className="org-card-title-group">
                 <MapPin size={20} color="#005fdc" />
-                <h3>Headquarters & Physical Address</h3>
+                <h3>Headquarters Address</h3>
               </div>
             </div>
             <p className="org-card-desc">
-              Primary registered office address for billing, tax compliance, and carrier dispatching.
+              Primary registered physical office address for billing, operations, and dispatch.
             </p>
 
             <div className="org-info-grid organization-grid">
@@ -913,16 +913,16 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
             </div>
           </div>
 
-          {/* Corporate Contact Card */}
+          {/* Contact Information Card */}
           <div className="org-card-section organization-section">
             <div className="org-card-header">
               <div className="org-card-title-group">
                 <Phone size={20} color="#005fdc" />
-                <h3>Corporate Contact Channels</h3>
+                <h3>Contact Information</h3>
               </div>
             </div>
             <p className="org-card-desc">
-              Official public contact details and corporate website.
+              Corporate phone, email communication, and official web address.
             </p>
 
             <div className="org-info-grid organization-grid">
@@ -957,23 +957,23 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
             </div>
           </div>
 
-          {/* Lifecycle & Status Management Card */}
+          {/* Status & Account Information Card */}
           <div className="org-card-section organization-section">
             <div className="org-card-header">
               <div className="org-card-title-group">
                 <ShieldWarning size={20} color="#005fdc" />
-                <h3>Organization Lifecycle & Operational Status</h3>
+                <h3>Status & Account Information</h3>
               </div>
             </div>
             <p className="org-card-desc">
-              Manage operational state transitions according to enterprise governance policies.
+              Current organization lifecycle status and operational access controls.
             </p>
 
             <div className="org-lifecycle-box organization-status">
               <div className="org-lifecycle-desc">
                 <strong>Current Status: {org?.status?.toUpperCase() || 'ACTIVE'}</strong>
                 <p>
-                  {isActive && 'Organization is fully verified and authorized for transactions, dispatching, and invoicing.'}
+                  {isActive && 'Organization is fully active and authorized for transactions, dispatching, and invoicing.'}
                   {isPending && 'Organization registration is pending administrative review and onboarding verification.'}
                   {isSuspended && 'Organization operations are temporarily halted. No new shipments or orders can be processed.'}
                   {isTerminated && 'Organization has been permanently terminated. All user accounts are deactivated.'}
@@ -1089,7 +1089,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
             <div className="org-card-header">
               <div className="org-card-title-group">
                 <FileText size={20} color="#005fdc" />
-                <h3>Regulatory & Insurance Filings</h3>
+                <h3>Documents & Regulatory Filings</h3>
               </div>
 
               {canUpdate && !isTerminated && (
@@ -1598,7 +1598,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
         <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setIsEditing(false)}>
           <section className="modal wide" role="dialog" aria-modal="true" aria-label="Edit Organization Profile">
             <header>
-              <h2>Edit Organization Profile</h2>
+              <h2>Edit Organization Information</h2>
               <button
                 type="button"
                 className="icon-btn"
@@ -1622,7 +1622,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
               )}
 
               <div className="form-grid">
-                <span className="org-form-section-title">Legal Entity & Registration</span>
+                <span className="org-form-section-title">Company Information</span>
 
                 <label>
                   Legal Name *
@@ -1727,7 +1727,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
                   />
                 </label>
 
-                <span className="org-form-section-title">Corporate Contact Channels</span>
+                <span className="org-form-section-title">Contact Information</span>
 
                 <label>
                   Company Phone
@@ -1774,7 +1774,7 @@ export default function OrganizationView({ hasPermission, notify, currentUser, c
                   className="btn primary"
                   disabled={saveLoading}
                 >
-                  {saveLoading ? 'Saving changes...' : 'Save Profile Changes'}
+                  {saveLoading ? 'Saving changes...' : 'Save Organization Changes'}
                 </button>
               </div>
             </form>

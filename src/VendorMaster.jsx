@@ -273,198 +273,244 @@ function VendorFormModal({ vendor, onClose, onSuccess, notify }) {
           </div>
         )}
 
-        <div className="vm-section-title">Identity & Regulatory</div>
-        <div className="vm-form-grid">
-          <label className="vm-form-full-width">
-            Legal Name <span className="vm-required">*</span>
-            <input
-              type="text"
-              value={form.legal_name}
-              onChange={(e) => setForm(p => ({ ...p, legal_name: e.target.value }))}
-              placeholder="e.g. Apex Freight Logistics LLC"
-              required
-              maxLength={200}
-              autoFocus
-            />
-          </label>
+        <div className="vm-modal-sections">
+          {/* Section 1: Identity & Enterprise Classification */}
+          <div className="vm-modal-section">
+            <div className="vm-section-header">
+              <h4>Vendor Identity</h4>
+              <p>Legal company name, tax registration, and carrier classification</p>
+            </div>
+            <div className="vm-form-grid">
+              <label className="vm-form-full-width">
+                Legal Company Name <span className="vm-required">*</span>
+                <input
+                  type="text"
+                  value={form.legal_name}
+                  onChange={(e) => setForm(p => ({ ...p, legal_name: e.target.value }))}
+                  placeholder="e.g. Apex Freight Logistics LLC"
+                  required
+                  maxLength={200}
+                  autoFocus
+                />
+              </label>
 
-          <label>
-            Tax ID / EIN
-            <input
-              type="text"
-              value={form.tax_id}
-              onChange={(e) => setForm(p => ({ ...p, tax_id: e.target.value }))}
-              placeholder="XX-XXXXXXX"
-              maxLength={50}
-            />
-          </label>
+              <label>
+                Tax ID / EIN
+                <input
+                  type="text"
+                  value={form.tax_id}
+                  onChange={(e) => setForm(p => ({ ...p, tax_id: e.target.value }))}
+                  placeholder="XX-XXXXXXX"
+                  maxLength={50}
+                />
+              </label>
 
-          <label>
-            USDOT Number
-            <input
-              type="text"
-              value={form.dot_number}
-              onChange={(e) => setForm(p => ({ ...p, dot_number: e.target.value }))}
-              placeholder="e.g. 1234567"
-              maxLength={50}
-            />
-          </label>
-
-          <label>
-            MC Number / FF Number
-            <input
-              type="text"
-              value={form.mc_number}
-              onChange={(e) => setForm(p => ({ ...p, mc_number: e.target.value }))}
-              placeholder="e.g. MC-987654"
-              maxLength={50}
-            />
-          </label>
-
-          <label>
-            FMCSA Operating Status
-            <select
-              value={form.operating_status}
-              onChange={(e) => setForm(p => ({ ...p, operating_status: e.target.value }))}
-            >
-              <option value="authorized">Authorized</option>
-              <option value="not_authorized">Not Authorized</option>
-              <option value="pending">Pending</option>
-            </select>
-          </label>
-
-          <label>
-            SAFER Safety Rating
-            <select
-              value={form.safety_rating}
-              onChange={(e) => setForm(p => ({ ...p, safety_rating: e.target.value }))}
-            >
-              <option value="satisfactory">Satisfactory</option>
-              <option value="conditional">Conditional</option>
-              <option value="unsatisfactory">Unsatisfactory</option>
-              <option value="none">None / Not Rated</option>
-            </select>
-          </label>
-
-          <label>
-            Status
-            <select
-              value={form.status}
-              onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))}
-            >
-              <option value="active">Active</option>
-              <option value="pending">Pending Review</option>
-              <option value="suspended">Suspended</option>
-              <option value="terminated">Terminated</option>
-            </select>
-          </label>
-
-          <div className="vm-form-full-width">
-            <label className="vm-checkbox-label">
-              <input
-                type="checkbox"
-                checked={form.is_enterprise}
-                onChange={(e) => setForm(p => ({ ...p, is_enterprise: e.target.checked }))}
-              />
-              Enterprise Carrier Account (Dedicated capacity & high priority)
-            </label>
+              <div className="vm-form-full-width">
+                <label className="vm-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.is_enterprise}
+                    onChange={(e) => setForm(p => ({ ...p, is_enterprise: e.target.checked }))}
+                  />
+                  <span>
+                    <strong>Enterprise Carrier Account</strong>
+                    <span className="vm-form-subtext">
+                      Designate as high-volume tier with dedicated capacity and priority dispatch awards.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="vm-section-title">Physical Address</div>
-        <div className="vm-form-grid">
-          <label className="vm-form-full-width">
-            Address Line 1
-            <input
-              type="text"
-              value={form.address_line1}
-              onChange={(e) => setForm(p => ({ ...p, address_line1: e.target.value }))}
-              placeholder="Street address, P.O. box"
-            />
-          </label>
+          {/* Section 2: Regulatory & Operating Authority */}
+          <div className="vm-modal-section">
+            <div className="vm-section-header">
+              <h4>Regulatory & Operating Authority</h4>
+              <p>USDOT, MC operating authority, and SAFER safety credentials</p>
+            </div>
+            <div className="vm-form-grid">
+              <label>
+                USDOT Number
+                <input
+                  type="text"
+                  value={form.dot_number}
+                  onChange={(e) => setForm(p => ({ ...p, dot_number: e.target.value }))}
+                  placeholder="e.g. 1234567"
+                  maxLength={50}
+                />
+              </label>
 
-          <label className="vm-form-full-width">
-            Address Line 2
-            <input
-              type="text"
-              value={form.address_line2}
-              onChange={(e) => setForm(p => ({ ...p, address_line2: e.target.value }))}
-              placeholder="Suite, unit, building, floor"
-            />
-          </label>
+              <label>
+                MC Number / FF Number
+                <input
+                  type="text"
+                  value={form.mc_number}
+                  onChange={(e) => setForm(p => ({ ...p, mc_number: e.target.value }))}
+                  placeholder="e.g. MC-987654"
+                  maxLength={50}
+                />
+              </label>
 
-          <label>
-            City
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => setForm(p => ({ ...p, city: e.target.value }))}
-              placeholder="City"
-            />
-          </label>
+              <label>
+                FMCSA Operating Status
+                <select
+                  value={form.operating_status}
+                  onChange={(e) => setForm(p => ({ ...p, operating_status: e.target.value }))}
+                >
+                  <option value="authorized">Authorized</option>
+                  <option value="not_authorized">Not Authorized</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </label>
 
-          <label>
-            State / Province
-            <input
-              type="text"
-              value={form.state}
-              onChange={(e) => setForm(p => ({ ...p, state: e.target.value }))}
-              placeholder="State code (e.g. TX)"
-            />
-          </label>
+              <label>
+                SAFER Safety Rating
+                <select
+                  value={form.safety_rating}
+                  onChange={(e) => setForm(p => ({ ...p, safety_rating: e.target.value }))}
+                >
+                  <option value="satisfactory">Satisfactory</option>
+                  <option value="conditional">Conditional</option>
+                  <option value="unsatisfactory">Unsatisfactory</option>
+                  <option value="none">None / Not Rated</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
-          <label>
-            Postal Code
-            <input
-              type="text"
-              value={form.postal_code}
-              onChange={(e) => setForm(p => ({ ...p, postal_code: e.target.value }))}
-              placeholder="ZIP / Postal code"
-            />
-          </label>
+          {/* Section 3: Physical Address */}
+          <div className="vm-modal-section">
+            <div className="vm-section-header">
+              <h4>Physical Address</h4>
+              <p>Headquarters or primary motor carrier terminal location</p>
+            </div>
+            <div className="vm-form-grid">
+              <label className="vm-form-full-width">
+                Address Line 1
+                <input
+                  type="text"
+                  value={form.address_line1}
+                  onChange={(e) => setForm(p => ({ ...p, address_line1: e.target.value }))}
+                  placeholder="Street address, P.O. box"
+                />
+              </label>
 
-          <label>
-            Country
-            <input
-              type="text"
-              value={form.country}
-              onChange={(e) => setForm(p => ({ ...p, country: e.target.value }))}
-              placeholder="Country"
-            />
-          </label>
-        </div>
+              <label className="vm-form-full-width">
+                Address Line 2
+                <input
+                  type="text"
+                  value={form.address_line2}
+                  onChange={(e) => setForm(p => ({ ...p, address_line2: e.target.value }))}
+                  placeholder="Suite, unit, building, floor"
+                />
+              </label>
 
-        <div className="vm-section-title">Operations & Contact Info</div>
-        <div className="vm-form-grid">
-          <label>
-            Company Phone
-            <input
-              type="tel"
-              value={form.company_phone}
-              onChange={(e) => setForm(p => ({ ...p, company_phone: e.target.value }))}
-              placeholder="+1 (555) 000-0000"
-            />
-          </label>
+              <label>
+                City
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(e) => setForm(p => ({ ...p, city: e.target.value }))}
+                  placeholder="City"
+                />
+              </label>
 
-          <label>
-            Dispatch / Operations Email
-            <input
-              type="email"
-              value={form.company_email}
-              onChange={(e) => setForm(p => ({ ...p, company_email: e.target.value }))}
-              placeholder="dispatch@vendor.com"
-            />
-          </label>
+              <label>
+                State / Province
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(e) => setForm(p => ({ ...p, state: e.target.value }))}
+                  placeholder="State code (e.g. TX)"
+                />
+              </label>
 
-          <label className="vm-form-full-width">
-            Website
-            <input
-              type="url"
-              value={form.website}
-              onChange={(e) => setForm(p => ({ ...p, website: e.target.value }))}
-              placeholder="https://www.vendor.com"
-            />
-          </label>
+              <label>
+                Postal Code
+                <input
+                  type="text"
+                  value={form.postal_code}
+                  onChange={(e) => setForm(p => ({ ...p, postal_code: e.target.value }))}
+                  placeholder="ZIP / Postal code"
+                />
+              </label>
+
+              <label>
+                Country
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(e) => setForm(p => ({ ...p, country: e.target.value }))}
+                  placeholder="Country"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Section 4: Operations & Contact Info */}
+          <div className="vm-modal-section">
+            <div className="vm-section-header">
+              <h4>Operations & Contact Info</h4>
+              <p>Dispatch communication and company channels</p>
+            </div>
+            <div className="vm-form-grid">
+              <label>
+                Company Phone
+                <input
+                  type="tel"
+                  value={form.company_phone}
+                  onChange={(e) => setForm(p => ({ ...p, company_phone: e.target.value }))}
+                  placeholder="+1 (555) 000-0000"
+                />
+              </label>
+
+              <label>
+                Dispatch / Operations Email
+                <input
+                  type="email"
+                  value={form.company_email}
+                  onChange={(e) => setForm(p => ({ ...p, company_email: e.target.value }))}
+                  placeholder="dispatch@vendor.com"
+                />
+              </label>
+
+              <label className="vm-form-full-width">
+                Website
+                <input
+                  type="url"
+                  value={form.website}
+                  onChange={(e) => setForm(p => ({ ...p, website: e.target.value }))}
+                  placeholder="https://www.vendor.com"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Section 5: Account Status */}
+          <div className="vm-modal-section">
+            <div className="vm-section-header">
+              <h4>Account Status</h4>
+              <p>Lifecycle status and operational dispatch availability</p>
+            </div>
+            <div className="vm-form-grid">
+              <label className="vm-form-full-width">
+                Lifecycle Status
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))}
+                >
+                  <option value="active">Active</option>
+                  <option value="pending">Pending Review</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="terminated">Terminated</option>
+                </select>
+                <span className="vm-form-subtext">
+                  Carriers set to Active are authorized for load tenders and dispatch operations.
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -1486,7 +1532,7 @@ export default function VendorMaster({
       {/* ── Page Header ── */}
       <div className="vm-page-header">
         <div className="vm-page-header-left">
-          <h1>Vendor Master</h1>
+          <h1>Vendors</h1>
           <p>Manage motor carriers, draymen, and freight service vendors registered in this platform.</p>
         </div>
 
@@ -1554,7 +1600,7 @@ export default function VendorMaster({
           <MagnifyingGlass size={18} />
           <input
             aria-label="Search vendors by name, MC, DOT, or Tax ID"
-            placeholder="Search by legal name, MC#, DOT#, or Tax ID…"
+            placeholder="Search vendors..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -1619,26 +1665,30 @@ export default function VendorMaster({
           <div className="vm-state-panel">
             <div className="vm-loading-spinner">
               <ArrowClockwise className="vm-spinning" size={22} />
-              Loading vendor records…
+              Loading vendors…
             </div>
           </div>
         ) : vendors.length === 0 ? (
           <div className="vm-state-panel">
             <Truck size={38} />
-            <h3>No Vendor Records Found</h3>
+            <h3>
+              {searchQuery || statusFilter !== 'all'
+                ? 'No vendors match your search.'
+                : 'No vendors found.'}
+            </h3>
             <p>
               {searchQuery || statusFilter !== 'all'
-                ? 'No carriers match your active search or status criteria. Try clearing filters.'
-                : 'No carrier vendor organizations are registered in this workspace.'}
+                ? 'Try adjusting your search or filters.'
+                : 'No vendor records exist yet. Try adjusting your search or add a new vendor.'}
             </p>
             {canCreate && !searchQuery && statusFilter === 'all' && (
               <button
                 type="button"
                 className="btn primary"
-                style={{ marginTop: '12px' }}
+                style={{ marginTop: '8px' }}
                 onClick={() => setModal({ kind: 'add' })}
               >
-                <Plus size={16} /> Add First Vendor
+                <Plus size={16} /> Add Vendor
               </button>
             )}
           </div>
@@ -1646,7 +1696,7 @@ export default function VendorMaster({
           <table className="vm-table" aria-label="Carrier vendors list">
             <thead>
               <tr>
-                <th>Carrier / Vendor</th>
+                <th>Vendor / Carrier Name</th>
                 <th>FMCSA Identifiers</th>
                 <th>Operating Authority</th>
                 <th>Location & Dispatch</th>
@@ -1733,7 +1783,7 @@ export default function VendorMaster({
                         aria-label={`View ${v.legal_name}`}
                         onClick={() => setModal({ kind: 'detail', vendor: v })}
                       >
-                        <Eye size={17} />
+                        <Eye size={14} /> View
                       </button>
 
                       {canUpdate && (
@@ -1741,11 +1791,11 @@ export default function VendorMaster({
                           <button
                             type="button"
                             className="vm-action-btn"
-                            title="Edit Carrier"
+                            title="Edit Carrier Credentials"
                             aria-label={`Edit ${v.legal_name}`}
                             onClick={() => setModal({ kind: 'edit', vendor: v })}
                           >
-                            <NotePencil size={17} />
+                            <NotePencil size={14} /> Edit
                           </button>
                           <button
                             type="button"
@@ -1754,7 +1804,7 @@ export default function VendorMaster({
                             aria-label={`Change status for ${v.legal_name}`}
                             onClick={() => setModal({ kind: 'status', vendor: v })}
                           >
-                            <Gear size={17} />
+                            <Gear size={14} /> Status
                           </button>
                         </>
                       )}
@@ -1767,7 +1817,7 @@ export default function VendorMaster({
                           aria-label={`Deactivate ${v.legal_name}`}
                           onClick={() => setModal({ kind: 'delete', vendor: v })}
                         >
-                          <Trash size={17} />
+                          <Trash size={14} /> Deactivate
                         </button>
                       )}
                     </div>
