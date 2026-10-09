@@ -18,8 +18,12 @@ import QuoteRateManagement from './QuoteRateManagement';
 import './styles/quotingRate.css';
 import CarrierFleetManagement from './CarrierFleetManagement';
 import './styles/carrierFleet.css';
+import BookingManagement from './BookingManagement';
 import LoginOtpScreen from './LoginOtpScreen.jsx';
 import AcceptInvitation from './AcceptInvitation.jsx';
+import ForgotPassword from './ForgotPassword.jsx';
+import VerifyResetOtp from './VerifyResetOtp.jsx';
+import ResetPassword from './ResetPassword.jsx';
 import {login as apiLogin, getProfile, getUserOrganizations, switchOrganizationContext} from './api';
 import * as authService from './services/authService';
 const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings,GitBranch,IdentificationBadge,Anchor,Package};
@@ -45,13 +49,15 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const isLoadBoardSelected = view === 'records' && moduleId === 'load_board';
   const isQuotesSelected = view === 'records' && (moduleId === 'quotes' || moduleId === 'rates');
   const isFleetSelected = view === 'records' && (moduleId === 'fleet' || moduleId === 'carrier_fleet');
+  const isBookingsSelected = view === 'records' && moduleId === 'bookings';
 
-  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected || isQuotesSelected || isFleetSelected;
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected || isQuotesSelected || isFleetSelected || isBookingsSelected;
 
   const canReadSettings = hasPermission('system_settings', 'read');
   const canReadLoadBoard = hasPermission('load_board', 'read');
   const canReadQuotes = hasPermission('quotes', 'read') || hasPermission('rates', 'read') || hasPermission('rate_agreements', 'read');
   const canReadFleet = hasPermission('vehicles', 'read') || hasPermission('fleet', 'read') || hasPermission('fleet_assignments', 'read') || hasPermission('hos_logs', 'read');
+  const canReadBookings = hasPermission('shipments', 'read') || hasPermission('bookings', 'read');
   const canReadUsers = hasPermission('users', 'read');
   const canReadRoles = hasPermission('roles', 'read');
   const canReadOrg = hasPermission('organizations', 'read');
@@ -66,7 +72,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadPeople = canReadUsers || canReadRoles;
   const canReadBusiness = canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents;
   const canReadLocations = canReadPorts || canReadCfs;
-  const canReadTransportation = canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet;
+  const canReadTransportation = canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet || canReadBookings;
   const canReadManage = canReadPeople || canReadBusiness || canReadLocations || canReadTransportation;
 
   const [manageOpen, setManageOpen] = useState(true);
@@ -94,6 +100,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
       else if (canReadLoadBoard) openModule('load_board');
       else if (canReadQuotes) openModule('quotes');
       else if (canReadFleet) openModule('fleet');
+      else if (canReadBookings) openModule('bookings');
     } else {
       setManageOpen(v => !v);
     }
@@ -338,6 +345,20 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         <span className="module-record-count">{records.fleet?.length ?? ''}</span>
                       </button>
                     )}
+
+                    {canReadBookings && (
+                      <button
+                        key="bookings"
+                        className={'module-nav-item sub-item ' + (isBookingsSelected ? 'selected' : '')}
+                        aria-current={isBookingsSelected ? 'page' : undefined}
+                        title="Bookings"
+                        onClick={() => openModule('bookings')}
+                      >
+                        <CalendarCheck size={20} />
+                        <span>Bookings</span>
+                        <span className="module-record-count">{records.bookings?.length ?? ''}</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -366,7 +387,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
 function Modal({title,onClose,children,wide=false}){const box=useRef();useEffect(()=>{const before=document.activeElement;box.current?.focus();const key=e=>{if(e.key==='Escape')onClose();if(e.key==='Tab'){const els=[...box.current.querySelectorAll('button,input,select,textarea,a[href]')].filter(x=>!x.disabled);if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els.at(-1)?.focus()}else if(!e.shiftKey&&document.activeElement===els.at(-1)){e.preventDefault();els[0]?.focus()}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);before?.focus()}},[]);return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section ref={box} tabIndex={-1} className={'modal '+(wide?'wide':'')} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={22}/></button></header>{children}</section></div>}
 function RecordForm({module,record,onSave,onClose}){const [form,setForm]=useState(record||Object.fromEntries(module.fields.map(k=>[k,k==='status'?module.statuses[0]:''])));const [error,setError]=useState('');function save(e){e.preventDefault();if(form.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)){setError('Enter a valid email address.');return}if(form.allocated!==undefined&&Number(form.allocated)>Number(form.quantity)){setError('Allocated quantity cannot exceed the order quantity.');return}if(form.etd&&form.eta&&form.etd>form.eta){setError('Arrival cannot be before departure.');return}onSave({...form,id:record?.id||uid(module.id.slice(0,3).toUpperCase())});}return <Modal title={(record?'Edit ':'New ')+module.name.toLowerCase()} onClose={onClose}><form onSubmit={save}><div className="form-grid">{module.fields.map((k,i)=><label key={k}>{labels[k]||k[0].toUpperCase()+k.slice(1)}{k==='status'?<select value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})}>{module.statuses.map(s=><option key={s}>{s}</option>)}</select>:<input required={i===0||k==='quantity'} type={numeric.includes(k)?'number':dates.includes(k)?'date':k==='email'?'email':'text'} min={numeric.includes(k)?0:undefined} step="any" value={form[k]??''} onChange={e=>setForm({...form,[k]:numeric.includes(k)&&e.target.value!==''?Number(e.target.value):e.target.value})}/>}</label>)}</div>{error&&<p className="error" role="alert">{error}</p>}<div className="modal-actions"><Btn onClick={onClose} type="button">Cancel</Btn><Btn primary type="submit">Save record</Btn></div></form></Modal>}
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, onForgotPassword, successNotice }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -420,6 +441,13 @@ function LoginScreen({ onLogin }) {
             Sign in to plan shipments, review exceptions, and keep every
             import and export decision connected.
           </p>
+
+          {successNotice && (
+            <div className="login-notice-success" role="status">
+              <CheckCircle size={18} />
+              <span>{successNotice}</span>
+            </div>
+          )}
 
           <form className="login-form" onSubmit={submit}>
 
@@ -485,9 +513,7 @@ function LoginScreen({ onLogin }) {
 
               <button
                 type="button"
-                onClick={() =>
-                  setError('Password recovery is not connected yet.')
-                }
+                onClick={onForgotPassword}
               >
                 Forgot password?
               </button>
@@ -595,14 +621,40 @@ export function App() {
     }
   });
 
+  // Password Recovery flow state (in-memory only, no localStorage)
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [recoveryStep, setRecoveryStep] = useState(() => {
+    try {
+      if (window.location.pathname === '/forgot-password') return 'forgot_password';
+      if (window.location.pathname === '/verify-reset-otp') return 'verify_otp';
+      if (window.location.pathname === '/reset-password') return 'reset_password';
+    } catch {}
+    return null;
+  });
+  const [loginSuccessNotice, setLoginSuccessNotice] = useState('');
+
   useEffect(() => {
     const expire = () => {
       setOtpChallenge(null);
       setAuthenticated(false);
+      setRecoveryStep(null);
+      setRecoveryEmail('');
+      setResetToken('');
     };
 
     const handlePopState = () => {
-      setPathname(window.location.pathname);
+      const path = window.location.pathname;
+      setPathname(path);
+      if (path === '/forgot-password') {
+        setRecoveryStep('forgot_password');
+      } else if (path === '/verify-reset-otp') {
+        setRecoveryStep('verify_otp');
+      } else if (path === '/reset-password') {
+        setRecoveryStep('reset_password');
+      } else if (path === '/login' || path === '/') {
+        setRecoveryStep(null);
+      }
     };
 
     window.addEventListener('harbor-auth-expired', expire);
@@ -627,7 +679,53 @@ export function App() {
     authService.logout();
     setAuthenticated(false);
     setOtpChallenge(null);
+    setRecoveryStep(null);
+    setRecoveryEmail('');
+    setResetToken('');
+    setLoginSuccessNotice('');
     navigateTo('/login');
+  };
+
+  const handleStartForgotPassword = () => {
+    setRecoveryStep('forgot_password');
+    setLoginSuccessNotice('');
+    setRecoveryEmail('');
+    setResetToken('');
+    navigateTo('/forgot-password');
+  };
+
+  const handleForgotPasswordSuccess = (email) => {
+    setRecoveryEmail(email);
+    setRecoveryStep('verify_otp');
+    navigateTo('/verify-reset-otp');
+  };
+
+  const handleVerifyOtpSuccess = (token) => {
+    setResetToken(token);
+    setRecoveryStep('reset_password');
+    navigateTo('/reset-password');
+  };
+
+  const handleResetPasswordSuccess = (message) => {
+    setResetToken('');
+    setRecoveryEmail('');
+    setRecoveryStep(null);
+    setLoginSuccessNotice(message || 'Password reset successfully. Please login with your new password.');
+    navigateTo('/login');
+  };
+
+  const handleBackToLoginFromRecovery = () => {
+    setRecoveryStep(null);
+    setRecoveryEmail('');
+    setResetToken('');
+    setLoginSuccessNotice('');
+    navigateTo('/login');
+  };
+
+  const handleGoToForgotPassword = () => {
+    setRecoveryStep('forgot_password');
+    setResetToken('');
+    navigateTo('/forgot-password');
   };
 
   async function login(email, password) {
@@ -659,6 +757,9 @@ export function App() {
   function logout() {
     authService.logout();
     setOtpChallenge(null);
+    setRecoveryStep(null);
+    setRecoveryEmail('');
+    setResetToken('');
     setAuthenticated(false);
     navigateTo('/login');
   }
@@ -682,7 +783,45 @@ export function App() {
     );
   }
 
-  return <LoginScreen onLogin={login} />;
+  // Password Recovery Flow
+  if (recoveryStep === 'forgot_password') {
+    return (
+      <ForgotPassword
+        onSuccess={handleForgotPasswordSuccess}
+        onBackToLogin={handleBackToLoginFromRecovery}
+      />
+    );
+  }
+
+  if (recoveryStep === 'verify_otp') {
+    return (
+      <VerifyResetOtp
+        email={recoveryEmail}
+        onSuccess={handleVerifyOtpSuccess}
+        onBackToLogin={handleBackToLoginFromRecovery}
+        onGoToForgotPassword={handleGoToForgotPassword}
+      />
+    );
+  }
+
+  if (recoveryStep === 'reset_password') {
+    return (
+      <ResetPassword
+        resetToken={resetToken}
+        onSuccess={handleResetPasswordSuccess}
+        onBackToLogin={handleBackToLoginFromRecovery}
+        onGoToForgotPassword={handleGoToForgotPassword}
+      />
+    );
+  }
+
+  return (
+    <LoginScreen
+      onLogin={login}
+      onForgotPassword={handleStartForgotPassword}
+      successNotice={loginSuccessNotice}
+    />
+  );
 }
 
 const getModuleFromPath = (path) => {
@@ -693,6 +832,7 @@ const getModuleFromPath = (path) => {
   if (path === '/ports' || path.startsWith('/ports/')) return 'ports';
   if (path === '/cfs' || path.startsWith('/cfs/')) return 'cfs';
   if (path === '/drivers' || path.startsWith('/drivers/')) return 'drivers';
+  if (path === '/bookings' || path.startsWith('/bookings/')) return 'bookings';
   if (path === '/shipments' || path.startsWith('/shipments/')) return 'shipments';
   if (path === '/load-board' || path.startsWith('/load-board/')) return 'load_board';
   if (path === '/quotes' || path.startsWith('/quotes/') || path === '/rates' || path.startsWith('/rates/')) return 'quotes';
@@ -1000,6 +1140,10 @@ const hasPermission = (module, action) => {
     notify('You do not have permission to access Carrier & Fleet.');
     return;
   }
+  if (id === 'bookings' && !hasPermission('shipments', 'read') && !hasPermission('bookings', 'read')) {
+    notify('You do not have permission to access Bookings.');
+    return;
+  }
 
   setModuleId(id);
   setView('records');
@@ -1008,6 +1152,7 @@ const hasPermission = (module, action) => {
   setNavOpen(false);
 
   const moduleUrls = {
+    bookings: '/bookings',
     customers: '/customers',
     vendors: '/vendors',
     branches: '/branches',
@@ -1114,8 +1259,8 @@ const hasPermission = (module, action) => {
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
-      </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>}
-{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&(
+      </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} initialRecords={records.bookings}/>}
+{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&(
 <>
 <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
 </>

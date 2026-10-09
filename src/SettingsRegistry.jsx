@@ -11,7 +11,10 @@ import {
   Trash,
   NotePencil,
   ArrowClockwise,
+  ArrowsDownUp,
   DownloadSimple,
+  UploadSimple,
+  FileCsv,
   ShieldCheck,
   Buildings,
   Eye,
@@ -38,6 +41,9 @@ import {
   getConfig,
   updateConfig,
   getSettingsByCategory,
+  exportSettingsJSON,
+  exportSettingsCSV,
+  importSettings,
   getCurrentOrganization,
   isApiConfigured,
 } from './api';
@@ -538,27 +544,6 @@ export default function SettingsRegistry({
     }
   }
 
-  /* ─── Export JSON ───────────────────────────────────────────── */
-  function exportSettingsJson() {
-    const payload = {
-      export_date: new Date().toISOString(),
-      platform: 'Harbor AI Freight Platform',
-      version: '1.0.0',
-      categories,
-      audit_log: auditLogs,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `system-settings-export-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    notify('Settings exported as JSON.');
-  }
-
   /* ─── Driver Access Restricted Screen ───────────────────────── */
   if (isRestricted) {
     return (
@@ -631,15 +616,17 @@ export default function SettingsRegistry({
             Refresh
           </button>
 
-          <button
-            type="button"
-            className="btn"
-            onClick={exportSettingsJson}
-            title="Export settings registry JSON"
-          >
-            <DownloadSimple size={15} />
-            Export JSON
-          </button>
+          {canConfigure && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setModal({ kind: 'import_export' })}
+              title="Bulk import or export settings configuration (M17 FR-17.10)"
+            >
+              <ArrowsDownUp size={15} />
+              Import / Export
+            </button>
+          )}
 
           {canCreateCategory && (
             <button
@@ -1624,6 +1611,19 @@ export default function SettingsRegistry({
         />
       )}
 
+      {/* ─── MODAL: IMPORT / EXPORT (FR-17.10) ─────────────── */}
+      {modal?.kind === 'import_export' && canConfigure && (
+        <ImportExportModal
+          canConfigure={canConfigure}
+          onClose={() => setModal(null)}
+          onSuccess={async () => {
+            await fetchAllSettings();
+            await fetchAuditLogs();
+          }}
+          notify={notify}
+        />
+      )}
+
       {/* ─── MODAL: AUDIT CHANGE DETAILS ──────────────────────── */}
       {selectedAuditDiff && (
         <ChangeDiffModal
@@ -2176,3 +2176,598 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
     </ModalShell>
   );
 }
+
+/* ─── Sub-component: Import / Export Modal (FR-17.10) ────────── */
+function ImportExportModal({ onClose, onSuccess, notify, canConfigure = true }) {
+  if (!canConfigure) {
+    return (
+      <ModalShell title="Access Denied" onClose={onClose}>
+        <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+          <WarningCircle size={36} color="#dc2626" style={{ marginBottom: '12px' }} />
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#0f172a' }}>
+            Administrative Privileges Required
+          </h3>
+          <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+            Bulk import and export of system configuration is restricted strictly to Platform Administrators.
+          </p>
+          <button type="button" className="btn primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  const [activeTab, setActiveTab] = useState('export'); // 'export' | 'import'
+
+  // Export state
+  const [exporting, setExporting] = useState(null); // 'json' | 'csv' | null
+  const [exportError, setExportError] = useState(null);
+
+  // Import state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState(null);
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [importSummary, setImportSummary] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // Handle Export
+  const handleExport = async (format) => {
+    try {
+      setExporting(format);
+      setExportError(null);
+      const res = format === 'csv' ? await exportSettingsCSV() : await exportSettingsJSON();
+      const blob = res?.blob || res;
+      const contentDisposition = res?.contentDisposition;
+      let filename = `settings-export-${new Date().toISOString().slice(0, 10)}.${format}`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+        if (match && match[1]) {
+          filename = decodeURIComponent(match[1]);
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (notify) notify(`Settings exported as ${format.toUpperCase()} (${filename}).`);
+    } catch (err) {
+      console.error('Settings export failed:', err);
+      setExportError(err.message || `Failed to export settings as ${format.toUpperCase()}.`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  // Handle File Selection
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const processFile = (file) => {
+    setImportError(null);
+    setValidationErrors([]);
+    setImportSummary(null);
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'json' && ext !== 'csv') {
+      setImportError('Invalid file format. Please select a .json or .csv configuration file.');
+      setSelectedFile(null);
+      return;
+    }
+
+    if (file.size === 0) {
+      setImportError('The selected configuration file is empty.');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setConfirmed(false);
+    setImportError(null);
+    setValidationErrors([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle Import Submit
+  const handleImportSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    try {
+      setImporting(true);
+      setImportError(null);
+      setValidationErrors([]);
+      setImportSummary(null);
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await importSettings(formData);
+
+      if (response && response.success) {
+        setImportSummary(response.summary || {});
+        if (notify) notify('Settings imported successfully.');
+        if (onSuccess) {
+          await onSuccess();
+        }
+      } else {
+        setImportError(response?.message || 'Import completed with warnings.');
+      }
+    } catch (err) {
+      console.error('Settings import failed:', err);
+      const data = err.data;
+      const errorMsg = data?.message || data?.error || err.message || 'Import failed. Please review your file formatting and M17 rules.';
+      setImportError(errorMsg);
+      if (Array.isArray(data?.errors)) {
+        setValidationErrors(data.errors);
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes && bytes !== 0) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  return (
+    <ModalShell
+      title="Import / Export Settings (FR-17.10)"
+      onClose={onClose}
+      wide={true}
+    >
+      <div className="sr-import-export-container">
+        {/* Navigation Tabs */}
+        <div className="sr-ie-tabs" role="tablist">
+          <button
+            type="button"
+            className={`sr-ie-tab ${activeTab === 'export' ? 'active' : ''}`}
+            onClick={() => setActiveTab('export')}
+            role="tab"
+            aria-selected={activeTab === 'export'}
+          >
+            <DownloadSimple size={16} />
+            Export Settings
+          </button>
+          <button
+            type="button"
+            className={`sr-ie-tab ${activeTab === 'import' ? 'active' : ''}`}
+            onClick={() => setActiveTab('import')}
+            role="tab"
+            aria-selected={activeTab === 'import'}
+          >
+            <UploadSimple size={16} />
+            Bulk Import
+          </button>
+        </div>
+
+        {/* ─── TAB: EXPORT ─── */}
+        {activeTab === 'export' && (
+          <div className="sr-ie-content">
+            <div className="sr-ie-desc-box">
+              <p>
+                Export the live catalog of system setting categories, operational values,
+                sort orders, and system flags directly from the PostgreSQL database.
+              </p>
+            </div>
+
+            {exportError && (
+              <div className="sr-ie-error-banner" role="alert">
+                <WarningCircle size={18} />
+                <span>{exportError}</span>
+              </div>
+            )}
+
+            <div className="sr-export-grid">
+              {/* JSON Export Card */}
+              <div className="sr-export-card">
+                <div className="sr-export-card-header">
+                  <div className="sr-export-icon-wrapper json">
+                    <FileText size={24} weight="bold" />
+                  </div>
+                  <div>
+                    <h3 className="sr-export-card-title">JSON Configuration</h3>
+                    <span className="sr-export-badge">Structured Catalog</span>
+                  </div>
+                </div>
+                <p className="sr-export-card-desc">
+                  Full hierarchical structure containing module groups, category keys, labels,
+                  system flags, and value arrays. Recommended for backups, environment migrations, and platform deployments.
+                </p>
+                <div className="sr-export-card-meta">
+                  <span>MIME: <code>application/json</code></span>
+                  <span>Schema: M17 v1.0 JSON</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn primary sr-export-btn"
+                  onClick={() => handleExport('json')}
+                  disabled={exporting !== null}
+                >
+                  {exporting === 'json' ? (
+                    <>
+                      <ArrowClockwise size={16} className="spin" />
+                      Generating JSON...
+                    </>
+                  ) : (
+                    <>
+                      <DownloadSimple size={16} />
+                      Export as JSON
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* CSV Export Card */}
+              <div className="sr-export-card">
+                <div className="sr-export-card-header">
+                  <div className="sr-export-icon-wrapper csv">
+                    <FileCsv size={24} weight="bold" />
+                  </div>
+                  <div>
+                    <h3 className="sr-export-card-title">CSV Spreadsheet</h3>
+                    <span className="sr-export-badge">Tabular Format</span>
+                  </div>
+                </div>
+                <p className="sr-export-card-desc">
+                  Flat tabular rows compatible with Microsoft Excel, Google Sheets, and ETL pipelines.
+                  Includes category module, key, name, value, label, sort order, and flags.
+                </p>
+                <div className="sr-export-card-meta">
+                  <span>MIME: <code>text/csv</code></span>
+                  <span>Columns: 9 Standard Fields</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn sr-export-btn"
+                  onClick={() => handleExport('csv')}
+                  disabled={exporting !== null}
+                >
+                  {exporting === 'csv' ? (
+                    <>
+                      <ArrowClockwise size={16} className="spin" />
+                      Generating CSV...
+                    </>
+                  ) : (
+                    <>
+                      <DownloadSimple size={16} />
+                      Export as CSV
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="sr-ie-info-callout">
+              <Info size={18} />
+              <div>
+                <strong>Database Synchronization & Real-time Records</strong>
+                <p>
+                  Exports are queried directly from the NeonDB/PostgreSQL database via <code>GET /v1/admin/settings/export</code>.
+                  System-defined categories and default operational flags are preserved.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB: IMPORT ─── */}
+        {activeTab === 'import' && (
+          <div className="sr-ie-content">
+            <div className="sr-ie-desc-box">
+              <p>
+                Upload a JSON or CSV file to create new setting categories or operational values,
+                and update non-system records. All changes are verified against M17 schema rules.
+              </p>
+            </div>
+
+            {/* Success Summary Banner (Check 9) */}
+            {importSummary && (
+              <div className="sr-ie-success-card">
+                <div className="sr-ie-success-header">
+                  <CheckCircle size={24} weight="fill" className="sr-success-icon" />
+                  <div>
+                    <h4>Import completed</h4>
+                    <p>Settings imported successfully and synchronized with the database.</p>
+                  </div>
+                </div>
+
+                <div className="sr-import-summary-grid">
+                  {importSummary.categoriesCreated !== undefined && (
+                    <div className="sr-summary-stat">
+                      <span className="stat-label">Categories created</span>
+                      <span className="stat-value">{importSummary.categoriesCreated}</span>
+                    </div>
+                  )}
+                  {importSummary.categoriesUpdated !== undefined && (
+                    <div className="sr-summary-stat">
+                      <span className="stat-label">Categories updated</span>
+                      <span className="stat-value">{importSummary.categoriesUpdated}</span>
+                    </div>
+                  )}
+                  {importSummary.valuesCreated !== undefined && (
+                    <div className="sr-summary-stat">
+                      <span className="stat-label">Values created</span>
+                      <span className="stat-value">{importSummary.valuesCreated}</span>
+                    </div>
+                  )}
+                  {importSummary.valuesUpdated !== undefined && (
+                    <div className="sr-summary-stat">
+                      <span className="stat-label">Values updated</span>
+                      <span className="stat-value">{importSummary.valuesUpdated}</span>
+                    </div>
+                  )}
+                  {importSummary.valuesSkipped !== undefined && (
+                    <div className="sr-summary-stat">
+                      <span className="stat-label">Values skipped</span>
+                      <span className="stat-value">{importSummary.valuesSkipped}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="sr-ie-success-actions">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleRemoveFile}
+                  >
+                    Import Another File
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={onClose}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Error Banner */}
+            {importError && (
+              <div className="sr-ie-error-banner" role="alert">
+                <WarningCircle size={20} className="sr-error-icon" />
+                <div style={{ flex: 1 }}>
+                  <strong>Import Error</strong>
+                  <p>{importError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Structured Validation Errors (Check 10) */}
+            {validationErrors.length > 0 && (
+              <div className="sr-ie-validation-box">
+                <div className="sr-validation-title">
+                  <WarningCircle size={16} />
+                  <span>Validation Issues Encountered ({validationErrors.length})</span>
+                </div>
+                <div className="sr-validation-list">
+                  {validationErrors.map((err, idx) => (
+                    <div key={idx} className="sr-validation-row">
+                      {err.row !== undefined && (
+                        <span className="sr-val-row-num">Row {err.row}</span>
+                      )}
+                      {err.field && (
+                        <span className="sr-val-field">Field: <code>{err.field}</code></span>
+                      )}
+                      <span className="sr-val-msg">{err.message || 'Validation error'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!importSummary && (
+              <form onSubmit={handleImportSubmit} className="sr-ie-form">
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="settings-file-input"
+                  accept=".json,.csv"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+
+                {/* Dropzone Area */}
+                {!selectedFile ? (
+                  <div
+                    className={`sr-dropzone ${isDragging ? 'dragging' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                  >
+                    <div className="sr-dropzone-icon">
+                      <UploadSimple size={36} />
+                    </div>
+                    <div className="sr-dropzone-text">
+                      <p className="sr-dropzone-primary">
+                        Click to select or drag and drop file here
+                      </p>
+                      <p className="sr-dropzone-secondary">
+                        Supports <strong>.json</strong> (structured catalog) or <strong>.csv</strong> (tabular records)
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="sr-selected-file-card">
+                    <div className="sr-file-info">
+                      <div className="sr-file-icon">
+                        {selectedFile.name.endsWith('.csv') ? (
+                          <FileCsv size={28} />
+                        ) : (
+                          <FileText size={28} />
+                        )}
+                      </div>
+                      <div className="sr-file-details">
+                        <span className="sr-file-name">{selectedFile.name}</span>
+                        <div className="sr-file-meta">
+                          <span>{formatFileSize(selectedFile.size)}</span>
+                          <span className="sr-file-format-badge">
+                            {selectedFile.name.split('.').pop()?.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn sr-btn-remove-file"
+                      onClick={handleRemoveFile}
+                      disabled={importing}
+                      title="Remove file"
+                    >
+                      <X size={16} />
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                {/* Safety Rules Callout (Check 11) */}
+                <div className="sr-ie-info-callout">
+                  <Info size={18} />
+                  <div>
+                    <strong>System-defined values are protected.</strong>
+                    <p>
+                      System-defined categories and protected system values cannot be overwritten. Only permitted operational values will be created or updated according to M17 validation rules.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Confirmation Box (Check 7) */}
+                {selectedFile && (
+                  <div className="sr-confirmation-box" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 16px' }}>
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+                      Import Settings?
+                    </h4>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                      This configuration will be processed using the platform's M17 import rules and will update live settings in the database.
+                    </p>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12.5px', color: '#334155', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={confirmed}
+                        onChange={(e) => setConfirmed(e.target.checked)}
+                        disabled={importing}
+                        style={{ marginTop: '2px' }}
+                      />
+                      <span>
+                        I understand this configuration will be processed using the platform's M17 import rules and will update live settings in the database.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Submit Actions (Check 7 & Check 8) */}
+                <div
+                  className="modal-actions"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '10px',
+                    marginTop: '20px',
+                    paddingTop: '14px',
+                    borderTop: '1px solid #e2e8f0',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={selectedFile ? handleRemoveFile : onClose}
+                    disabled={importing}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn primary"
+                    disabled={!selectedFile || !confirmed || importing}
+                  >
+                    {importing ? (
+                      <>
+                        <ArrowClockwise size={16} className="spin" />
+                        Importing settings...
+                      </>
+                    ) : (
+                      <>
+                        <UploadSimple size={16} />
+                        Import Settings
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* Modal Footer when in Export mode */}
+        {activeTab === 'export' && (
+          <div
+            className="modal-actions"
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginTop: '20px',
+              paddingTop: '14px',
+              borderTop: '1px solid #e2e8f0',
+            }}
+          >
+            <button type="button" className="btn" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+

@@ -22,7 +22,7 @@ authService.subscribe(clearGetCache);
 async function request(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   const cacheKey = `${method}:${path}`;
-  if (method === 'GET') {
+  if (method === 'GET' && !options.skipCache && options.responseType !== 'blob') {
     const cached = getCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
     if (inFlightGets.has(cacheKey)) return inFlightGets.get(cacheKey);
@@ -75,11 +75,18 @@ async function request(path, options = {}) {
   }
 
   if (options.responseType === 'blob') {
+    if (options.includeHeaders) {
+      return {
+        blob: await response.blob(),
+        contentDisposition: response.headers.get('content-disposition'),
+        contentType: response.headers.get('content-type'),
+      };
+    }
     return await response.blob();
   }
 
   const value = response.status === 204 ? null : await response.json();
-  if (method === 'GET') getCache.set(cacheKey, {value, expiresAt: Date.now() + GET_CACHE_TTL});
+  if (method === 'GET' && !options.skipCache) getCache.set(cacheKey, {value, expiresAt: Date.now() + GET_CACHE_TTL});
   return value;
   };
 
@@ -572,6 +579,25 @@ export const getSettingsByCategory = (categoryKey, organizationId = null) => {
   const qs = organizationId ? `?org_id=${organizationId}` : '';
   return request(`/v1/settings/${categoryKey}${qs}`);
 };
+
+export async function exportSettings(format = 'json') {
+  return request(`/v1/admin/settings/export?format=${encodeURIComponent(format)}`, {
+    responseType: 'blob',
+    includeHeaders: true,
+    skipCache: true,
+  });
+}
+
+export const exportSettingsJSON = () => exportSettings('json');
+export const exportSettingsCSV = () => exportSettings('csv');
+
+export async function importSettings(formDataOrPayload) {
+  const isFormData = typeof FormData !== 'undefined' && formDataOrPayload instanceof FormData;
+  return request('/v1/admin/settings/import', {
+    method: 'POST',
+    body: isFormData ? formDataOrPayload : JSON.stringify(formDataOrPayload),
+  });
+}
 
 
 /* ─── Customer Master ───────────────────────────────────────── */
@@ -1222,6 +1248,45 @@ export async function getShipments(params = {}) {
   });
   const q = query.toString() ? `?${query.toString()}` : "";
   return request(`/v1/shipments${q}`);
+}
+
+export async function getShipment(id) {
+  return request(`/v1/shipments/${id}`);
+}
+
+export async function createShipment(data) {
+  return request("/v1/shipments", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateShipment(id, data) {
+  return request(`/v1/shipments/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateShipmentStatus(id, data) {
+  return request(`/v1/shipments/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cancelShipment(id, data = {}) {
+  return request(`/v1/shipments/${id}/cancel`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function addShipmentStop(id, stopData) {
+  return request(`/v1/shipments/${id}/stops`, {
+    method: "POST",
+    body: JSON.stringify(stopData),
+  });
 }
 
 // ============================================================================
