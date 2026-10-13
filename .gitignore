@@ -9,3 +9,6 @@ tests/
 worker/
 .sites-runtime/
 *.log
+
+# Private generated documents
+private-storage/

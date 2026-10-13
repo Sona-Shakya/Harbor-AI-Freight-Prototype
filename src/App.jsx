@@ -19,12 +19,16 @@ import './styles/quotingRate.css';
 import CarrierFleetManagement from './CarrierFleetManagement';
 import './styles/carrierFleet.css';
 import BookingManagement from './BookingManagement';
+import DispatchManagement from './DispatchManagement';
+import './styles/dispatchManagement.css';
+import CustomerPortal from './CustomerPortal';
+import './styles/customerPortal.css';
 import LoginOtpScreen from './LoginOtpScreen.jsx';
 import AcceptInvitation from './AcceptInvitation.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
 import VerifyResetOtp from './VerifyResetOtp.jsx';
 import ResetPassword from './ResetPassword.jsx';
-import {login as apiLogin, getProfile, getUserOrganizations, switchOrganizationContext} from './api';
+import {login as apiLogin, getProfile, getUserOrganizations, switchOrganizationContext, getShipments, getDispatchBoard} from './api';
 import * as authService from './services/authService';
 const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings,GitBranch,IdentificationBadge,Anchor,Package};
 const STORE='harbor-demo-v1';
@@ -50,14 +54,18 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const isQuotesSelected = view === 'records' && (moduleId === 'quotes' || moduleId === 'rates');
   const isFleetSelected = view === 'records' && (moduleId === 'fleet' || moduleId === 'carrier_fleet');
   const isBookingsSelected = view === 'records' && moduleId === 'bookings';
+  const isShipmentsSelected = view === 'records' && moduleId === 'shipments';
+  const isDispatchSelected = view === 'records' && (moduleId === 'dispatch' || moduleId === 'dispatches');
+  const isPortalSelected = view === 'records' && (moduleId === 'portal' || moduleId === 'customer_portal');
 
-  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected || isQuotesSelected || isFleetSelected || isBookingsSelected;
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected || isQuotesSelected || isFleetSelected || isBookingsSelected || isShipmentsSelected || isDispatchSelected || isPortalSelected;
 
   const canReadSettings = hasPermission('system_settings', 'read');
   const canReadLoadBoard = hasPermission('load_board', 'read');
   const canReadQuotes = hasPermission('quotes', 'read') || hasPermission('rates', 'read') || hasPermission('rate_agreements', 'read');
   const canReadFleet = hasPermission('vehicles', 'read') || hasPermission('fleet', 'read') || hasPermission('fleet_assignments', 'read') || hasPermission('hos_logs', 'read');
   const canReadBookings = hasPermission('shipments', 'read') || hasPermission('bookings', 'read');
+  const canReadDispatch = hasPermission('dispatch', 'read') || hasPermission('dispatches', 'read') || hasPermission('shipments', 'read') || hasPermission('tracking', 'read');
   const canReadUsers = hasPermission('users', 'read');
   const canReadRoles = hasPermission('roles', 'read');
   const canReadOrg = hasPermission('organizations', 'read');
@@ -68,11 +76,12 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadPorts = hasPermission('ports', 'read');
   const canReadCfs = hasPermission('cfs', 'read');
   const canReadDrivers = hasPermission('drivers', 'read');
+  const canReadPortal = hasPermission('portal', 'read') || hasPermission('customer_portal', 'read') || hasPermission('customers', 'read') || hasPermission('shipments', 'read');
 
   const canReadPeople = canReadUsers || canReadRoles;
-  const canReadBusiness = canReadOrg || canReadCustomers || canReadVendors || canReadBranches || canReadAgents;
+  const canReadBusiness = canReadOrg || canReadCustomers || canReadPortal || canReadVendors || canReadBranches || canReadAgents;
   const canReadLocations = canReadPorts || canReadCfs;
-  const canReadTransportation = canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet || canReadBookings;
+  const canReadTransportation = canReadBookings || canReadDispatch || canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet;
   const canReadManage = canReadPeople || canReadBusiness || canReadLocations || canReadTransportation;
 
   const [manageOpen, setManageOpen] = useState(true);
@@ -87,10 +96,13 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const handleManageClick = () => {
     if (!isChildActive) {
       setManageOpen(true);
-      if (canReadUsers) openModule('users');
+      if (canReadBookings) openModule('shipments');
+      else if (canReadDispatch) openModule('dispatch');
+      else if (canReadUsers) openModule('users');
       else if (canReadRoles) openModule('roles');
       else if (canReadOrg) openModule('organization');
       else if (canReadCustomers) openModule('customers');
+      else if (canReadPortal) openModule('portal');
       else if (canReadVendors) openModule('vendors');
       else if (canReadBranches) openModule('branches');
       else if (canReadAgents) openModule('agents');
@@ -214,6 +226,19 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                       </button>
                     )}
 
+                    {canReadPortal && (
+                      <button
+                        key="portal"
+                        className={'module-nav-item sub-item ' + (isPortalSelected ? 'selected' : '')}
+                        aria-current={isPortalSelected ? 'page' : undefined}
+                        title="Customer Portal"
+                        onClick={() => openModule('portal')}
+                      >
+                        <House size={20} />
+                        <span>Customer Portal</span>
+                      </button>
+                    )}
+
                     {canReadVendors && (
                       <button
                         key="vendors"
@@ -291,6 +316,47 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                 {canReadTransportation && (
                   <div className="nav-subgroup">
                     <div className="nav-subgroup-label">Transportation</div>
+                    {canReadBookings && (
+                      <button
+                        key="shipments"
+                        className={'module-nav-item sub-item ' + (isShipmentsSelected ? 'selected' : '')}
+                        aria-current={isShipmentsSelected ? 'page' : undefined}
+                        title="Shipments"
+                        onClick={() => openModule('shipments')}
+                      >
+                        <Package size={20} />
+                        <span>Shipments</span>
+                        <span className="module-record-count">{records.shipments?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadBookings && (
+                      <button
+                        key="bookings"
+                        className={'module-nav-item sub-item ' + (isBookingsSelected ? 'selected' : '')}
+                        aria-current={isBookingsSelected ? 'page' : undefined}
+                        title="Bookings"
+                        onClick={() => openModule('bookings')}
+                      >
+                        <CalendarCheck size={20} />
+                        <span>Bookings</span>
+                        <span className="module-record-count">{records.bookings?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadDispatch && (
+                      <button
+                        key="dispatch"
+                        className={'module-nav-item sub-item ' + (isDispatchSelected ? 'selected' : '')}
+                        aria-current={isDispatchSelected ? 'page' : undefined}
+                        title="Dispatch & Execution"
+                        onClick={() => openModule('dispatch')}
+                      >
+                        <Path size={20} />
+                        <span>Dispatch</span>
+                      </button>
+                    )}
+
                     {canReadDrivers && (
                       <button
                         key="drivers"
@@ -343,20 +409,6 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         <Truck size={20} />
                         <span>Carriers & Fleet</span>
                         <span className="module-record-count">{records.fleet?.length ?? ''}</span>
-                      </button>
-                    )}
-
-                    {canReadBookings && (
-                      <button
-                        key="bookings"
-                        className={'module-nav-item sub-item ' + (isBookingsSelected ? 'selected' : '')}
-                        aria-current={isBookingsSelected ? 'page' : undefined}
-                        title="Bookings"
-                        onClick={() => openModule('bookings')}
-                      >
-                        <CalendarCheck size={20} />
-                        <span>Bookings</span>
-                        <span className="module-record-count">{records.bookings?.length ?? ''}</span>
                       </button>
                     )}
                   </div>
@@ -833,6 +885,7 @@ const getModuleFromPath = (path) => {
   if (path === '/cfs' || path.startsWith('/cfs/')) return 'cfs';
   if (path === '/drivers' || path.startsWith('/drivers/')) return 'drivers';
   if (path === '/bookings' || path.startsWith('/bookings/')) return 'bookings';
+  if (path === '/dispatch' || path.startsWith('/dispatch/') || path === '/tracking' || path.startsWith('/tracking/') || path === '/routes' || path.startsWith('/routes/') || path === '/route-planning' || path.startsWith('/route-planning/')) return 'dispatch';
   if (path === '/shipments' || path.startsWith('/shipments/')) return 'shipments';
   if (path === '/load-board' || path.startsWith('/load-board/')) return 'load_board';
   if (path === '/quotes' || path.startsWith('/quotes/') || path === '/rates' || path.startsWith('/rates/')) return 'quotes';
@@ -841,13 +894,17 @@ const getModuleFromPath = (path) => {
   if (path === '/roles' || path.startsWith('/roles/')) return 'roles';
   if (path === '/organization' || path.startsWith('/organization/')) return 'organization';
   if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
+  if (path === '/portal' || path.startsWith('/portal/') || path === '/customer-portal' || path.startsWith('/customer-portal/')) return 'portal';
   return null;
 };
 
 function HarborWorkspace({onLogout}){
       const [profile, setProfile] = useState(null);
       const [profileLoading, setProfileLoading] = useState(true);
-      const role = profile?.organization_roles?.[0]?.role;
+      const [activeOrgRoleIndex, setActiveOrgRoleIndex] = useState(0);
+      const activeOrgRole = profile?.organization_roles?.[activeOrgRoleIndex] || profile?.organization_roles?.[0];
+      const role = activeOrgRole?.role;
+      const currentOrg = activeOrgRole?.organization;
 const permissionSet = role?.permission_set || {};
 
 const hasPermission = (module, action) => {
@@ -1036,11 +1093,92 @@ const hasPermission = (module, action) => {
     return false;
   }
 
+  // Dispatch & Execution (M6: FR-6.1 to FR-6.7)
+  if (mod === 'dispatch' || mod === 'dispatches' || mod === 'tracking' || mod === 'execution') {
+    if (role?.name === 'Platform Admin' || role?.name === 'Company Admin' || role?.name === 'Carrier Admin' || role?.name === 'Dispatcher') return true;
+    if (role?.name === 'Driver') {
+      return ['read', 'driver_response', 'check_calls', 'milestones'].includes(act) || act === 'read';
+    }
+    if (role?.name === 'Shipper User') {
+      return ['read', 'exceptions_read', 'check_calls_read'].includes(act) || act === 'read';
+    }
+    if (act === 'read') return true;
+    return false;
+  }
+
+  // Customer Portal (M12: FR-12.1 to FR-12.8)
+  if (mod === 'portal' || mod === 'customer_portal') {
+    if (role?.name === 'Platform Admin' || role?.name === 'Shipper User') return true;
+    if (role?.name === 'Company Admin') return true;
+    if (act === 'read') {
+      return ['Platform Admin', 'Company Admin', 'Shipper User', 'Dispatcher'].includes(role?.name);
+    }
+    return false;
+  }
+
+  // Route Planning & Optimization (M7: FR-7.1 to FR-7.6)
+  if (mod === 'routes' || mod === 'route' || mod === 'route_planning' || mod === 'routing') {
+    if (role?.name === 'Platform Admin' || role?.name === 'Company Admin' || role?.name === 'Carrier Admin') return true;
+    if (role?.name === 'Dispatcher') {
+      return ['read', 'optimize', 'simulate', 'consolidate', 'view_directions', 'create', 'update'].includes(act) || act === 'read';
+    }
+    if (role?.name === 'Driver') {
+      return ['read', 'view_directions'].includes(act) || act === 'read';
+    }
+    if (role?.name === 'Shipper User' || role?.name === 'Shipper') {
+      return ['read', 'track_eta'].includes(act) || act === 'read';
+    }
+    if (act === 'read') return true;
+    return false;
+  }
+
+  // Dynamic ETA (M7: FR-7.3)
+  if (mod === 'eta' || mod === 'etas') {
+    if (
+      role?.name === 'Platform Admin' ||
+      role?.name === 'Company Admin' ||
+      role?.name === 'Carrier Admin' ||
+      role?.name === 'Dispatcher' ||
+      role?.name === 'Shipper User' ||
+      role?.name === 'Shipper'
+    ) {
+      return ['read', 'recalculate', 'track_eta'].includes(act) || act === 'read';
+    }
+    if (role?.name === 'Driver') {
+      return ['read'].includes(act) || act === 'read';
+    }
+    if (act === 'read') return true;
+    return false;
+  }
+
   if (role?.name === 'Company Admin') {
     return true;
   }
 
   return false;
+};
+
+const isModulePermitted = (modId) => {
+  if (!profile) return true;
+  if (role?.name === 'Platform Admin') return true;
+  if (modId === 'admin') return hasPermission('system_settings', 'read');
+  if (modId === 'users') return hasPermission('users', 'read');
+  if (modId === 'roles') return hasPermission('roles', 'read');
+  if (modId === 'organization') return hasPermission('organizations', 'read');
+  if (modId === 'customers') return hasPermission('customers', 'read');
+  if (modId === 'vendors') return hasPermission('vendors', 'read');
+  if (modId === 'branches') return hasPermission('branches', 'read');
+  if (modId === 'agents') return hasPermission('agents', 'read');
+  if (modId === 'ports') return hasPermission('ports', 'read');
+  if (modId === 'cfs') return hasPermission('cfs', 'read');
+  if (modId === 'drivers') return hasPermission('drivers', 'read');
+  if (modId === 'load_board') return hasPermission('load_board', 'read');
+  if (modId === 'quotes' || modId === 'rates') return hasPermission('quotes', 'read');
+  if (modId === 'fleet' || modId === 'carrier_fleet') return hasPermission('vehicles', 'read') || hasPermission('fleet', 'read') || hasPermission('hos_logs', 'read');
+  if (modId === 'bookings' || modId === 'shipments') return hasPermission('shipments', 'read') || hasPermission('bookings', 'read');
+  if (modId === 'dispatch' || modId === 'dispatches' || modId === 'routes' || modId === 'route_planning') return hasPermission('dispatch', 'read') || hasPermission('routes', 'read') || hasPermission('shipments', 'read') || hasPermission('tracking', 'read');
+  if (modId === 'portal') return hasPermission('portal', 'read') || hasPermission('customers', 'read') || hasPermission('shipments', 'read');
+  return true;
 };
 
   useEffect(() => {
@@ -1059,8 +1197,35 @@ const hasPermission = (module, action) => {
   }, []);
 
  const stored=useRef(load()).current;
- const initialMod = (typeof window !== 'undefined' && getModuleFromPath(window.location.pathname)) || 'admin';
- const [records,setRecords]=useState(()=>({...initialRecords, ...(stored.records||{})})),[missions,setMissions]=useState(stored.missions||seedMissions),[missionId,setMissionId]=useState('import'),[view,setView]=useState('records'),[tab,setTab]=useState('Conversation'),[moduleId,setModuleId]=useState(initialMod),[query,setQuery]=useState(''),[filter,setFilter]=useState('All statuses');
+ const initialMod = (typeof window !== 'undefined' && getModuleFromPath(window.location.pathname)) || null;
+ const [records,setRecords]=useState(()=>({...initialRecords, ...(stored.records||{})})),[missions,setMissions]=useState(stored.missions||seedMissions),[missionId,setMissionId]=useState('import'),[view,setView]=useState('records'),[tab,setTab]=useState('Conversation'),[moduleId,setModuleId]=useState(initialMod || 'shipments'),[query,setQuery]=useState(''),[filter,setFilter]=useState('All statuses');
+ const [operationalFilter, setOperationalFilter] = useState(null);
+ const [portalTab, setPortalTab] = useState('overview');
+  // Role-adaptive landing page resolution and route normalization
+  useEffect(() => {
+    if (profile) {
+      const roleName = role?.name;
+      const orgType = currentOrg?.type;
+      if (window.location.pathname === '/' || window.location.pathname === '') {
+        let defaultMod = 'shipments';
+        if (roleName === 'Shipper User' || orgType === 'shipper') {
+          defaultMod = 'portal';
+        } else if (roleName === 'Driver') {
+          defaultMod = 'dispatch';
+        } else if (roleName === 'Carrier Admin' || orgType === 'carrier') {
+          defaultMod = 'load_board';
+        } else if (roleName === 'Dispatcher') {
+          defaultMod = 'dispatch';
+        } else if (roleName === 'Finance' || roleName === 'Finance User') {
+          defaultMod = 'bookings';
+        }
+        openModule(defaultMod);
+      } else if ((roleName === 'Shipper User' || orgType === 'shipper') && (moduleId === 'shipments' || window.location.pathname === '/shipments')) {
+        openModule('portal');
+      }
+    }
+  }, [profile, role, currentOrg]);
+
  const [modal,setModal]=useState(null),[toast,setToast]=useState(''),[input,setInput]=useState(''),[messages,setMessages]=useState(stored.messages||{}),[audit,setAudit]=useState(stored.audit||[]),[approvals,setApprovals]=useState(stored.approvals||{}),[selectedRate,setSelectedRate]=useState(stored.selectedRate||null),[draft,setDraft]=useState(stored.draft||'Please confirm destination handling and local charges for 600 control units moving from Shanghai to Chennai. Your offer OB-082 includes origin and ocean freight but excludes destination handling. Please confirm the total and validity.'),[settings,setSettings]=useState(stored.settings||seedSettingCategories),[settingAudit,setSettingAudit]=useState(stored.settingAudit||[]),[attachments,setAttachments]=useState([]),[busy,setBusy]=useState(false),[navOpen,setNavOpen]=useState(false),[sidebarCollapsed,setSidebarCollapsed]=useState(false),[planOpen,setPlanOpen]=useState(false);
  const scroll=useRef(),fileRef=useRef(),timer=useRef();
  const mission=missions.find(m=>m.id===missionId)||missions[0]; const type=mission.type; const mod=modules.find(m=>m.id===moduleId)||modules[0];
@@ -1083,7 +1248,11 @@ const hasPermission = (module, action) => {
  function update(collection,record){setRecords(r=>({...r,[collection]:r[collection].some(x=>x.id===record.id)?r[collection].map(x=>x.id===record.id?record:x):[...r[collection],record]}));log(`${record.id} updated in ${modules.find(m=>m.id===collection).name}`)}
  function add(collection,record){setRecords(r=>({...r,[collection]:[...r[collection],record]}))}
  function notify(t){setToast(t)}
- function openModule(id) {
+ function openModule(id, options = null) {
+  if (role?.name === 'Shipper User' && id === 'shipments') {
+    id = 'portal';
+  }
+
   if (id === 'admin' && !hasPermission('system_settings', 'read')) {
     notify('You do not have permission to access System Settings.');
     return;
@@ -1140,9 +1309,23 @@ const hasPermission = (module, action) => {
     notify('You do not have permission to access Carrier & Fleet.');
     return;
   }
-  if (id === 'bookings' && !hasPermission('shipments', 'read') && !hasPermission('bookings', 'read')) {
-    notify('You do not have permission to access Bookings.');
+  if ((id === 'bookings' || id === 'shipments') && !hasPermission('shipments', 'read') && !hasPermission('bookings', 'read')) {
+    notify('You do not have permission to access Bookings / Shipments.');
     return;
+  }
+  if ((id === 'dispatch' || id === 'dispatches') && !hasPermission('dispatch', 'read') && !hasPermission('shipments', 'read') && !hasPermission('tracking', 'read')) {
+    notify('You do not have permission to access Dispatch & Execution.');
+    return;
+  }
+  if (id === 'portal' && !hasPermission('portal', 'read') && !hasPermission('customers', 'read') && !hasPermission('shipments', 'read')) {
+    notify('You do not have permission to access Customer Portal.');
+    return;
+  }
+
+  if (options) {
+    setOperationalFilter(options);
+  } else {
+    setOperationalFilter(null);
   }
 
   setModuleId(id);
@@ -1153,6 +1336,9 @@ const hasPermission = (module, action) => {
 
   const moduleUrls = {
     bookings: '/bookings',
+    shipments: '/shipments',
+    dispatch: '/dispatch',
+    portal: '/portal',
     customers: '/customers',
     vendors: '/vendors',
     branches: '/branches',
@@ -1160,7 +1346,6 @@ const hasPermission = (module, action) => {
     ports: '/ports',
     cfs: '/cfs',
     drivers: '/drivers',
-    shipments: '/shipments',
     load_board: '/load-board',
     quotes: '/quotes',
     rates: '/quotes',
@@ -1178,6 +1363,7 @@ const hasPermission = (module, action) => {
     window.history.pushState({}, '', '/');
   }
 }
+
  function openMission(id){setMissionId(id);setView('mission');setTab('Conversation');setInput('');setAttachments([]);setNavOpen(false)}
  function detail(id,collection){const c=collection||Object.keys(records).find(k=>records[k]?.some?.(x=>x.id===id));if(c&&records[c]){setModal({kind:'detail',collection:c,record:records[c].find(x=>x.id===id)})}}
  function approve(key){setApprovals(a=>({...a,[key]:true}));log(`${key} draft approved locally; no external action executed`);notify('Draft approved. No external message has been sent.')}
@@ -1223,17 +1409,17 @@ const hasPermission = (module, action) => {
     </div>
     <p className="sidebar-tagline">Global trade,<br/>more human.</p>
   </div>
-  <Btn primary className="new-mission" title="New mission" onClick={()=>setModal({kind:'newmission'})}>
-    <Plus size={21}/><span>New mission</span>
-  </Btn>
-  <div className="sidebar-scroll">{view==='records'&&<button className="back-to-missions" title="AI missions" onClick={()=>openMission(missionId)}><House size={19}/><span><strong>AI missions</strong><small>Return to your active work</small></span><CaretRight size={15}/></button>}{view==='mission'&&<><div className="section-label row between">Active missions<button className="icon-btn small" aria-label="Add mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={17}/></button></div><nav className="mission-list">{missions.map(m=><button className={'mission-item '+(view==='mission'&&missionId===m.id?'selected':'')} key={m.id} title={m.name} onClick={()=>openMission(m.id)}><span className={'mission-dot '+(missionId===m.id?'blue':'')}/><span>{m.name}<small>{m.subtitle}</small></span></button>)}</nav></>}<div className="module-section-heading"><span>All modules</span><span className="count">20</span></div>
- <ModuleNavigation
-  moduleId={moduleId}
-  view={view}
-  records={records}
-  openModule={openModule}
-  hasPermission={hasPermission}
-/></div>
+    <Btn primary className="new-mission" title="New mission" onClick={()=>setModal({kind:'newmission'})}>
+      <Plus size={21}/><span>New mission</span>
+    </Btn>
+    <div className="sidebar-scroll">{view==='records'&&<button className="back-to-missions" title="AI missions" onClick={()=>openMission(missionId)}><House size={19}/><span><strong>AI missions</strong><small>Return to your active work</small></span><CaretRight size={15}/></button>}{view==='mission'&&<><div className="section-label row between">Active missions<button className="icon-btn small" aria-label="Add mission" onClick={()=>setModal({kind:'newmission'})}><Plus size={17}/></button></div><nav className="mission-list">{missions.map(m=><button className={'mission-item '+(view==='mission'&&missionId===m.id?'selected':'')} key={m.id} title={m.name} onClick={()=>openMission(m.id)}><span className={'mission-dot '+(missionId===m.id?'blue':'')}/><span>{m.name}<small>{m.subtitle}</small></span></button>)}</nav></>}<div className="module-section-heading"><span>All modules</span><span className="count">20</span></div>
+  <ModuleNavigation
+    moduleId={moduleId}
+    view={view}
+    records={records}
+    openModule={openModule}
+    hasPermission={hasPermission}
+  /></div>
  <div className="sidebar-bottom"><button className="about-link" onClick={()=>setModal({kind:'about'})}><Info size={19}/><span>About Harbor</span></button>
  <button className="profile" onClick={()=>setModal({kind:'about'})}>
   <span className="avatar">
@@ -1248,7 +1434,7 @@ const hasPermission = (module, action) => {
   <span>
     {profile?.user?.name || 'User'}
     <small>
-      {profile?.organization_roles?.[0]?.organization?.legal_name || 'Organization'}
+      {currentOrg?.legal_name || 'Organization'} · {role?.name || 'User'}
     </small>
   </span>
 
@@ -1259,8 +1445,19 @@ const hasPermission = (module, action) => {
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
-      </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={profile?.organization_roles?.[0]?.organization} initialRecords={records.bookings}/>}
-{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&(
+        </>:<><header className="records-header"><div className="records-meta-row"><div className="eyebrow">YOUR WORKSPACE / RECORDS</div><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='dispatch'&&moduleId!=='portal'&&moduleId!=='shipments'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body">{!isModulePermitted(moduleId) ? (
+  <div className="access-denied-panel">
+    <div className="access-denied-icon"><LockKey size={28}/></div>
+    <h2>Access Restricted</h2>
+    <p>Your user profile ({role?.name || 'User'}) does not have permission to access {mod?.name || moduleId}.</p>
+    <Btn primary onClick={()=>openModule(role?.name === 'Shipper User' ? 'portal' : role?.name === 'Driver' ? 'dispatch' : 'shipments')}>Return to Permitted Workspace</Btn>
+  </div>
+) : (
+  <>
+  {moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={false} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'}/>} {moduleId==='shipments'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={true} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'}/>} {moduleId==='dispatch'&&<DispatchManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialViewMode={operationalFilter?.viewMode || 'kanban'} initialStatusFilter={operationalFilter?.status || 'all'}/>} {moduleId==='portal'&&<CustomerPortal hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialTab={portalTab}/>}
+  </>
+)}
+{moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='dispatch'&&moduleId!=='portal'&&moduleId!=='shipments'&&(
 <>
 <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
 </>
@@ -1282,10 +1479,33 @@ const hasPermission = (module, action) => {
  
  <p>
   Current profile: {profile?.user?.name || 'User'} ·{' '}
-  {profile?.organization_roles?.[0]?.organization?.legal_name || 'Organization'}
+  {currentOrg?.legal_name || 'Organization'}
   {' · '}
-  {profile?.organization_roles?.[0]?.role?.name || 'User'}
+  {role?.name || 'User'}
 </p>
+{profile?.organization_roles?.length > 1 && (
+  <div style={{ marginTop: '12px', marginBottom: '16px' }}>
+    <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+      Switch Active Organization / Role Context:
+    </label>
+    <select
+      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+      value={activeOrgRoleIndex}
+      onChange={(e) => {
+        const idx = Number(e.target.value);
+        setActiveOrgRoleIndex(idx);
+        const sel = profile.organization_roles[idx];
+        notify(`Switched context to ${sel?.organization?.legal_name || 'Organization'} (${sel?.role?.name || 'Role'})`);
+      }}
+    >
+      {profile.organization_roles.map((orgRole, idx) => (
+        <option key={idx} value={idx}>
+          {orgRole.organization?.legal_name || 'Organization'} ({orgRole.role?.name || 'Role'})
+        </option>
+      ))}
+    </select>
+  </div>
+)}
 
  <div className="modal-actions"><Btn onClick={onLogout}><SignOut size={18}/>Log out</Btn><Btn primary onClick={()=>{setModal({kind:'modules'})}}>Explore all modules</Btn></div></Modal>}
  </div>

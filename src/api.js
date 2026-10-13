@@ -1282,6 +1282,13 @@ export async function cancelShipment(id, data = {}) {
   });
 }
 
+export async function bookShipment(id, data = {}) {
+  return request(`/v1/shipments/${id}/book`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function addShipmentStop(id, stopData) {
   return request(`/v1/shipments/${id}/stops`, {
     method: "POST",
@@ -1709,6 +1716,479 @@ export async function updateCarrierTier(carrierOrgId = null, data = {}) {
     body: JSON.stringify(bodyPayload),
   });
 }
+
+// =====================================================================
+// FMS Module M6: Dispatch & Execution API Methods
+// =====================================================================
+
+/**
+ * FR-6.1: Retrieve the operational Dispatch Board
+ * @param {Object} params - Query params (date, status, driver_id, carrier_id, view_mode)
+ */
+export async function getDispatchBoard(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/dispatch/board${q}`, { skipCache: true });
+}
+
+/**
+ * FR-6.2 & FR-6.3: Assign driver & equipment to a booked shipment and execute dispatch
+ * @param {Object} data - { shipment_id, driver_id, truck_id, trailer_id, special_instructions, notes }
+ */
+export async function assignDispatch(data) {
+  return request("/v1/dispatch/assign", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-6.4: Driver accept or reject load assignment
+ * @param {Object} data - { shipment_id, response ('accepted'|'rejected'), rejection_reason, notes }
+ */
+export async function driverResponseDispatch(data) {
+  return request("/v1/dispatch/driver-response", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-6.7: Mid-execution re-dispatch / re-assignment workflow
+ * @param {Object} data - { shipment_id, new_driver_id, new_truck_id, new_trailer_id, reason, notes }
+ */
+export async function reassignDispatch(data) {
+  return request("/v1/dispatch/reassign", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Stop Milestone: Record arrival at a stop
+ * @param {number|string} shipmentId
+ * @param {number|string} stopId
+ * @param {Object} data - { actual_time, odometer, notes }
+ */
+export async function recordStopArrival(shipmentId, stopId, data = {}) {
+  return request(`/v1/shipments/${shipmentId}/stops/${stopId}/arrive`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Stop Milestone: Record departure from a stop
+ * @param {number|string} shipmentId
+ * @param {number|string} stopId
+ * @param {Object} data - { actual_time, odometer, notes }
+ */
+export async function recordStopDeparture(shipmentId, stopId, data = {}) {
+  return request(`/v1/shipments/${shipmentId}/stops/${stopId}/depart`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Stop Milestone: Update milestone directly
+ * @param {number|string} shipmentId
+ * @param {number|string} stopId
+ * @param {Object} data - { action: 'arrive'|'depart', actual_time, odometer, notes }
+ */
+export async function updateStopMilestone(shipmentId, stopId, data = {}) {
+  return request(`/v1/shipments/${shipmentId}/stops/${stopId}/milestone`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-6.6: Log a check-call for a shipment
+ * @param {number|string} shipmentId
+ * @param {Object} data - { location, city, state, lat, lng, odometer, eta, status, note, call_type }
+ */
+export async function logCheckCall(shipmentId, data) {
+  return request(`/v1/shipments/${shipmentId}/check-calls`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-6.6: Retrieve check-calls history for a shipment
+ * @param {number|string} shipmentId
+ */
+export async function getCheckCalls(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/check-calls`, { skipCache: true });
+}
+
+/**
+ * FR-6.5: Manually log an exception on a shipment
+ * @param {number|string} shipmentId
+ * @param {Object} data - { type, severity, description }
+ */
+export async function createShipmentException(shipmentId, data) {
+  return request(`/v1/shipments/${shipmentId}/exceptions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-6.5: Get exceptions for a specific shipment
+ * @param {number|string} shipmentId
+ * @param {Object} params - { status: 'open'|'resolved'|'all' }
+ */
+export async function getShipmentExceptions(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/shipments/${shipmentId}/exceptions${q}`, { skipCache: true });
+}
+
+/**
+ * FR-6.5: Get fleet-wide dispatch exceptions
+ * @param {Object} params - { status, severity, type, carrier_id }
+ */
+export async function getDispatchExceptions(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/dispatch/exceptions${q}`, { skipCache: true });
+}
+
+/**
+ * FR-6.5: Resolve an active exception
+ * @param {number|string} exceptionId
+ * @param {Object} data - { resolution_notes }
+ * @param {number|string} [shipmentId]
+ */
+export async function resolveDispatchException(exceptionId, data = {}, shipmentId = null) {
+  const path = shipmentId
+    ? `/v1/shipments/${shipmentId}/exceptions/${exceptionId}/resolve`
+    : `/v1/dispatch/exceptions/${exceptionId}/resolve`;
+  return request(path, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// =========================================================================
+// MODULE M12: CUSTOMER (SHIPPER) PORTAL APIs (FR-12.1 - FR-12.8)
+// =========================================================================
+
+/**
+ * FR-12.2: List shipments for customer portal
+ * @param {Object} params - { status, search, page, limit, region, shipper_org_id }
+ */
+export async function getPortalShipments(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/shipments${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.2: Get shipment details in customer portal
+ * @param {number|string} shipmentId
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function getPortalShipment(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/shipments/${shipmentId}${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.3: Live tracking data for customer portal
+ * @param {number|string} shipmentId
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function getPortalShipmentTracking(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/shipments/${shipmentId}/tracking${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.1: Multi-step guided quote and book flow
+ * @param {Object} data - { action: 'quote'|'book', origin, destination, distance_miles, freight_details, carrier_org_id, quote_amount }
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function portalQuoteAndBook(data, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/quote-and-book${q}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-12.4: List shipment documents in portal
+ * @param {number|string} shipmentId
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function getPortalShipmentDocuments(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/shipments/${shipmentId}/documents${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.4: Download shipment document authorization
+ * @param {number|string} shipmentId
+ * @param {number|string} docId
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function downloadPortalShipmentDocument(shipmentId, docId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/shipments/${shipmentId}/documents/${docId}/download${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.4: Upload shipment document
+ * @param {number|string} shipmentId
+ * @param {Object|FormData} data
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function uploadPortalShipmentDocument(shipmentId, data, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  return request(`/v1/portal/shipments/${shipmentId}/documents${q}`, {
+    method: "POST",
+    body: isFormData ? data : JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-12.5: List billing invoices for shipper
+ * @param {Object} params - { status, shipment_id, shipper_org_id }
+ */
+export async function getPortalInvoices(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/invoices${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.5: Get invoice details
+ * @param {number|string} invoiceId
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function getPortalInvoice(invoiceId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/invoices/${invoiceId}${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.6: List saved locations
+ * @param {Object} params - { type, search, shipper_org_id }
+ */
+export async function getPortalSavedLocations(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/saved-locations${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.6: Create saved location
+ * @param {Object} data - { name, type, address, contact }
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function createPortalSavedLocation(data, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/saved-locations${q}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-12.6: Update saved location
+ * @param {number|string} locationId
+ * @param {Object} data - { name, type, address, contact }
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function updatePortalSavedLocation(locationId, data, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/saved-locations/${locationId}${q}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-12.6: Delete saved location
+ * @param {number|string} locationId
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function deletePortalSavedLocation(locationId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/saved-locations/${locationId}${q}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * FR-12.6: Get shipper preferences (preferred / blocked carriers)
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function getPortalPreferences(params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/preferences${q}`, { skipCache: true });
+}
+
+/**
+ * FR-12.6: Update shipper preferences
+ * @param {Object} data - { preferred_carrier_ids, blocked_carrier_ids, notes }
+ * @param {Object} [params] - { shipper_org_id }
+ */
+export async function updatePortalPreferences(data, params = {}) {
+  const query = new URLSearchParams();
+  if (params.shipper_org_id) query.set('shipper_org_id', params.shipper_org_id);
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/preferences${q}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-12.8: Get shipper analytics (spend by lane, on-time %, carrier performance)
+ * @param {Object} params - { shipper_org_id }
+ */
+export async function getPortalAnalytics(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/portal/analytics${q}`, { skipCache: true });
+}
+
+/* ==========================================================================
+   MODULE M7: ROUTE PLANNING & OPTIMIZATION API CLIENTS (FR-7.1 to FR-7.6)
+   ========================================================================== */
+
+/**
+ * FR-7.1: Optimize stop sequence for a shipment (TSP-TW)
+ * @param {Object} data - { shipment_id, persist: boolean, start_time?: string }
+ */
+export async function optimizeShipmentRoute(data) {
+  return request('/v1/routes/optimize', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-7.2: Get truck-legal directions for a Route
+ * @param {string|number} routeId
+ * @param {Object} [params] - { simulation: boolean }
+ */
+export async function getRouteDirections(routeId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.simulation || params.simulate) query.set('simulation', 'true');
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/routes/${routeId}/directions${q}`, { skipCache: true });
+}
+
+/**
+ * FR-7.2: Get truck-legal directions for a Shipment (alias)
+ * @param {string|number} shipmentId
+ * @param {Object} [params] - { simulation: boolean }
+ */
+export async function getShipmentDirections(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.simulation || params.simulate) query.set('simulation', 'true');
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/shipments/${shipmentId}/directions${q}`, { skipCache: true });
+}
+
+/**
+ * FR-7.3 & FR-7.6: Get dynamic ETA and telemetry snapshot for a shipment
+ * @param {string|number} shipmentId
+ */
+export async function getShipmentDynamicEta(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/eta`, { skipCache: true });
+}
+
+/**
+ * FR-7.4 & FR-7.6: Pre-dispatch route simulation (what-if analysis)
+ * @param {Object} data - { shipment_id?, stops?, vehicle_id?, driver_id?, departure_time?, mpg?, fuel_price_per_gal?, toll_rate_per_mile? }
+ */
+export async function simulateRoute(data) {
+  return request('/v1/routes/simulate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-7.5: Consolidated multi-load / LTL routing evaluation
+ * @param {Object} data - { parent_shipment_id?, shipment_ids?, vehicle_id?, max_payload_lbs?, cargo_volume_cuft? }
+ */
+export async function consolidateRoutes(data) {
+  return request('/v1/routes/consolidate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-7.2: Inspect routing provider status and active capabilities
+ */
+export async function getRoutingProviderStatus() {
+  return request('/v1/routes/provider-status', { skipCache: true });
+}
+
+
+
 
 
 

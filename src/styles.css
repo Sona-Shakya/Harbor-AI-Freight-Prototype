@@ -943,3 +943,40 @@
 .modal-user-summary-label{color:var(--muted);font-weight:500;font-size:13px}
 .modal-user-summary-val{font-weight:600;color:var(--ink);font-size:13.5px}
 
+
+/* Access Denied banner */
+.access-denied-panel {
+  max-width: 600px;
+  margin: 60px auto;
+  padding: 36px 32px;
+  background: #fff;
+  border: 1px solid #fee2e2;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+  text-align: center;
+}
+.access-denied-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.access-denied-panel h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+.access-denied-panel p {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+

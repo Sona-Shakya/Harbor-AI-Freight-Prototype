@@ -1,0 +1,642 @@
+/* ==========================================================================
+   CUSTOMER (SHIPPER) PORTAL (M12) STYLES
+   Harbor FMS Design System
+   ========================================================================== */
+
+.cportal-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0 4px 40px;
+  color: #102247;
+}
+
+/* Header & Context Bar */
+.cportal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cportal-header-title h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+
+.cportal-header-title p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.cportal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cportal-tenant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.cportal-tenant-select {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+/* Tab Navigation */
+.cportal-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0;
+  overflow-x: auto;
+}
+
+.cportal-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cportal-tab-btn:hover {
+  color: #1e293b;
+}
+
+.cportal-tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 700;
+}
+
+/* KPI Summary Cards */
+.cportal-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.cportal-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.cportal-kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cportal-kpi-icon.blue { background: #eff6ff; color: #2563eb; }
+.cportal-kpi-icon.emerald { background: #ecfdf5; color: #059669; }
+.cportal-kpi-icon.amber { background: #fffbeb; color: #d97706; }
+.cportal-kpi-icon.purple { background: #faf5ff; color: #7c3aed; }
+.cportal-kpi-icon.rose { background: #fff1f2; color: #e11d48; }
+
+.cportal-kpi-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cportal-kpi-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.cportal-kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Toolbar & Filter Bar */
+.cportal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.cportal-toolbar-left,
+.cportal-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cportal-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 12px;
+  min-width: 260px;
+}
+
+.cportal-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13.5px;
+  width: 100%;
+  color: #0f172a;
+}
+
+.cportal-select {
+  padding: 7px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+/* Tables */
+.cportal-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.cportal-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.cportal-table th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cportal-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.cportal-table tr:hover td {
+  background: #f8fafc;
+}
+
+/* Badges */
+.cportal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cportal-badge.booked { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.cportal-badge.dispatched { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+.cportal-badge.in_transit { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.cportal-badge.delivered { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.cportal-badge.closed { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
+.cportal-badge.cancelled { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+.cportal-badge.paid { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+.cportal-badge.pending { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.cportal-badge.overdue { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+.cportal-badge.preferred { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.cportal-badge.blocked { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+/* Quote and Book Multi-Step Wizard */
+.cportal-wizard-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.cportal-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 16px;
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.cportal-step-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cportal-step-node.active {
+  color: #2563eb;
+}
+
+.cportal-step-node.completed {
+  color: #059669;
+}
+
+.cportal-step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cportal-step-node.active .cportal-step-circle {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.cportal-step-node.completed .cportal-step-circle {
+  border-color: #059669;
+  background: #059669;
+  color: #ffffff;
+}
+
+.cportal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.cportal-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cportal-form-field label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.cportal-form-field input,
+.cportal-form-field select,
+.cportal-form-field textarea {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.cportal-form-field input:focus,
+.cportal-form-field select:focus,
+.cportal-form-field textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cportal-carrier-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.cportal-carrier-card:hover {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.cportal-carrier-card.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.cportal-rate-breakdown {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.cportal-rate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13.5px;
+  color: #475569;
+}
+
+.cportal-rate-row.total {
+  border-top: 1px solid #cbd5e1;
+  margin-top: 8px;
+  padding-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Modals & Drawers */
+.cportal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.cportal-modal-box {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.cportal-modal-box.wide {
+  max-width: 900px;
+}
+
+.cportal-modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cportal-modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.cportal-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cportal-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #f8fafc;
+  border-radius: 0 0 14px 14px;
+}
+
+/* Tracking Timeline & Map Preview */
+.cportal-tracking-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 20px;
+  gap: 16px;
+}
+
+.cportal-route-point {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cportal-route-point strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.cportal-route-point span {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.cportal-route-progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.cportal-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.cportal-progress-fill {
+  height: 100%;
+  background: #2563eb;
+  transition: width 0.4s ease;
+}
+
+.cportal-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  padding-left: 20px;
+}
+
+.cportal-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+}
+
+.cportal-timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.cportal-timeline-dot.done {
+  background: #059669;
+}
+
+.cportal-timeline-dot.current {
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.cportal-timeline-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cportal-timeline-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cportal-timeline-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Empty & Loading States */
+.cportal-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 10px;
+  color: #64748b;
+}
+
+.cportal-empty-state h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.cportal-empty-state p {
+  font-size: 13px;
+  margin: 0;
+  max-width: 360px;
+}
+
+.cportal-alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cportal-alert.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.cportal-alert.success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.cportal-alert.info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
