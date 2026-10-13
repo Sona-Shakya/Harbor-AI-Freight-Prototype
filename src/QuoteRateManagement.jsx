@@ -369,7 +369,7 @@ export default function QuoteRateManagement({
           onClick={() => setActiveTab('comparison')}
         >
           <Scales size={18} />
-          Multi-Carrier Comparison (FR-4.8)
+          Multi-Carrier Comparison
         </button>
 
         <button
@@ -378,7 +378,7 @@ export default function QuoteRateManagement({
           onClick={() => setActiveTab('confirmations')}
         >
           <Pen size={18} />
-          Rate Confirmations & E-Sign (FR-4.5)
+          Rate Confirmations & E-Sign 
         </button>
 
         <button
@@ -387,7 +387,7 @@ export default function QuoteRateManagement({
           onClick={() => setActiveTab('history')}
         >
           <ChartBar size={18} />
-          Lane Rate History (FR-4.7)
+          Lane Rate History 
         </button>
       </nav>
 

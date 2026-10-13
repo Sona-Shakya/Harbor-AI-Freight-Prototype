@@ -19,6 +19,7 @@ import './styles/quotingRate.css';
 import CarrierFleetManagement from './CarrierFleetManagement';
 import './styles/carrierFleet.css';
 import BookingManagement from './BookingManagement';
+import ShipmentManagement from './ShipmentManagement';
 import DispatchManagement from './DispatchManagement';
 import './styles/dispatchManagement.css';
 import CustomerPortal from './CustomerPortal';
@@ -78,11 +79,12 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadDrivers = hasPermission('drivers', 'read');
   const canReadPortal = hasPermission('portal', 'read') || hasPermission('customer_portal', 'read') || hasPermission('customers', 'read') || hasPermission('shipments', 'read');
 
-  const canReadPeople = canReadUsers || canReadRoles;
-  const canReadBusiness = canReadOrg || canReadCustomers || canReadPortal || canReadVendors || canReadBranches || canReadAgents;
-  const canReadLocations = canReadPorts || canReadCfs;
-  const canReadTransportation = canReadBookings || canReadDispatch || canReadDrivers || canReadLoadBoard || canReadQuotes || canReadFleet;
-  const canReadManage = canReadPeople || canReadBusiness || canReadLocations || canReadTransportation;
+  const canReadCompanyAndAccess = canReadOrg || canReadBranches || canReadUsers || canReadRoles;
+  const canReadBusinessPartners = canReadCustomers || canReadPortal || canReadVendors || canReadAgents || canReadFleet || canReadDrivers;
+  const canReadLocationsAndNetwork = canReadPorts || canReadCfs;
+  const canReadCommercial = canReadQuotes || canReadLoadBoard;
+  const canReadOperations = canReadBookings || canReadDispatch;
+  const canReadManage = canReadCompanyAndAccess || canReadBusinessPartners || canReadLocationsAndNetwork || canReadCommercial || canReadOperations;
 
   const [manageOpen, setManageOpen] = useState(true);
 
@@ -98,21 +100,19 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
       setManageOpen(true);
       if (canReadBookings) openModule('shipments');
       else if (canReadDispatch) openModule('dispatch');
+      else if (canReadPortal) openModule('portal');
+      else if (canReadQuotes) openModule('quotes');
+      else if (canReadLoadBoard) openModule('load_board');
+      else if (canReadCustomers) openModule('customers');
+      else if (canReadVendors) openModule('vendors');
+      else if (canReadFleet) openModule('fleet');
+      else if (canReadDrivers) openModule('drivers');
+      else if (canReadOrg) openModule('organization');
+      else if (canReadBranches) openModule('branches');
       else if (canReadUsers) openModule('users');
       else if (canReadRoles) openModule('roles');
-      else if (canReadOrg) openModule('organization');
-      else if (canReadCustomers) openModule('customers');
-      else if (canReadPortal) openModule('portal');
-      else if (canReadVendors) openModule('vendors');
-      else if (canReadBranches) openModule('branches');
-      else if (canReadAgents) openModule('agents');
       else if (canReadPorts) openModule('ports');
       else if (canReadCfs) openModule('cfs');
-      else if (canReadDrivers) openModule('drivers');
-      else if (canReadLoadBoard) openModule('load_board');
-      else if (canReadQuotes) openModule('quotes');
-      else if (canReadFleet) openModule('fleet');
-      else if (canReadBookings) openModule('bookings');
     } else {
       setManageOpen(v => !v);
     }
@@ -135,7 +135,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
               aria-expanded={manageOpen}
               aria-controls="manage-menu"
               aria-current={isChildActive ? 'page' : undefined}
-              title="Manage"
+              title="Manage Operations & Directory"
               onClick={handleManageClick}
             >
               <Stack size={20} />
@@ -158,19 +158,47 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
               </span>
             </button>
 
-            {/* Subgroups under Manage: People, Business, Locations, Transportation */}
+            {/* Real-world freight workflow hierarchy */}
             {manageOpen && (
               <div id="manage-menu" className="manage-sub-menu masters-sub-menu" role="region" aria-label="Manage sub-menu">
-                {/* People Group */}
-                {canReadPeople && (
+                {/* A. Company & Access */}
+                {canReadCompanyAndAccess && (
                   <div className="nav-subgroup">
-                    <div className="nav-subgroup-label">People</div>
+                    <div className="nav-subgroup-label">Company & Access</div>
+                    {canReadOrg && (
+                      <button
+                        key="organization"
+                        className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
+                        aria-current={isOrgSelected ? 'page' : undefined}
+                        title="Organization - Company Profile & Compliance"
+                        onClick={() => openModule('organization')}
+                      >
+                        <Buildings size={20} />
+                        <span>Organization</span>
+                        <span className="module-record-count">{records.organization?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadBranches && (
+                      <button
+                        key="branches"
+                        className={'module-nav-item sub-item ' + (isBranchesSelected ? 'selected' : '')}
+                        aria-current={isBranchesSelected ? 'page' : undefined}
+                        title="Branches - Operational Locations & Offices"
+                        onClick={() => openModule('branches')}
+                      >
+                        <GitBranch size={20} />
+                        <span>Branches</span>
+                        <span className="module-record-count">{records.branches?.length ?? ''}</span>
+                      </button>
+                    )}
+
                     {canReadUsers && (
                       <button
                         key="users"
                         className={'module-nav-item sub-item ' + (isUsersSelected ? 'selected' : '')}
                         aria-current={isUsersSelected ? 'page' : undefined}
-                        title="Users"
+                        title="Users - User Accounts & Team Access"
                         onClick={() => openModule('users')}
                       >
                         <UsersThree size={20} />
@@ -184,7 +212,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="roles"
                         className={'module-nav-item sub-item ' + (isRolesSelected ? 'selected' : '')}
                         aria-current={isRolesSelected ? 'page' : undefined}
-                        title="Roles & Permissions"
+                        title="Roles & Permissions - Access Control Matrix"
                         onClick={() => openModule('roles')}
                       >
                         <ShieldCheck size={20} />
@@ -195,30 +223,16 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                   </div>
                 )}
 
-                {/* Business Group */}
-                {canReadBusiness && (
+                {/* B. Business Partners */}
+                {canReadBusinessPartners && (
                   <div className="nav-subgroup">
-                    <div className="nav-subgroup-label">Business</div>
-                    {canReadOrg && (
-                      <button
-                        key="organization"
-                        className={'module-nav-item sub-item ' + (isOrgSelected ? 'selected' : '')}
-                        aria-current={isOrgSelected ? 'page' : undefined}
-                        title="Organization"
-                        onClick={() => openModule('organization')}
-                      >
-                        <Buildings size={20} />
-                        <span>Organization</span>
-                        <span className="module-record-count">{records.organization?.length ?? ''}</span>
-                      </button>
-                    )}
-
+                    <div className="nav-subgroup-label">Business Partners</div>
                     {canReadCustomers && (
                       <button
                         key="customers"
                         className={'module-nav-item sub-item ' + (isCustomersSelected ? 'selected' : '')}
                         aria-current={isCustomersSelected ? 'page' : undefined}
-                        title="Customers"
+                        title="Customers - Shipper Accounts Master"
                         onClick={() => openModule('customers')}
                       >
                         <ShoppingBag size={20} />
@@ -231,7 +245,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="portal"
                         className={'module-nav-item sub-item ' + (isPortalSelected ? 'selected' : '')}
                         aria-current={isPortalSelected ? 'page' : undefined}
-                        title="Customer Portal"
+                        title="Customer Portal - Shipper Self-Service Workspace"
                         onClick={() => openModule('portal')}
                       >
                         <House size={20} />
@@ -244,24 +258,11 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="vendors"
                         className={'module-nav-item sub-item ' + (isVendorsSelected ? 'selected' : '')}
                         aria-current={isVendorsSelected ? 'page' : undefined}
-                        title="Vendors"
+                        title="Vendors - Motor Carriers & Service Providers"
                         onClick={() => openModule('vendors')}
                       >
                         <Truck size={20} />
                         <span>Vendors</span>
-                      </button>
-                    )}
-
-                    {canReadBranches && (
-                      <button
-                        key="branches"
-                        className={'module-nav-item sub-item ' + (isBranchesSelected ? 'selected' : '')}
-                        aria-current={isBranchesSelected ? 'page' : undefined}
-                        title="Branches"
-                        onClick={() => openModule('branches')}
-                      >
-                        <GitBranch size={20} />
-                        <span>Branches</span>
                       </button>
                     )}
 
@@ -270,26 +271,53 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="agents"
                         className={'module-nav-item sub-item ' + (isAgentsSelected ? 'selected' : '')}
                         aria-current={isAgentsSelected ? 'page' : undefined}
-                        title="Agents"
+                        title="Agents - Freight Brokers & Forwarders"
                         onClick={() => openModule('agents')}
                       >
                         <IdentificationBadge size={20} />
                         <span>Agents</span>
                       </button>
                     )}
+
+                    {canReadFleet && (
+                      <button
+                        key="fleet"
+                        className={'module-nav-item sub-item ' + (isFleetSelected ? 'selected' : '')}
+                        aria-current={isFleetSelected ? 'page' : undefined}
+                        title="Carriers & Fleet - Assets, Tractors & Trailers"
+                        onClick={() => openModule('fleet')}
+                      >
+                        <Truck size={20} />
+                        <span>Carriers & Fleet</span>
+                        <span className="module-record-count">{records.fleet?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadDrivers && (
+                      <button
+                        key="drivers"
+                        className={'module-nav-item sub-item ' + (isDriversSelected ? 'selected' : '')}
+                        aria-current={isDriversSelected ? 'page' : undefined}
+                        title="Drivers - Driver Roster & Qualification"
+                        onClick={() => openModule('drivers')}
+                      >
+                        <Truck size={20} />
+                        <span>Drivers</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {/* Locations Group */}
-                {canReadLocations && (
+                {/* C. Locations & Network */}
+                {canReadLocationsAndNetwork && (
                   <div className="nav-subgroup">
-                    <div className="nav-subgroup-label">Locations</div>
+                    <div className="nav-subgroup-label">Locations & Network</div>
                     {canReadPorts && (
                       <button
                         key="ports"
                         className={'module-nav-item sub-item ' + (isPortsSelected ? 'selected' : '')}
                         aria-current={isPortsSelected ? 'page' : undefined}
-                        title="Ports"
+                        title="Ports - Seaports & Intermodal Hubs"
                         onClick={() => openModule('ports')}
                       >
                         <Anchor size={20} />
@@ -302,7 +330,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="cfs"
                         className={'module-nav-item sub-item ' + (isCfsSelected ? 'selected' : '')}
                         aria-current={isCfsSelected ? 'page' : undefined}
-                        title="CFS Locations"
+                        title="CFS Locations - Container Freight Stations"
                         onClick={() => openModule('cfs')}
                       >
                         <Package size={20} />
@@ -312,16 +340,50 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                   </div>
                 )}
 
-                {/* Transportation Group */}
-                {canReadTransportation && (
+                {/* D. Commercial & Load Discovery */}
+                {canReadCommercial && (
                   <div className="nav-subgroup">
-                    <div className="nav-subgroup-label">Transportation</div>
+                    <div className="nav-subgroup-label">Commercial & Load Discovery</div>
+                    {canReadQuotes && (
+                      <button
+                        key="quotes"
+                        className={'module-nav-item sub-item ' + (isQuotesSelected ? 'selected' : '')}
+                        aria-current={isQuotesSelected ? 'page' : undefined}
+                        title="Quotes & Rates - Spot Quotes & Rate Agreements"
+                        onClick={() => openModule('quotes')}
+                      >
+                        <Tag size={20} />
+                        <span>Quotes & Rates</span>
+                        <span className="module-record-count">{records.quotes?.length ?? ''}</span>
+                      </button>
+                    )}
+
+                    {canReadLoadBoard && (
+                      <button
+                        key="load_board"
+                        className={'module-nav-item sub-item ' + (isLoadBoardSelected ? 'selected' : '')}
+                        aria-current={isLoadBoardSelected ? 'page' : undefined}
+                        title="Find Loads - Load Board & Live Matching"
+                        onClick={() => openModule('load_board')}
+                      >
+                        <Truck size={20} />
+                        <span>Find Loads</span>
+                        <span className="module-record-count">{records.load_board?.length ?? ''}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* E. Transportation Operations */}
+                {canReadOperations && (
+                  <div className="nav-subgroup">
+                    <div className="nav-subgroup-label">Transportation Operations</div>
                     {canReadBookings && (
                       <button
                         key="shipments"
                         className={'module-nav-item sub-item ' + (isShipmentsSelected ? 'selected' : '')}
                         aria-current={isShipmentsSelected ? 'page' : undefined}
-                        title="Shipments"
+                        title="Shipments - Freight Orders & Cargo Requirements"
                         onClick={() => openModule('shipments')}
                       >
                         <Package size={20} />
@@ -335,7 +397,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="bookings"
                         className={'module-nav-item sub-item ' + (isBookingsSelected ? 'selected' : '')}
                         aria-current={isBookingsSelected ? 'page' : undefined}
-                        title="Bookings"
+                        title="Bookings - Carrier Transport & Rate Confirmations"
                         onClick={() => openModule('bookings')}
                       >
                         <CalendarCheck size={20} />
@@ -349,66 +411,11 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         key="dispatch"
                         className={'module-nav-item sub-item ' + (isDispatchSelected ? 'selected' : '')}
                         aria-current={isDispatchSelected ? 'page' : undefined}
-                        title="Dispatch & Execution"
+                        title="Dispatch & Execution Board"
                         onClick={() => openModule('dispatch')}
                       >
                         <Path size={20} />
                         <span>Dispatch</span>
-                      </button>
-                    )}
-
-                    {canReadDrivers && (
-                      <button
-                        key="drivers"
-                        className={'module-nav-item sub-item ' + (isDriversSelected ? 'selected' : '')}
-                        aria-current={isDriversSelected ? 'page' : undefined}
-                        title="Drivers"
-                        onClick={() => openModule('drivers')}
-                      >
-                        <Truck size={20} />
-                        <span>Drivers</span>
-                      </button>
-                    )}
-
-                    {canReadLoadBoard && (
-                      <button
-                        key="load_board"
-                        className={'module-nav-item sub-item ' + (isLoadBoardSelected ? 'selected' : '')}
-                        aria-current={isLoadBoardSelected ? 'page' : undefined}
-                        title="Find Loads"
-                        onClick={() => openModule('load_board')}
-                      >
-                        <Truck size={20} />
-                        <span>Find Loads</span>
-                        <span className="module-record-count">{records.load_board?.length ?? ''}</span>
-                      </button>
-                    )}
-
-                    {canReadQuotes && (
-                      <button
-                        key="quotes"
-                        className={'module-nav-item sub-item ' + (isQuotesSelected ? 'selected' : '')}
-                        aria-current={isQuotesSelected ? 'page' : undefined}
-                        title="Quotes & Rates"
-                        onClick={() => openModule('quotes')}
-                      >
-                        <Tag size={20} />
-                        <span>Quotes & Rates</span>
-                        <span className="module-record-count">{records.quotes?.length ?? ''}</span>
-                      </button>
-                    )}
-
-                    {canReadFleet && (
-                      <button
-                        key="fleet"
-                        className={'module-nav-item sub-item ' + (isFleetSelected ? 'selected' : '')}
-                        aria-current={isFleetSelected ? 'page' : undefined}
-                        title="Carriers & Fleet"
-                        onClick={() => openModule('fleet')}
-                      >
-                        <Truck size={20} />
-                        <span>Carriers & Fleet</span>
-                        <span className="module-record-count">{records.fleet?.length ?? ''}</span>
                       </button>
                     )}
                   </div>
@@ -1454,7 +1461,7 @@ const isModulePermitted = (modId) => {
   </div>
 ) : (
   <>
-  {moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={false} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'}/>} {moduleId==='shipments'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={true} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'}/>} {moduleId==='dispatch'&&<DispatchManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialViewMode={operationalFilter?.viewMode || 'kanban'} initialStatusFilter={operationalFilter?.status || 'all'}/>} {moduleId==='portal'&&<CustomerPortal hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialTab={portalTab}/>}
+  {moduleId==='dashboard'&&<Dashboard records={records} openModule={openModule} openMission={openMission}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={profile?.user}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='shipments'&&<ShipmentManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.shipments} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId, action: 'create' })}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={false} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'} operationalFilter={operationalFilter} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })}/>} {moduleId==='dispatch'&&<DispatchManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialViewMode={operationalFilter?.viewMode || 'kanban'} initialStatusFilter={operationalFilter?.status || 'all'}/>} {moduleId==='portal'&&<CustomerPortal hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={profile?.user} currentRoleName={role?.name} currentOrg={currentOrg} initialTab={portalTab}/>}
   </>
 )}
 {moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='dispatch'&&moduleId!=='portal'&&moduleId!=='shipments'&&(

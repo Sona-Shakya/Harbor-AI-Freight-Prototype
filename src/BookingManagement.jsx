@@ -154,6 +154,8 @@ export default function BookingManagement({
   isShipmentView = false,
   initialStatusFilter = 'all',
   autoOpenCreate = false,
+  operationalFilter = null,
+  onNavigateToShipment = null,
 }) {
   // Navigation & View State
   const [activeTab, setActiveTab] = useState('info');
@@ -187,10 +189,11 @@ export default function BookingManagement({
   }, [initialStatusFilter]);
 
   useEffect(() => {
-    if (autoOpenCreate) {
+    if (autoOpenCreate || operationalFilter?.action === 'create') {
       setIsFormOpen(true);
     }
-  }, [autoOpenCreate]);
+  }, [autoOpenCreate, operationalFilter]);
+
 
   // Master Data & Entity States
   const [shipmentsList, setShipmentsList] = useState([]);
@@ -643,6 +646,14 @@ export default function BookingManagement({
     );
     if (!found) return;
 
+    // Guard: Prevent selecting already-booked or ineligible shipments
+    const rawStatus = (found.status || 'draft').toLowerCase();
+    const isEligible = rawStatus === 'draft' || rawStatus === 'quoted' || rawStatus === 'unbooked';
+    if (!isEligible) {
+      notify?.(`Shipment ${found.reference_number || '#' + found.id} is already in '${rawStatus}' status and cannot be booked again.`);
+      return;
+    }
+
     // Check if user has already entered custom route or cargo data
     const hasCustomData = Boolean(
       (form.origin_city && form.origin_city.trim()) ||
@@ -689,6 +700,19 @@ export default function BookingManagement({
 
     notify?.(`Prefilled supported fields from Shipment #${found.reference_number || found.id}`);
   };
+
+  useEffect(() => {
+    if (operationalFilter?.shipmentId && shipmentsList.length > 0) {
+      const sId = operationalFilter.shipmentId;
+      setForm((prev) => ({
+        ...prev,
+        booking_source: 'existing_shipment',
+        linked_shipment_id: sId,
+      }));
+      handleSelectExistingShipment(sId);
+      setIsFormOpen(true);
+    }
+  }, [operationalFilter, shipmentsList]);
 
   // Multi-stop actions
   const handleAddStop = () => {
@@ -1170,6 +1194,17 @@ export default function BookingManagement({
           }
         }
         notify?.(`Booking #${form.booking_number} updated successfully!`);
+      } else if (form.booking_source === 'existing_shipment' && form.linked_shipment_id) {
+        // Book the selected existing shipment via real backend bookShipment API!
+        const targetShipmentId = Number(form.linked_shipment_id);
+        result = await bookShipment(targetShipmentId, {
+          carrier_org_id: form.carrier_org_id ? Number(form.carrier_org_id) : undefined,
+          quote_amount: form.quote_amount ? Number(form.quote_amount) : undefined,
+          linehaul_rate: form.carrier_pay ? Number(form.carrier_pay) : undefined,
+          quote_id: form.selected_quote_id ? Number(form.selected_quote_id) : undefined,
+          notes: form.special_instructions || 'Transport booking confirmed via Carrier Desk',
+        });
+        notify?.(`Shipment #${form.linked_shipment_id} successfully booked with carrier!`);
       } else {
         // Create new booking directly via createShipment
         result = await createShipment(backendPayload);
@@ -1288,11 +1323,9 @@ export default function BookingManagement({
       {/* Top Header */}
       <div className="bk-header-row">
         <div className="bk-header-title">
-          <h1>{isShipmentView ? 'Shipment Orders & Operations' : 'Booking Management'}</h1>
+          <h1>Transport Bookings & Carrier Desk</h1>
           <p>
-            {isShipmentView
-              ? 'Complete operational oversight of active freight, bookings, and shipments across all transport modes.'
-              : 'Centralized booking desk for Inland, Ocean, Air, and Rail freight. Create bookings directly or lock in confirmed quotes.'}
+            Centralized booking desk for carrier commitments, rate confirmations, agreed rates, and freight transport arrangements.
           </p>
         </div>
         <div className="bk-header-actions">
@@ -1313,7 +1346,7 @@ export default function BookingManagement({
               onClick={handleOpenNewForm}
             >
               <Plus size={18} weight="bold" />
-              <span>{isShipmentView ? 'New Shipment Order' : 'New Booking'}</span>
+              <span>New Transport Booking</span>
             </button>
           )}
         </div>
@@ -1333,7 +1366,7 @@ export default function BookingManagement({
             <CalendarCheck />
           </div>
           <div className="bk-kpi-info">
-            <span className="bk-kpi-label">{isShipmentView ? 'Total Shipments' : 'Total Bookings'}</span>
+            <span className="bk-kpi-label">Total Bookings</span>
             <span className="bk-kpi-value">{kpiStats.total}</span>
           </div>
         </div>
@@ -1451,6 +1484,7 @@ export default function BookingManagement({
             <thead>
               <tr>
                 <th>Booking Ref #</th>
+                <th>Linked Shipment #</th>
                 <th>Mode</th>
                 <th>Customer / Shipper</th>
                 <th>Route (Origin ➔ Destination)</th>
@@ -1464,7 +1498,7 @@ export default function BookingManagement({
             <tbody>
               {loading && filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '36px' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '36px' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                       <Clock size={18} />
                       <span>Loading bookings from FMS backend...</span>
@@ -1473,7 +1507,7 @@ export default function BookingManagement({
                 </tr>
               ) : filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <div className="bk-empty-state">
                       <CalendarCheck size={42} />
                       <h3>No bookings found</h3>
@@ -1508,7 +1542,18 @@ export default function BookingManagement({
                     <tr key={bk.id || bk.reference_number}>
                       <td className="bk-ref-cell">
                         <strong>{bk.reference_number || bk.reference || `#${bk.id}`}</strong>
-                        <small>{bk.parent_shipment_id ? `Linked #${bk.parent_shipment_id}` : 'Direct Booking'}</small>
+                        <small>Booking Order</small>
+                      </td>
+                      <td>
+                        {bk.parent_shipment_id ? (
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#2563eb' }}>
+                            #{bk.parent_shipment_id}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>
+                            #{bk.id}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span className={`bk-mode-badge ${mode}`}>
@@ -1646,10 +1691,10 @@ export default function BookingManagement({
                 </div>
                 <div>
                   <h2 id="bk-form-title">
-                    {editingBooking ? `Edit Booking ${form.booking_number}` : 'New Freight Booking'}
+                    {editingBooking ? `Edit ${editingBooking.booking_number || editingBooking.reference_number || editingBooking.id || 'Shipment'}` : 'New Freight Shipment & Booking'}
                   </h2>
                   <p>
-                    Universal multi-mode booking form · Inland, Ocean, Air, and Rail
+                    Universal multi-mode freight order · Inland, Ocean, Air, and Rail
                   </p>
                 </div>
               </div>
@@ -1772,13 +1817,28 @@ export default function BookingManagement({
                         onChange={(e) => handleSelectExistingShipment(e.target.value)}
                       >
                         <option value="">-- Choose an active shipment --</option>
-                        {shipmentsList.map((s) => (
-                          <option key={s.id || s.reference_number} value={s.id || s.reference_number}>
-                            {s.reference_number || `#${s.id}`} — {s.shipper?.legal_name || s.name || 'Shipper'} (
-                            {typeof s.origin === 'object' ? s.origin?.city : s.origin} ➔{' '}
-                            {typeof s.destination === 'object' ? s.destination?.city : s.destination})
-                          </option>
-                        ))}
+                        {shipmentsList.map((s) => {
+                          const rawStatus = (s.status || 'draft').toLowerCase();
+                          const statusLabel = rawStatus
+                            .split('_')
+                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                          const isEligible = rawStatus === 'draft' || rawStatus === 'quoted' || rawStatus === 'unbooked';
+                          const refText = s.reference_number || `#${s.id}`;
+                          const originCity = typeof s.origin === 'object' ? s.origin?.city : s.origin;
+                          const destCity = typeof s.destination === 'object' ? s.destination?.city : s.destination;
+                          const customerName = s.shipper?.legal_name || s.name || 'Shipper';
+
+                          return (
+                            <option
+                              key={s.id || s.reference_number}
+                              value={s.id || s.reference_number}
+                              disabled={!isEligible}
+                            >
+                              {refText} [{statusLabel}] — {customerName} ({originCity || '—'} ➔ {destCity || '—'}{!isEligible ? ' • Already Booked' : ''})
+                            </option>
+                          );
+                        })}
                       </select>
                       {formErrors.linked_shipment_id && (
                         <span className="bk-field-error-msg">{formErrors.linked_shipment_id}</span>
