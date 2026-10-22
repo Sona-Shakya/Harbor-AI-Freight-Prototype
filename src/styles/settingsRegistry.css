@@ -1940,3 +1940,414 @@
   }
 }
 
+/* ── M17 First-Time User Quick Guide Banner ── */
+.sr-guide-banner {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid var(--blue, #005fdc);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.sr-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sr-guide-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sr-guide-title strong {
+  font-size: 13.5px;
+  color: var(--ink, #0f172a);
+}
+
+.sr-guide-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-left: 8px;
+  display: inline-block;
+}
+
+.sr-guide-dismiss-btn {
+  font-size: 11.5px;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.sr-guide-dismiss-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.sr-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.sr-guide-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.sr-guide-card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.sr-guide-card-icon.sys {
+  background: #eff6ff;
+  color: #0284c7;
+}
+
+.sr-guide-card-icon.def {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.sr-guide-card-icon.ovr {
+  background: #fefce8;
+  color: #ca8a04;
+}
+
+.sr-guide-card-icon.aud {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.sr-guide-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sr-guide-card-text h6 {
+  margin: 0 0 3px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+}
+
+.sr-guide-card-text p {
+  margin: 0;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* ── Module Filter Bar in Sidebar ── */
+.sr-module-filter-bar {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 2px 0 8px 0;
+  scrollbar-width: none;
+}
+
+.sr-module-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.sr-mod-chip {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.sr-mod-chip:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.sr-mod-chip.active {
+  background: var(--blue, #005fdc);
+  color: #ffffff;
+  border-color: var(--blue, #005fdc);
+}
+
+/* ── Clear Search Button ── */
+.sr-search-clear-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.sr-search-clear-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+/* ── Category Header Key & 1-Click Copy ── */
+.sr-cat-header-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.sr-key-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+}
+
+.sr-key-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 6px 3px 10px;
+}
+
+.sr-key-pill code {
+  font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sr-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sr-copy-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* ── Add Value Form Controls ── */
+.sr-checkbox-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sr-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sr-checkbox-label input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--blue, #005fdc);
+}
+
+/* ── Deactivation Notice ── */
+.sr-deactivate-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #0369a1;
+  line-height: 1.45;
+  margin-bottom: 20px;
+}
+
+.sr-deactivate-notice strong {
+  color: #0c4a6e;
+}
+
+/* ── Audit Trail Filter Bar ── */
+.sr-audit-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.sr-audit-action-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sr-filter-chip {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.sr-filter-chip:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.sr-filter-chip.active {
+  background: #eff6ff;
+  color: var(--blue, #005fdc);
+  border-color: #93c5fd;
+  font-weight: 700;
+}
+
+.sr-audit-search {
+  max-width: 280px;
+  min-width: 200px;
+}
+
+/* ── Value Diff Semantic Badges ── */
+.sr-val-badge {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.sr-val-badge.active {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.sr-val-badge.inactive {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.sr-val-badge.default {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.sr-val-badge.standard {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.sr-val-badge.sys {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.sr-val-badge.custom {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+/* ── Property Breakdown Table Enhancements ── */
+.sr-diff-prop-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sr-diff-prop-title {
+  font-size: 12.5px;
+  color: var(--ink, #0f172a);
+}
+
+.sr-diff-prop-code {
+  font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+  font-size: 10.5px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+  width: fit-content;
+}
+
+.sr-diff-cell.before.modified-old {
+  background: rgba(254, 242, 242, 0.45);
+  color: #991b1b;
+}
+
+.sr-diff-cell.after.modified-new {
+  background: rgba(240, 253, 244, 0.45);
+  color: #166534;
+  font-weight: 600;
+}
+
+.sr-diff-val-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sr-diff-tag-pill {
+  font-size: 11px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #334155;
+}
+
+

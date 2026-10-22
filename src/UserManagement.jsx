@@ -110,10 +110,11 @@ function formatExpiry(isoStr) {
   }
 }
 
-export default function UserManagement({ hasPermission, notify, currentUser }) {
-  const canRead = hasPermission('users', 'read');
-  const canCreate = hasPermission('users', 'create');
-  const canUpdate = hasPermission('users', 'update');
+export default function UserManagement({ hasPermission = () => false, notify = () => {}, currentUser }) {
+  const checkPerm = (m, a) => (typeof hasPermission === 'function' ? hasPermission(m, a) : false);
+  const canRead = checkPerm('users', 'read');
+  const canCreate = checkPerm('users', 'create');
+  const canUpdate = checkPerm('users', 'update');
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);

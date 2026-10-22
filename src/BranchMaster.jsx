@@ -1484,10 +1484,10 @@ export default function BranchMaster({
   currentUser,
   currentRoleName,
 }) {
-  const canRead = hasPermission?.('branches', 'read') ?? true;
-  const canCreate = hasPermission?.('branches', 'create') ?? true;
-  const canUpdate = hasPermission?.('branches', 'update') ?? true;
-  const canDelete = hasPermission?.('branches', 'delete') ?? true;
+  const canRead = hasPermission?.('branches', 'read') ?? false;
+  const canCreate = hasPermission?.('branches', 'create') ?? false;
+  const canUpdate = hasPermission?.('branches', 'update') ?? false;
+  const canDelete = hasPermission?.('branches', 'delete') ?? false;
 
   // Block Shipper User and Driver from internal branch management
   const isBlockedRole =

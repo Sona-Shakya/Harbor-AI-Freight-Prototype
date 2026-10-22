@@ -25,6 +25,7 @@ import {
   MagnifyingGlass,
   Eye,
   Trash,
+  ArrowRight,
 } from '@phosphor-icons/react';
 import {
   getQuotes,
@@ -68,6 +69,10 @@ export default function QuoteRateManagement({
   currentUser,
   currentRoleName,
   currentOrg,
+  profileLoading = false,
+  operationalFilter = null,
+  onNavigateToBooking = null,
+  onNavigateToShipment = null,
 }) {
   const [activeTab, setActiveTab] = useState('quotes');
 
@@ -85,6 +90,7 @@ export default function QuoteRateManagement({
   const [showNewQuoteModal, setShowNewQuoteModal] = useState(false);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState(null);
   const [bookingQuote, setBookingQuote] = useState(null);
+  const [downloadingRcPdf, setDownloadingRcPdf] = useState(false);
 
   // Rate Agreements Tab State
   const [agreements, setAgreements] = useState([]);
@@ -131,11 +137,12 @@ export default function QuoteRateManagement({
   const isCarrier = currentRoleName === 'Dispatcher' || currentOrg?.type === 'carrier';
   const isDriver = currentRoleName === 'Driver';
 
-  const canCreateQuote = !isDriver && (isPlatformAdmin || isCompanyAdmin || isShipper || hasPermission?.('quotes', 'create'));
-  const canBookQuote = !isDriver && (isPlatformAdmin || isCompanyAdmin || isShipper || hasPermission?.('quotes', 'create'));
-  const canManageAgreements = !isDriver && (isPlatformAdmin || isCompanyAdmin || isShipper || hasPermission?.('rate_agreements', 'create'));
-  const canSignConfirmation = !isDriver && (isPlatformAdmin || isCompanyAdmin || isCarrier || hasPermission?.('rate_confirmations', 'sign'));
-  const canCreateConfirmation = !isDriver && (isPlatformAdmin || isCompanyAdmin || isShipper || hasPermission?.('rate_confirmations', 'create'));
+  const checkPerm = (mod, act) => (!profileLoading && typeof hasPermission === 'function' ? hasPermission(mod, act) : false);
+  const canCreateQuote = hasPermission ? checkPerm('quotes', 'create') : (!profileLoading && (isPlatformAdmin || isCompanyAdmin));
+  const canBookQuote = hasPermission ? (checkPerm('quotes', 'create') || checkPerm('bookings', 'create')) : (!profileLoading && (isPlatformAdmin || isCompanyAdmin));
+  const canManageAgreements = hasPermission ? checkPerm('rate_agreements', 'create') : (!profileLoading && (isPlatformAdmin || isCompanyAdmin));
+  const canSignConfirmation = hasPermission ? checkPerm('rate_confirmations', 'sign') : (!profileLoading && (isPlatformAdmin || isCompanyAdmin));
+  const canCreateConfirmation = hasPermission ? checkPerm('rate_confirmations', 'create') : (!profileLoading && (isPlatformAdmin || isCompanyAdmin));
 
   // Load Shipments & Carriers
   useEffect(() => {
@@ -157,6 +164,19 @@ export default function QuoteRateManagement({
         console.warn('Could not preload vendors/carriers:', err);
       });
   }, []);
+
+  // Handle incoming operational filter (e.g. from Shipment Management)
+  useEffect(() => {
+    if (operationalFilter?.shipmentId) {
+      const sId = String(operationalFilter.shipmentId);
+      setSelectedComparisonShipmentId(sId);
+      if (operationalFilter.action === 'create') {
+        setShowNewQuoteModal(true);
+      } else {
+        setActiveTab('comparison');
+      }
+    }
+  }, [operationalFilter]);
 
   // Fetch Quotes
   const fetchQuotes = useCallback(async () => {
@@ -287,10 +307,14 @@ export default function QuoteRateManagement({
   const handleConfirmBookQuote = async () => {
     if (!bookingQuote) return;
     try {
-      await bookQuote(bookingQuote.id);
-      notify?.(`Quote ${bookingQuote.quote_number || '#' + bookingQuote.id} successfully booked!`);
+      const q = bookingQuote;
+      await bookQuote(q.id);
+      notify?.(`Quote ${q.quote_number || '#' + q.id} successfully booked! Proceeding to Booking.`);
       setBookingQuote(null);
       fetchQuotes();
+      if (onNavigateToBooking) {
+        onNavigateToBooking(q.shipment_id, q.id);
+      }
     } catch (err) {
       console.error('Book quote error:', err);
       notify?.(err.message || 'Failed to book quote');
@@ -340,6 +364,14 @@ export default function QuoteRateManagement({
           )}
         </div>
       </header>
+
+      {/* Workflow Guidance Banner */}
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 16px', margin: '14px 0 18px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#475569' }}>
+        <Info size={18} color="#2563eb" style={{ flexShrink: 0 }} />
+        <span>
+          <strong>Commercial Pricing & Tariffs:</strong> Calculate spot rates or manage long-term customer/carrier agreements. Awarded quotes seamlessly convert into confirmed Bookings with binding Rate Confirmations.
+        </span>
+      </div>
 
       {/* ─── Workspace Tabs ─────────────────────────────────── */}
       <nav className="qr-tabs" aria-label="Quoting & Rate Management Navigation">
@@ -582,6 +614,19 @@ export default function QuoteRateManagement({
                               >
                                 <Check size={13} />
                                 <span>Book</span>
+                              </button>
+                            )}
+
+                            {onNavigateToBooking && (q.status === 'booked' || q.status === 'accepted') && (
+                              <button
+                                type="button"
+                                className="qr-action-btn qr-action-btn-secondary"
+                                style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}
+                                onClick={() => onNavigateToBooking(q.shipment_id, q.id)}
+                                title="Open in Booking Management to assign carrier & lock capacity"
+                              >
+                                <ArrowRight size={13} />
+                                <span>Booking</span>
                               </button>
                             )}
                           </div>
@@ -1144,23 +1189,39 @@ export default function QuoteRateManagement({
                 <button
                   type="button"
                   className="qr-btn qr-btn-secondary"
+                  disabled={downloadingRcPdf}
                   onClick={async () => {
                     try {
+                      setDownloadingRcPdf(true);
+                      notify?.('Downloading official Rate Confirmation PDF...');
                       const blob = await downloadRateConfirmationDocument(currentConfirmation.id);
+                      if (!(blob instanceof Blob) || blob.size === 0) {
+                        throw new Error('Downloaded document is empty or invalid.');
+                      }
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
                       a.download = `${currentConfirmation.confirmation_number || 'RateConfirmation'}.pdf`;
                       document.body.appendChild(a);
                       a.click();
-                      document.body.removeChild(a);
+                      setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        if (document.body.contains(a)) document.body.removeChild(a);
+                      }, 1000);
+                      notify?.(`Rate Confirmation ${currentConfirmation.confirmation_number || ''} PDF downloaded successfully.`);
                     } catch (err) {
-                      notify?.(err.message || 'Failed to download PDF document');
+                      console.error('Download error:', err);
+                      const msg = err.status === 404
+                        ? 'Rate confirmation metadata is registered, but the PDF binary file is currently unavailable on the server.'
+                        : (err.message || 'Failed to download PDF document.');
+                      notify?.(msg);
+                    } finally {
+                      setDownloadingRcPdf(false);
                     }
                   }}
                 >
                   <DownloadSimple size={16} />
-                  Download Official PDF
+                  <span>{downloadingRcPdf ? 'Downloading PDF...' : 'Download Official PDF'}</span>
                 </button>
 
                 {currentConfirmation.status !== 'signed' && canSignConfirmation && (
@@ -1363,6 +1424,7 @@ export default function QuoteRateManagement({
           notify={notify}
           currentOrg={currentOrg}
           shipments={shipmentsList}
+          initialShipmentId={operationalFilter?.shipmentId}
         />
       )}
 
@@ -1379,6 +1441,7 @@ export default function QuoteRateManagement({
             setBookingQuote(q);
           }}
           canBook={canBookQuote}
+          onNavigateToBooking={onNavigateToBooking}
         />
       )}
 
@@ -1498,9 +1561,9 @@ export default function QuoteRateManagement({
 // ─────────────────────────────────────────────────────────────
 // SUB-COMPONENT: NEW QUOTE MODAL (FR-4.1, FR-4.3, FR-4.4, FR-4.6)
 // ─────────────────────────────────────────────────────────────
-function NewQuoteModal({ onClose, onSuccess, notify, currentOrg, shipments }) {
+function NewQuoteModal({ onClose, onSuccess, notify, currentOrg, shipments, initialShipmentId = '' }) {
   const [mode, setMode] = useState('ftl'); // 'ftl' or 'ltl'
-  const [selectedShipmentId, setSelectedShipmentId] = useState('');
+  const [selectedShipmentId, setSelectedShipmentId] = useState(initialShipmentId ? String(initialShipmentId) : '');
   const [originCity, setOriginCity] = useState('');
   const [originState, setOriginState] = useState('');
   const [originZip, setOriginZip] = useState('');
@@ -1539,6 +1602,12 @@ function NewQuoteModal({ onClose, onSuccess, notify, currentOrg, shipments }) {
       if (s.freight_details?.service_type === 'ltl') setMode('ltl');
     }
   };
+
+  useEffect(() => {
+    if (initialShipmentId && shipments && shipments.length > 0) {
+      handleSelectShipment(String(initialShipmentId));
+    }
+  }, [initialShipmentId, shipments]);
 
   const toggleAccessorial = (id) => {
     setSelectedAccessorials((prev) =>
@@ -1891,7 +1960,7 @@ function NewQuoteModal({ onClose, onSuccess, notify, currentOrg, shipments }) {
 // ─────────────────────────────────────────────────────────────
 // SUB-COMPONENT: QUOTE DETAIL MODAL
 // ─────────────────────────────────────────────────────────────
-function QuoteDetailModal({ quote, onClose, onBook, canBook }) {
+function QuoteDetailModal({ quote, onClose, onBook, canBook, onNavigateToBooking = null }) {
   const isBooked = quote.status === 'booked';
   const isExpired = quote.status === 'expired';
 
@@ -1992,6 +2061,20 @@ function QuoteDetailModal({ quote, onClose, onBook, canBook }) {
           {canBook && quote.status === 'active' && (
             <button type="button" className="qr-btn qr-btn-primary" onClick={onBook}>
               Book Quote Now
+            </button>
+          )}
+          {onNavigateToBooking && (
+            <button
+              type="button"
+              className="qr-btn qr-btn-secondary"
+              style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              onClick={() => {
+                onClose();
+                onNavigateToBooking(quote.shipment_id, quote.id);
+              }}
+            >
+              <span>Go to Booking Management</span>
+              <ArrowRight size={14} />
             </button>
           )}
         </footer>

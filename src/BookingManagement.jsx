@@ -37,7 +37,8 @@ import {
   BookmarkSimple,
   DownloadSimple,
   Path,
-  NavigationArrow
+  NavigationArrow,
+  Briefcase
 } from '@phosphor-icons/react';
 import {
   OptimizeRouteModal,
@@ -60,6 +61,7 @@ import {
   generateRateConfirmation,
   getShipmentRateConfirmation,
   downloadRateConfirmationDocument,
+  getShipmentJob,
 } from './api';
 import './styles/bookingManagement.css';
 
@@ -156,6 +158,7 @@ export default function BookingManagement({
   autoOpenCreate = false,
   operationalFilter = null,
   onNavigateToShipment = null,
+  onNavigateToDispatch = null,
 }) {
   // Navigation & View State
   const [activeTab, setActiveTab] = useState('info');
@@ -171,6 +174,8 @@ export default function BookingManagement({
   const [loadingRC, setLoadingRC] = useState(false);
   const [rcError, setRcError] = useState('');
   const [generatingRC, setGeneratingRC] = useState(false);
+  const [downloadingRC, setDownloadingRC] = useState(false);
+  const [bookingSuccessModal, setBookingSuccessModal] = useState(null);
 
   // Route Planning & Optimization State (M7)
   const [optimizeModalShipment, setOptimizeModalShipment] = useState(null);
@@ -202,6 +207,8 @@ export default function BookingManagement({
   const [portsList, setPortsList] = useState([]);
   const [cfsList, setCfsList] = useState([]);
   const [quotesList, setQuotesList] = useState([]);
+  const [equipmentTypes, setEquipmentTypes] = useState(EQUIPMENT_TYPES);
+  const [accessorialTypes, setAccessorialTypes] = useState(STANDARD_ACCESSORIALS);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorNotice, setErrorNotice] = useState('');
@@ -328,9 +335,12 @@ export default function BookingManagement({
   // Roles & Permissions check
   const isPlatformAdmin = currentRoleName === 'Platform Admin';
   const isShipper = currentOrg?.type === 'shipper';
-  const canCreate = isPlatformAdmin || hasPermission('shipments', 'create') || hasPermission('bookings', 'create');
-  const canUpdate = isPlatformAdmin || hasPermission('shipments', 'update') || hasPermission('bookings', 'update');
-  const canCancel = isPlatformAdmin || hasPermission('shipments', 'update') || hasPermission('bookings', 'cancel');
+  const isReadOnly = (currentRoleName || '').toLowerCase().includes('read only');
+  const checkPerm = (mod, act) => (typeof hasPermission === 'function' ? hasPermission(mod, act) : false);
+  const canCreate = !profileLoading && !isReadOnly && (isPlatformAdmin || checkPerm('shipments', 'create') || checkPerm('bookings', 'create'));
+  const canUpdate = !profileLoading && !isReadOnly && (isPlatformAdmin || checkPerm('shipments', 'update') || checkPerm('bookings', 'update'));
+  const canConfirmBooking = !profileLoading && !isReadOnly && (canCreate || canUpdate);
+  const canCancel = !profileLoading && !isReadOnly && (isPlatformAdmin || checkPerm('shipments', 'update') || checkPerm('bookings', 'cancel'));
   const canSubmitCurrentForm = editingBooking ? canUpdate : canCreate;
 
   // Load all backend entities
@@ -339,7 +349,7 @@ export default function BookingManagement({
       setLoading(true);
       setErrorNotice('');
 
-      const [shipmentsRes, customersRes, vendorsRes, portsRes, cfsRes, quotesRes] =
+      const [shipmentsRes, customersRes, vendorsRes, portsRes, cfsRes, quotesRes, settingCatsRes] =
         await Promise.allSettled([
           getShipments({ limit: 100 }),
           getCustomers(),
@@ -347,6 +357,7 @@ export default function BookingManagement({
           getPorts(),
           getCfsStations(),
           getQuotes(),
+          getSettingCategories(),
         ]);
 
       if (shipmentsRes.status === 'fulfilled' && shipmentsRes.value) {
@@ -392,6 +403,39 @@ export default function BookingManagement({
           ? quotesRes.value
           : quotesRes.value?.data || quotesRes.value?.quotes || [];
         setQuotesList(quotes);
+      }
+
+      // Dynamic M17 Settings
+      if (settingCatsRes.status === 'fulfilled' && settingCatsRes.value) {
+        const cats = Array.isArray(settingCatsRes.value)
+          ? settingCatsRes.value
+          : settingCatsRes.value?.data || [];
+
+        // 1. Dynamic Equipment Types
+        const equipCat = cats.find((c) => (c.key || c.name || '').toLowerCase().includes('equipment'));
+        if (equipCat?.id) {
+          getSettingCategoryValues(equipCat.id).then((valRes) => {
+            const vals = Array.isArray(valRes) ? valRes : valRes?.data || [];
+            if (vals.length > 0) {
+              setEquipmentTypes(vals.map((v) => v.display_label || v.value || v.name).filter(Boolean));
+            }
+          }).catch(() => {});
+        }
+
+        // 2. Dynamic Accessorial Types & Fees
+        const accCat = cats.find((c) => (c.key || c.name || '').toLowerCase().includes('accessorial'));
+        if (accCat?.id) {
+          getSettingCategoryValues(accCat.id).then((valRes) => {
+            const vals = Array.isArray(valRes) ? valRes : valRes?.data || [];
+            if (vals.length > 0) {
+              setAccessorialTypes(vals.map((v) => ({
+                id: v.code || v.key || (v.display_label || v.value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                name: v.display_label || v.value || v.name,
+                defaultFee: Number(v.metadata?.fee || v.default_value || 75),
+              })));
+            }
+          }).catch(() => {});
+        }
       }
     } catch (err) {
       console.warn('Data fetch warning:', err);
@@ -636,14 +680,22 @@ export default function BookingManagement({
   };
 
   // Prefill when an existing shipment is selected
-  const handleSelectExistingShipment = (shipmentId) => {
+  const handleSelectExistingShipment = async (shipmentId) => {
     if (!shipmentId) {
       setForm((prev) => ({ ...prev, linked_shipment_id: '' }));
       return;
     }
-    const found = shipmentsList.find(
+    let found = shipmentsList.find(
       (s) => String(s.id) === String(shipmentId) || s.reference_number === shipmentId
     );
+    if (!found) {
+      try {
+        const res = await getShipment(shipmentId);
+        found = res?.data || res;
+      } catch (err) {
+        console.warn('Could not fetch shipment by id:', shipmentId, err);
+      }
+    }
     if (!found) return;
 
     // Guard: Prevent selecting already-booked or ineligible shipments
@@ -654,20 +706,6 @@ export default function BookingManagement({
       return;
     }
 
-    // Check if user has already entered custom route or cargo data
-    const hasCustomData = Boolean(
-      (form.origin_city && form.origin_city.trim()) ||
-      (form.destination_city && form.destination_city.trim()) ||
-      (form.commodity && form.commodity.trim())
-    );
-
-    if (hasCustomData) {
-      const confirmed = window.confirm(
-        `Prefilling from Shipment #${found.reference_number || found.id} will replace your currently entered route and cargo details. Do you wish to proceed?`
-      );
-      if (!confirmed) return;
-    }
-
     const freight = found.freight_details || {};
     const originObj = typeof found.origin === 'object' ? found.origin : {};
     const destObj = typeof found.destination === 'object' ? found.destination : {};
@@ -675,6 +713,7 @@ export default function BookingManagement({
 
     setForm((prev) => ({
       ...prev,
+      booking_source: 'existing_shipment',
       linked_shipment_id: found.id || found.reference_number,
       shipper_org_id: found.shipper_org_id || found.shipper?.id || prev.shipper_org_id,
       booking_mode: freight.mode || prev.booking_mode,
@@ -695,14 +734,42 @@ export default function BookingManagement({
       commodity: firstItem.description || freight.commodity || prev.commodity,
       gross_weight: firstItem.weight || freight.gross_weight || prev.gross_weight,
       package_count: firstItem.quantity || freight.package_count || prev.package_count,
+      equipment_type: freight.equipment_type || prev.equipment_type,
+      carrier_org_id: found.carrier_org_id || prev.carrier_org_id,
       quote_amount: found.quote_amount || prev.quote_amount,
     }));
 
     notify?.(`Prefilled supported fields from Shipment #${found.reference_number || found.id}`);
   };
 
+  // Prefill when an existing quote is selected
+  const handleSelectExistingQuote = async (quoteId) => {
+    if (!quoteId) return;
+    try {
+      const res = await getQuote(quoteId);
+      const q = res?.data || res;
+      if (q) {
+        if (q.shipment_id) {
+          await handleSelectExistingShipment(q.shipment_id);
+        }
+        setForm((prev) => ({
+          ...prev,
+          selected_quote_id: q.id,
+          carrier_org_id: q.carrier_org_id || q.carrier_id || prev.carrier_org_id,
+          carrier_name: q.carrier_name || prev.carrier_name,
+          quote_amount: q.total_amount ? String(q.total_amount) : q.rate ? String(q.rate) : prev.quote_amount,
+          transit_time: q.transit_time_days ? `${q.transit_time_days} Business Days` : prev.transit_time,
+          payment_terms: q.payment_terms || prev.payment_terms,
+        }));
+        notify?.(`Prefilled agreed rate and carrier terms from Quote #${q.quote_number || q.id}`);
+      }
+    } catch (err) {
+      console.warn('Could not fetch quote by id:', quoteId, err);
+    }
+  };
+
   useEffect(() => {
-    if (operationalFilter?.shipmentId && shipmentsList.length > 0) {
+    if (operationalFilter?.shipmentId) {
       const sId = operationalFilter.shipmentId;
       setForm((prev) => ({
         ...prev,
@@ -712,7 +779,11 @@ export default function BookingManagement({
       handleSelectExistingShipment(sId);
       setIsFormOpen(true);
     }
-  }, [operationalFilter, shipmentsList]);
+    if (operationalFilter?.quoteId) {
+      handleSelectExistingQuote(operationalFilter.quoteId);
+      setIsFormOpen(true);
+    }
+  }, [operationalFilter]);
 
   // Multi-stop actions
   const handleAddStop = () => {
@@ -1217,6 +1288,24 @@ export default function BookingManagement({
 
       setIsFormOpen(false);
       await loadData();
+
+      if (targetStatus === 'booked') {
+        const savedId = (result && typeof result.id === 'number')
+          ? result.id
+          : (form.booking_source === 'existing_shipment' ? Number(form.linked_shipment_id) : (editingBooking?.id));
+        const matchedVendor = vendorsList.find((v) => String(v.id) === String(form.carrier_org_id));
+        setBookingSuccessModal({
+          bookingId: savedId,
+          bookingRef: form.booking_number || result?.reference_number || `BK-${savedId}`,
+          carrierName: matchedVendor?.legal_name || matchedVendor?.name || form.carrier_name || 'Carrier Partner',
+          carrierDot: matchedVendor?.carrier_profile?.dot_number,
+          rate: calculatedTotalRate,
+          origin: form.origin_city,
+          destination: form.destination_city,
+          rcId: result?.rate_confirmation?.id,
+          rcNumber: result?.rate_confirmation?.confirmation_number,
+        });
+      }
     } catch (err) {
       console.error('Save booking error:', err);
       notify?.(err.message || 'Failed to save booking. Please review fields.');
@@ -1291,20 +1380,36 @@ export default function BookingManagement({
   };
 
   const handleDownloadRateConfirmation = async (rcId, confirmationNumber) => {
+    if (!rcId) {
+      notify?.('Rate confirmation reference missing. Please re-open or generate first.');
+      return;
+    }
     try {
-      notify?.('Preparing Rate Confirmation PDF download...');
+      setDownloadingRC(true);
+      notify?.('Downloading official Rate Confirmation PDF...');
       const blob = await downloadRateConfirmationDocument(rcId);
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        throw new Error('Downloaded document is empty or invalid.');
+      }
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `Rate_Confirmation_${confirmationNumber || rcId}.pdf`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      notify?.('Rate confirmation PDF downloaded successfully.');
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        if (document.body.contains(a)) document.body.removeChild(a);
+      }, 1000);
+      notify?.(`Rate Confirmation ${confirmationNumber || `#${rcId}`} PDF downloaded successfully.`);
     } catch (err) {
-      notify?.(err.message || 'Failed to download rate confirmation PDF.');
+      console.error('Rate confirmation download error:', err);
+      const msg = err.status === 404
+        ? 'Rate confirmation metadata is registered, but the PDF binary file is currently unavailable on the server.'
+        : (err.message || 'Failed to download rate confirmation PDF.');
+      notify?.(msg);
+    } finally {
+      setDownloadingRC(false);
     }
   };
 
@@ -1312,11 +1417,11 @@ export default function BookingManagement({
   const calculatedTotalRate = useMemo(() => {
     const base = Number(form.quote_amount) || 0;
     const accessorialTotal = form.selected_accessorials.reduce((sum, accId) => {
-      const match = STANDARD_ACCESSORIALS.find((a) => a.id === accId);
+      const match = accessorialTypes.find((a) => a.id === accId);
       return sum + (match?.defaultFee || 0);
     }, 0);
     return base + accessorialTotal;
-  }, [form.quote_amount, form.selected_accessorials]);
+  }, [form.quote_amount, form.selected_accessorials, accessorialTypes]);
 
   return (
     <div className="bk-container">
@@ -1349,6 +1454,51 @@ export default function BookingManagement({
               <span>New Transport Booking</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Pre-Booking & Operations Workflow Guide */}
+      <div className="fms-workflow-guide-panel" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              FMS Freight Operations Journey
+            </span>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>· End-to-End Carrier Booking Lifecycle</span>
+          </div>
+          <span style={{ fontSize: '11px', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+            CURRENT: Step 2 · Capacity Booking
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', color: '#475569', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+              <strong style={{ fontSize: '12px', color: '#1e293b' }}>Order Intake & Shipments</strong>
+            </div>
+            <div style={{ fontSize: '11.5px', color: '#64748b' }}>Create or select freight demand, route, dates & cargo items.</div>
+          </div>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', color: '#475569', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
+              <strong style={{ fontSize: '12px', color: '#1e293b' }}>Quotes & Load Board</strong>
+            </div>
+            <div style={{ fontSize: '11.5px', color: '#64748b' }}>Calculate lane pricing, compare carrier quotes, or match on marketplace.</div>
+          </div>
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#2563eb', color: '#ffffff', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+              <strong style={{ fontSize: '12px', color: '#1e40af' }}>Carrier Booking & Lock</strong>
+            </div>
+            <div style={{ fontSize: '11.5px', color: '#1d4ed8' }}>Assign carrier partner, lock agreed rate, and sign rate confirmation.</div>
+          </div>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#e2e8f0', color: '#475569', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>4</span>
+              <strong style={{ fontSize: '12px', color: '#1e293b' }}>Dispatch & Execution</strong>
+            </div>
+            <div style={{ fontSize: '11.5px', color: '#64748b' }}>Assign tractor/driver, track milestones, and manage POD delivery.</div>
+          </div>
         </div>
       </div>
 
@@ -2433,7 +2583,7 @@ export default function BookingManagement({
                         value={form.equipment_type}
                         onChange={(e) => updateFormField('equipment_type', e.target.value)}
                       >
-                        {EQUIPMENT_TYPES.map((eq) => (
+                        {equipmentTypes.map((eq) => (
                           <option key={eq} value={eq}>{eq}</option>
                         ))}
                       </select>
@@ -3259,7 +3409,7 @@ export default function BookingManagement({
                       <span>Supplemental services required (e.g. liftgate, detention, inside delivery).</span>
                     </div>
                     <div className="bk-accessorial-grid">
-                      {STANDARD_ACCESSORIALS.map((acc) => {
+                      {accessorialTypes.map((acc) => {
                         const isSelected = form.selected_accessorials.includes(acc.id);
                         return (
                           <div
@@ -3841,7 +3991,7 @@ export default function BookingManagement({
                 <button
                   type="button"
                   className="bk-btn primary"
-                  disabled={submitting}
+                  disabled={submitting || !canConfirmBooking}
                   onClick={() => {
                     setShowConfirmModal(false);
                     executeSaveBooking('booked');
@@ -3850,6 +4000,111 @@ export default function BookingManagement({
                   <CheckCircle size={17} weight="bold" />
                   <span>{submitting ? 'Confirming...' : 'Yes, Confirm & Book'}</span>
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          BOOKING CONFIRMATION SUCCESS MODAL (POST-BOOKING DISPATCH HANDOFF)
+          ===================================================================== */}
+      {bookingSuccessModal && (
+        <div className="bk-modal-backdrop" onClick={() => setBookingSuccessModal(null)}>
+          <div
+            className="bk-modal-container"
+            style={{ maxWidth: '520px' }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="bk-modal-header" style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <CheckCircle size={28} weight="fill" style={{ color: '#16a34a' }} />
+                <div>
+                  <h3 style={{ margin: 0, color: '#14532d', fontSize: '18px' }}>
+                    Booking Confirmed & Capacity Locked!
+                  </h3>
+                  <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>
+                    Reference: <strong>{bookingSuccessModal.bookingRef}</strong> · Shipment #{bookingSuccessModal.bookingId}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="bk-close-btn"
+                onClick={() => setBookingSuccessModal(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bk-confirm-body" style={{ padding: '20px' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Route</span>
+                    <strong>{bookingSuccessModal.origin} ➔ {bookingSuccessModal.destination}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Agreed Charges</span>
+                    <strong style={{ color: '#0284c7', fontSize: '14px' }}>
+                      ${Number(bookingSuccessModal.rate).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+                    </strong>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <span style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Assigned Carrier</span>
+                    <strong>{bookingSuccessModal.carrierName}</strong>
+                    {bookingSuccessModal.carrierDot && (
+                      <span style={{ marginLeft: '6px', fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>
+                        (✓ DOT #{bookingSuccessModal.carrierDot})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
+                Capacity has been secured and confirmed with the carrier. The shipment is now locked into active operations and ready for tractor and driver assignment in <strong>Dispatch Management (Step 3)</strong>.
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="bk-btn secondary"
+                  onClick={() => setBookingSuccessModal(null)}
+                >
+                  Close & View Bookings
+                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="bk-btn secondary"
+                    onClick={() => {
+                      const bId = bookingSuccessModal.bookingId;
+                      const bRef = bookingSuccessModal.bookingRef;
+                      setBookingSuccessModal(null);
+                      handleOpenRateConfirmation({ id: bId, reference_number: bRef });
+                    }}
+                  >
+                    <Receipt size={16} />
+                    <span>Rate Confirmation</span>
+                  </button>
+                  {onNavigateToDispatch && (
+                    <button
+                      type="button"
+                      className="bk-btn primary"
+                      onClick={() => {
+                        const bId = bookingSuccessModal.bookingId;
+                        setBookingSuccessModal(null);
+                        onNavigateToDispatch(bId);
+                      }}
+                    >
+                      <span>Proceed to Dispatch (Step 3)</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -4058,12 +4313,13 @@ export default function BookingManagement({
                 <button
                   type="button"
                   className="bk-btn primary"
+                  disabled={downloadingRC}
                   onClick={() =>
                     handleDownloadRateConfirmation(rateConfirmationData.id, rateConfirmationData.confirmation_number)
                   }
                 >
                   <DownloadSimple size={17} weight="bold" />
-                  <span>Download PDF Document</span>
+                  <span>{downloadingRC ? 'Downloading PDF...' : 'Download PDF Document'}</span>
                 </button>
               )}
             </div>

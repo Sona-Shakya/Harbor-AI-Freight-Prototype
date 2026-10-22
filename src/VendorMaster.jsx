@@ -25,6 +25,7 @@ import {
   Check,
   DownloadSimple,
   ArrowsClockwise,
+  LockKey,
 } from '@phosphor-icons/react';
 import {
   getVendors,
@@ -1366,17 +1367,49 @@ export default function VendorMaster({
   notify,
   profileLoading,
   currentUser,
+  currentRoleName,
+  currentOrg,
 }) {
   // RBAC checks - supports both ('vendors', 'read') and ('vendors.read')
-  const canRead   = hasPermission ? (hasPermission('vendors', 'read') || hasPermission('vendors.read')) : true;
-  const canCreate = hasPermission ? (hasPermission('vendors', 'create') || hasPermission('vendors.create')) : true;
-  const canUpdate = hasPermission ? (hasPermission('vendors', 'update') || hasPermission('vendors.update')) : true;
-  const canDelete = hasPermission ? (hasPermission('vendors', 'delete') || hasPermission('vendors.delete')) : true;
+  const canRead   = hasPermission ? (hasPermission('vendors', 'read') || hasPermission('vendors.read')) : false;
+  const canCreate = hasPermission ? (hasPermission('vendors', 'create') || hasPermission('vendors.create')) : false;
+  const canUpdate = hasPermission ? (hasPermission('vendors', 'update') || hasPermission('vendors.update')) : false;
+  const canDelete = hasPermission ? (hasPermission('vendors', 'delete') || hasPermission('vendors.delete')) : false;
 
-  // Tenant Guard: Shipper users must not access Vendor Master
+  // Role Normalization
+  const resolvedRole =
+    currentRoleName ||
+    currentUser?.role?.name ||
+    (typeof currentUser?.role === 'string' ? currentUser.role : '') ||
+    currentUser?.roleName ||
+    currentUser?.organization_roles?.[0]?.role?.name ||
+    '';
+
+  const isPlatformAdmin = resolvedRole === 'Platform Admin';
+  const isCompanyAdmin = resolvedRole === 'Company Admin';
+
+  // Tenant / Role Guard: Shipper portal users and Driver users are strictly blocked from Vendor Master.
+  // Internal Company Admins of a shipper organization are NOT blocked.
   const isShipper =
-    currentUser?.organization?.type === 'shipper' ||
-    currentUser?.role?.name === 'Shipper User';
+    !isPlatformAdmin &&
+    !isCompanyAdmin &&
+    (
+      resolvedRole === 'Shipper User' ||
+      currentUser?.role?.name === 'Shipper User' ||
+      currentUser?.role === 'Shipper User' ||
+      currentUser?.roleName === 'Shipper User' ||
+      (currentOrg?.type === 'shipper' &&
+        !['Dispatcher', 'Finance', 'Finance User', 'Read-only', 'Carrier Admin'].includes(resolvedRole))
+    );
+
+  const isDriver =
+    !isPlatformAdmin &&
+    (
+      resolvedRole === 'Driver' ||
+      currentUser?.role?.name === 'Driver' ||
+      currentUser?.role === 'Driver' ||
+      currentUser?.roleName === 'Driver'
+    );
 
   // Data State
   const [vendors, setVendors] = useState([]);
@@ -1415,7 +1448,7 @@ export default function VendorMaster({
 
   // Fetch Vendors from real /v1/vendors API
   const fetchVendors = useCallback(async (opts = {}) => {
-    if (profileLoading || !canRead || isShipper) return;
+    if (profileLoading || !canRead || isShipper || isDriver) return;
     setLoading(true);
     setError('');
 
@@ -1457,14 +1490,14 @@ export default function VendorMaster({
     } finally {
       setLoading(false);
     }
-  }, [profileLoading, canRead, isShipper, page, limit, searchQuery, statusFilter]);
+  }, [profileLoading, canRead, isShipper, isDriver, page, limit, searchQuery, statusFilter]);
 
   // Initial and reactive load
   useEffect(() => {
-    if (!profileLoading && canRead && !isShipper) {
+    if (!profileLoading && canRead && !isShipper && !isDriver) {
       fetchVendors();
     }
-  }, [profileLoading, canRead, isShipper, fetchVendors]);
+  }, [profileLoading, canRead, isShipper, isDriver, fetchVendors]);
 
   function handleReset() {
     setSearchInput('');
@@ -1509,6 +1542,19 @@ export default function VendorMaster({
             Vendor Master is restricted to internal carrier management and dispatch operations.
             Shipper customer accounts are not permitted to access vendor records.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── Driver Blocked Guard ──────────────────────────────────── */
+  if (isDriver) {
+    return (
+      <div className="vendor-master">
+        <div className="vm-state-panel">
+          <LockKey size={40} color="#dc2626" />
+          <h3>Access Restricted</h3>
+          <p>Driver accounts do not have permission to view or manage vendor records.</p>
         </div>
       </div>
     );

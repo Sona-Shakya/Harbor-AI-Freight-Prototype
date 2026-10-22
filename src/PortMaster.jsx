@@ -1060,7 +1060,7 @@ export default function PortMaster({
   const isPlatformAdmin = resolvedRole === 'Platform Admin';
   const isDriver = resolvedRole === 'Driver';
 
-  const canRead   = !isDriver && (isPlatformAdmin || hasPermission ? (hasPermission('ports', 'read') || hasPermission('ports.read')) : true);
+  const canRead   = !isDriver && (isPlatformAdmin || (hasPermission ? (hasPermission('ports', 'read') || hasPermission('ports.read')) : false));
   const canCreate = isPlatformAdmin || (resolvedRole !== 'Company Admin' && resolvedRole !== 'Shipper User' && hasPermission ? (hasPermission('ports', 'create') || hasPermission('ports.create')) : false);
   const canUpdate = isPlatformAdmin || (resolvedRole !== 'Company Admin' && resolvedRole !== 'Shipper User' && hasPermission ? (hasPermission('ports', 'update') || hasPermission('ports.update')) : false);
   const canDelete = isPlatformAdmin || (resolvedRole !== 'Company Admin' && resolvedRole !== 'Shipper User' && hasPermission ? (hasPermission('ports', 'delete') || hasPermission('ports.delete')) : false);

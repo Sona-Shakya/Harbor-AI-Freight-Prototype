@@ -133,8 +133,8 @@ function docTypeLabel(type) {
 }
 
 export default function OrganizationView({ hasPermission, notify, currentUser, currentRoleName }) {
-  const canRead = hasPermission ? hasPermission('organizations', 'read') : true;
-  const canUpdate = hasPermission ? hasPermission('organizations', 'update') : true;
+  const canRead = hasPermission ? hasPermission('organizations', 'read') : false;
+  const canUpdate = hasPermission ? hasPermission('organizations', 'update') : false;
 
   // Navigation tab: 'profile' | 'compliance' | 'sso' | 'audit'
   const [activeTab, setActiveTab] = useState('profile');

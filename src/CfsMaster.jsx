@@ -1241,7 +1241,7 @@ export default function CfsMaster({
   const isPlatformAdmin = resolvedRole === 'Platform Admin';
   const isDriver = resolvedRole === 'Driver';
 
-  const canRead   = !isDriver && (isPlatformAdmin || (hasPermission ? (hasPermission('cfs', 'read') || hasPermission('cfs.read')) : true));
+  const canRead   = !isDriver && (isPlatformAdmin || (hasPermission ? (hasPermission('cfs', 'read') || hasPermission('cfs.read')) : false));
   const canCreate = isPlatformAdmin || (resolvedRole !== 'Company Admin' && resolvedRole !== 'Shipper User' && hasPermission ? (hasPermission('cfs', 'create') || hasPermission('cfs.create')) : false);
   const canUpdate = isPlatformAdmin || (resolvedRole !== 'Company Admin' && resolvedRole !== 'Shipper User' && hasPermission ? (hasPermission('cfs', 'update') || hasPermission('cfs.update')) : false);
   const canDelete = isPlatformAdmin || (resolvedRole !== 'Company Admin' && resolvedRole !== 'Shipper User' && hasPermission ? (hasPermission('cfs', 'delete') || hasPermission('cfs.delete')) : false);

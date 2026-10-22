@@ -92,6 +92,7 @@ export default function CarrierFleetManagement({
   currentUser,
   currentRoleName,
   currentOrg,
+  profileLoading = false,
 }) {
   const isDriver = currentRoleName === 'Driver';
   const isPlatformAdmin = currentRoleName === 'Platform Admin';
@@ -101,14 +102,16 @@ export default function CarrierFleetManagement({
 
   const [activeTab, setActiveTab] = useState(isDriver ? 'drivers' : 'fleet');
 
-  const canManageVehicles = !isDriver && !isShipper && (isCarrierStaff || hasPermission?.('vehicles', 'create'));
-  const canManageMaintenance = !isDriver && !isShipper && (isCarrierStaff || hasPermission?.('vehicle_maintenance', 'create'));
-  const canViewCosts = !isDriver && !isShipper && (isCarrierAdmin || currentRoleName?.includes('Finance'));
-  const canManageCompliance = isCarrierAdmin || hasPermission?.('carrier_compliance', 'update');
-  const canSuspendCarrier = isCarrierAdmin || hasPermission?.('carrier_compliance', 'suspend');
-  const canAssignFleet = !isDriver && !isShipper && (isCarrierStaff || hasPermission?.('fleet_assignments', 'create'));
-  const canEvaluateScorecard = !isDriver && (isCarrierAdmin || hasPermission?.('carrier_scorecards', 'evaluate'));
-  const canUpdateTier = isPlatformAdmin || (!isCarrierStaff && hasPermission?.('carrier_network_tiers', 'update'));
+  const checkPerm = (m, a) => (!profileLoading && typeof hasPermission === 'function' ? hasPermission(m, a) : false);
+
+  const canManageVehicles = !profileLoading && !isDriver && !isShipper && (isCarrierStaff || checkPerm('vehicles', 'create'));
+  const canManageMaintenance = !profileLoading && !isDriver && !isShipper && (isCarrierStaff || checkPerm('vehicle_maintenance', 'create'));
+  const canViewCosts = !profileLoading && !isDriver && !isShipper && (isCarrierAdmin || currentRoleName?.includes('Finance'));
+  const canManageCompliance = !profileLoading && (isCarrierAdmin || checkPerm('carrier_compliance', 'update'));
+  const canSuspendCarrier = !profileLoading && (isCarrierAdmin || checkPerm('carrier_compliance', 'suspend'));
+  const canAssignFleet = !profileLoading && !isDriver && !isShipper && (isCarrierStaff || checkPerm('fleet_assignments', 'create'));
+  const canEvaluateScorecard = !profileLoading && !isDriver && (isCarrierAdmin || checkPerm('carrier_scorecards', 'evaluate'));
+  const canUpdateTier = !profileLoading && (isPlatformAdmin || (!isCarrierStaff && checkPerm('carrier_network_tiers', 'update')));
 
 
 

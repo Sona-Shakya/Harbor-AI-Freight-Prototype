@@ -114,6 +114,10 @@ export default function LoadBoard({
   currentUser = null,
   currentRoleName = '',
   currentOrg = null,
+  profileLoading = false,
+  operationalFilter = null,
+  onNavigateToBooking = null,
+  onNavigateToShipment = null,
 }) {
   // Active Tab
   const [activeTab, setActiveTab] = useState('available'); // 'available' | 'my_postings' | 'preferences' | 'analytics'
@@ -179,8 +183,22 @@ export default function LoadBoard({
   // Role permissions helpers
   const isPlatformAdmin = currentRoleName === 'Platform Admin';
   const isShipper = currentOrg?.type === 'shipper' || isPlatformAdmin;
+
+  // Handle incoming operational filter (e.g. from Shipment Management)
+  useEffect(() => {
+    if (operationalFilter?.shipmentId) {
+      if (operationalFilter.action === 'post') {
+        setShowPostModal(true);
+        setActiveTab('my_postings');
+      }
+    }
+  }, [operationalFilter]);
   const isCarrier = currentOrg?.type === 'carrier' || isPlatformAdmin || currentRoleName === 'Dispatcher';
-  const canRead = typeof hasPermission === 'function' ? hasPermission('load_board', 'read') : true;
+  const checkPerm = (mod, act) => (!profileLoading && typeof hasPermission === 'function' ? hasPermission(mod, act) : false);
+  const canRead = checkPerm('load_board', 'read');
+  const canCreate = checkPerm('load_board', 'create');
+  const canBookPermission = checkPerm('load_board', 'book');
+  const canBidPermission = checkPerm('load_board', 'bid');
 
   // KPI calculations
   const bookableCount = postings.filter((p) => p.status === 'posted' && p.allow_book_now).length;
@@ -412,6 +430,9 @@ export default function LoadBoard({
         notify(`Load #${posting.id} booked successfully!`);
         setShowBookModal(null);
         fetchPostings();
+        if (onNavigateToBooking && posting.shipment_id) {
+          onNavigateToBooking(posting.shipment_id);
+        }
       }
     } catch (err) {
       // Handle HTTP 409 Conflict strictly
@@ -649,7 +670,7 @@ export default function LoadBoard({
           </button>
 
           {/* Post Load button (Shippers / Admins) */}
-          {isShipper && (
+          {canCreate && (
             <button
               type="button"
               className="btn primary"
@@ -662,6 +683,19 @@ export default function LoadBoard({
           )}
         </div>
       </header>
+
+      {/* Role-Specific Marketplace Guidance */}
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 16px', margin: '14px 0 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '13px', color: '#475569' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Info size={18} color="#2563eb" style={{ flexShrink: 0 }} />
+          <span>
+            {isShipper
+              ? 'Shipper Portal: Post cargo orders to the network to source capacity, review carrier bids, or award instant bookings.'
+              : 'Carrier Workspace: Search available freight lanes, submit competitive bids, or book loads instantly at posted rates.'}
+            {' '}Awarded loads automatically flow into confirmed FMS Bookings.
+          </span>
+        </div>
+      </div>
 
       {/* ─── Real-Time WebSocket Toast Banner (FR-3.7) ─────────── */}
       {realtimeAlert && (
@@ -980,7 +1014,7 @@ export default function LoadBoard({
                   <X size={14} /> Clear Filters
                 </button>
               )}
-              {isShipper && !hasActiveFilters && (
+              {canCreate && !hasActiveFilters && (
                 <button
                   type="button"
                   className="btn primary"
@@ -1018,8 +1052,8 @@ export default function LoadBoard({
                         ? Math.round((Number(p.posted_rate) / Number(p.distance_miles)) * 100) / 100
                         : null;
                     const isPoster = currentOrg && p.poster_org_id === currentOrg.id;
-                    const canBook = isCarrier && p.status === 'posted' && p.allow_book_now;
-                    const canBid = isCarrier && p.status === 'posted' && p.allow_bids;
+                    const canBook = canBookPermission && isCarrier && p.status === 'posted' && p.allow_book_now;
+                    const canBid = canBidPermission && isCarrier && p.status === 'posted' && p.allow_bids;
 
                     return (
                       <tr key={p.id}>
@@ -1143,6 +1177,20 @@ export default function LoadBoard({
                               >
                                 <UsersThree size={13} />
                                 <span>Matches</span>
+                              </button>
+                            )}
+
+                            {/* Open in Booking Management if booked */}
+                            {onNavigateToBooking && p.shipment_id && p.status === 'booked' && (
+                              <button
+                                type="button"
+                                className="lb-action-btn"
+                                style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0' }}
+                                onClick={() => onNavigateToBooking(p.shipment_id)}
+                                title="Open in Booking Management to assign carrier & lock capacity"
+                              >
+                                <CheckCircle size={13} />
+                                <span>Booking</span>
                               </button>
                             )}
 
@@ -1417,6 +1465,7 @@ export default function LoadBoard({
             fetchPostings();
           }}
           notify={notify}
+          initialShipmentId={operationalFilter?.shipmentId}
         />
       )}
 
@@ -1858,8 +1907,8 @@ export default function LoadBoard({
 /* ──────────────────────────────────────────────────────────────────
    Sub-Component: PostLoadModal (FR-3.1 & FR-3.6)
    ────────────────────────────────────────────────────────────────── */
-function PostLoadModal({ shipments = [], onClose, onSuccess, notify }) {
-  const [selectedShipmentId, setSelectedShipmentId] = useState('');
+function PostLoadModal({ shipments = [], onClose, onSuccess, notify, initialShipmentId = '' }) {
+  const [selectedShipmentId, setSelectedShipmentId] = useState(initialShipmentId ? String(initialShipmentId) : '');
   const [postedRate, setPostedRate] = useState('');
   const [equipmentType, setEquipmentType] = useState('dry_van');
   const [visibility, setVisibility] = useState('public');
@@ -1910,6 +1959,12 @@ function PostLoadModal({ shipments = [], onClose, onSuccess, notify }) {
       }
     }
   };
+
+  useEffect(() => {
+    if (initialShipmentId && shipments && shipments.length > 0) {
+      handleSelectShipment({ target: { value: String(initialShipmentId) } });
+    }
+  }, [initialShipmentId, shipments]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

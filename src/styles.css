@@ -683,17 +683,7 @@
 
 /* All Modules section heading in Collapsed state */
 .sidebar-collapsed .module-section-heading {
-  justify-content: center;
-  padding: 8px 0 6px;
-  margin-top: 2px;
-}
-.sidebar-collapsed .module-section-heading > span:first-child {
   display: none;
-}
-.sidebar-collapsed .module-section-heading .count {
-  margin: 0 auto;
-  font-size: 10px;
-  padding: 1px 5px;
 }
 
 /* Module navigation & icons in Collapsed state */
@@ -944,6 +934,7 @@
 .modal-user-summary-val{font-weight:600;color:var(--ink);font-size:13.5px}
 
 
+
 /* Access Denied banner */
 .access-denied-panel {
   max-width: 600px;
@@ -979,4 +970,420 @@
   line-height: 1.5;
 }
 
+/* ==========================================================================
+   FMS REAL-WORLD OPERATIONAL WORKFLOW GUIDANCE & NAVIGATION HELPERS
+   ========================================================================== */
 
+/* Subtle Step Pill in Sidebar Sub-items */
+.nav-step-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: #475569;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.module-nav-item.selected .nav-step-tag {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* FMS Operational Workflow Banner */
+.fms-workflow-banner {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fms-workflow-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fms-workflow-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.2px;
+}
+.fms-workflow-banner-title svg {
+  color: var(--blue, #0063fa);
+}
+.fms-workflow-toggle-btn {
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.fms-workflow-toggle-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.fms-workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .fms-workflow-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 550px) {
+  .fms-workflow-steps {
+    grid-template-columns: 1fr;
+  }
+}
+.fms-workflow-step-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.fms-workflow-step-card.current {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);
+}
+.fms-workflow-step-card.completed {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.fms-step-number {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fms-workflow-step-card.current .fms-step-number {
+  background: #2563eb;
+  color: #ffffff;
+}
+.fms-workflow-step-card.completed .fms-step-number {
+  background: #16a34a;
+  color: #ffffff;
+}
+.fms-step-content {
+  min-width: 0;
+  flex: 1;
+}
+.fms-step-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fms-step-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+.fms-workflow-step-card.current .fms-step-desc {
+  color: #1e40af;
+}
+
+/* Next Action Buttons in Tables */
+.fms-next-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.fms-next-btn.primary {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+.fms-next-btn.primary:hover {
+  background: #1d4ed8;
+}
+.fms-next-btn.secondary {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+.fms-next-btn.secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.fms-next-btn.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+.fms-next-btn.success:hover {
+  background: #d1fae5;
+}
+
+/* Clean Empty State Card */
+.fms-empty-card {
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.fms-empty-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+.fms-empty-card h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+.fms-empty-card p {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+.fms-empty-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+
+
+
+/* ==========================================================================
+   WORKSPACE BREADCRUMBS & WORKFLOW NAVIGATION HELPERS
+   ========================================================================== */
+
+.fms-breadcrumb-container {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.fms-breadcrumb-root {
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.fms-breadcrumb-root:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.fms-breadcrumb-separator {
+  color: #cbd5e1;
+  font-size: 12px;
+  user-select: none;
+}
+
+.fms-breadcrumb-category {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.fms-breadcrumb-current {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.fms-breadcrumb-step-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  letter-spacing: 0.2px;
+}
+
+.records-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fms-breadcrumb-next-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.fms-breadcrumb-next-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+/* Field Required & Optional Badges */
+.bk-badge-req {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  vertical-align: middle;
+}
+
+.bk-badge-opt {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+/* Terminology Helper Callout */
+.bk-term-helper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.bk-term-helper svg {
+  color: #3b82f6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bk-field-error-msg {
+  display: block;
+  font-size: 11.5px;
+  color: #dc2626;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Auth Profile Loading and Error States */
+.fms-auth-loading-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  background: #f8fafc;
+  font-family: inherit;
+}
+
+.fms-auth-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  max-width: 440px;
+  width: 90%;
+}
+
+.fms-auth-loading-box h3 {
+  margin: 16px 0 8px;
+  font-size: 17px;
+  color: #0f172a;
+}
+
+.fms-auth-loading-box p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.fms-auth-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #0284c7;
+  border-radius: 50%;
+  animation: fms-spin 0.8s linear infinite;
+}
+
+@keyframes fms-spin {
+  to { transform: rotate(360deg); }
+}

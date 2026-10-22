@@ -27,7 +27,10 @@ import {
   SlidersHorizontal,
   Info,
   ArrowCounterClockwise,
-  NavigationArrow
+  NavigationArrow,
+  CaretUp,
+  CaretDown,
+  Briefcase
 } from '@phosphor-icons/react';
 import {
   getDispatchBoard,
@@ -60,8 +63,13 @@ export default function DispatchManagement({
   currentUser,
   currentRoleName,
   currentOrg,
+  profileLoading = false,
   initialViewMode = 'kanban',
   initialStatusFilter = 'all',
+  operationalFilter,
+  onNavigateToJob = null,
+  onNavigateToShipment = null,
+  onNavigateToBooking = null,
 }) {
   // Roles & Permissions
   const isDriver = currentRoleName === 'Driver';
@@ -73,12 +81,25 @@ export default function DispatchManagement({
     isPlatformAdmin;
   const isShipper = currentRoleName === 'Shipper User';
 
+  const checkPerm = (mod, act) => (!profileLoading && typeof hasPermission === 'function' ? hasPermission(mod, act) : false);
+
   // M7 Route Planning & Optimization Permissions
-  const canOptimize = hasPermission ? (hasPermission('routes', 'optimize') || hasPermission('routes', 'create') || isDispatcher) : isDispatcher;
-  const canSimulate = hasPermission ? (hasPermission('routes', 'simulate') || hasPermission('routes', 'read') || isDispatcher) : isDispatcher;
-  const canConsolidate = hasPermission ? (hasPermission('routes', 'consolidate') || hasPermission('routes', 'create') || isDispatcher) : isDispatcher;
-  const canViewDirections = hasPermission ? (hasPermission('routes', 'view_directions') || hasPermission('routes', 'read') || isDispatcher || isDriver) : (isDispatcher || isDriver);
-  const canViewEta = hasPermission ? (hasPermission('eta', 'read') || hasPermission('routes', 'read') || true) : true;
+  const canOptimize = checkPerm('routes', 'optimize');
+  const canSimulate = checkPerm('routes', 'simulate');
+  const canConsolidate = checkPerm('routes', 'consolidate');
+  const canViewDirections = checkPerm('routes', 'view_directions');
+  const canViewEta = checkPerm('eta', 'read') || checkPerm('routes', 'read') || checkPerm('dispatch', 'read');
+
+  // Dispatch Action Permissions
+  const canAssign = checkPerm('dispatch', 'assign') || checkPerm('dispatch', 'create');
+  const canReassign = checkPerm('dispatch', 'reassign') || checkPerm('dispatch', 'update');
+  const canLogCheckCall = checkPerm('dispatch', 'log_checkcall') || checkPerm('dispatch', 'create') || checkPerm('dispatch', 'update');
+  const canReportException = checkPerm('dispatch', 'report_exception') || checkPerm('dispatch', 'create') || checkPerm('dispatch', 'update');
+  const canResolveException = checkPerm('dispatch', 'resolve_exception') || checkPerm('dispatch', 'update');
+  const canDriverResponse = checkPerm('dispatch', 'update') || isDriver;
+
+  // Operational Workflow Guide Display Toggle
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState(true);
 
   // Board Data & Loading State
   const [loading, setLoading] = useState(true);
@@ -87,7 +108,9 @@ export default function DispatchManagement({
 
   // Filters & Views
   const [viewMode, setViewMode] = useState(initialViewMode || 'kanban'); // 'kanban' | 'list' | 'by_driver' | 'exceptions'
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(
+    operationalFilter?.searchQuery || (operationalFilter?.shipmentId ? String(operationalFilter.shipmentId) : '')
+  );
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter || 'all');
   const [driverFilter, setDriverFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
@@ -99,6 +122,14 @@ export default function DispatchManagement({
   useEffect(() => {
     if (initialStatusFilter) setStatusFilter(initialStatusFilter);
   }, [initialStatusFilter]);
+
+  useEffect(() => {
+    if (operationalFilter?.shipmentId) {
+      setSearchQuery(String(operationalFilter.shipmentId));
+    } else if (operationalFilter?.searchQuery) {
+      setSearchQuery(operationalFilter.searchQuery);
+    }
+  }, [operationalFilter]);
 
   // Dropdown Reference Data (Drivers & Equipment)
   const [availableDrivers, setAvailableDrivers] = useState([]);
@@ -260,6 +291,7 @@ export default function DispatchManagement({
       const driver = (s.assigned_driver?.name || '').toLowerCase();
       const truck = (s.assigned_truck?.unit_number || '').toLowerCase();
       return (
+        String(s.id).includes(q) ||
         ref.includes(q) ||
         origin.includes(q) ||
         dest.includes(q) ||
@@ -773,10 +805,20 @@ export default function DispatchManagement({
               {openExceptionsCount > 1 ? 's' : ''}
             </span>
           )}
+
+          {isDelivered && (
+            <span
+              className="disp-badge"
+              style={{ color: '#059669', background: '#ecfdf5', border: '1px solid #a7f3d0' }}
+              title="Delivery completed, POD verified and automated Net 30 freight invoice generated"
+            >
+              <CheckCircle size={12} weight="bold" /> Invoiced (Net 30)
+            </span>
+          )}
         </div>
 
         <div className="disp-card-actions">
-          {isBooked && isDispatcher && (
+          {isBooked && canAssign && (
             <button
               type="button"
               className="disp-btn-sm primary"
@@ -823,7 +865,7 @@ export default function DispatchManagement({
 
           {(isDispatched || isInTransit) && (
             <>
-              {(isDispatcher || isDriver) && (
+              {canDriverResponse && (
                 <button
                   type="button"
                   className="disp-btn-sm"
@@ -852,7 +894,7 @@ export default function DispatchManagement({
                 <CalendarCheck size={14} /> Milestones
               </button>
 
-              {isDispatcher && (
+              {canReassign && (
                 <button
                   type="button"
                   className="disp-btn-sm danger"
@@ -877,7 +919,7 @@ export default function DispatchManagement({
           )}
 
           {/* Report Exception Action available on any active load */}
-          {!isDelivered && (
+          {!isDelivered && canReportException && (
             <button
               type="button"
               className="disp-btn-sm danger"
@@ -885,6 +927,18 @@ export default function DispatchManagement({
               title="Report Operational Exception"
             >
               <WarningCircle size={14} /> Flag Issue
+            </button>
+          )}
+
+          {onNavigateToJob && (
+            <button
+              type="button"
+              className="disp-btn-sm"
+              style={{ color: '#4f46e5', borderColor: '#c7d2fe', background: '#eef2ff' }}
+              onClick={() => onNavigateToJob({ shipmentId: load.id, jobNumber: load.reference_number })}
+              title="View Operational Job & Lifecycle in Job Console"
+            >
+              <Briefcase size={14} /> Job
             </button>
           )}
         </div>
@@ -939,6 +993,81 @@ export default function DispatchManagement({
             <span>Refresh</span>
           </button>
         </div>
+      </div>
+
+      {/* Operational Lifecycle Guide Banner for First-Time Users */}
+      <div className="fms-workflow-banner">
+        <div className="fms-workflow-banner-header">
+          <div className="fms-workflow-banner-title">
+            <Truck size={16} weight="bold" />
+            <span>Harbor Freight Operations Lifecycle</span>
+          </div>
+          <button
+            type="button"
+            className="fms-workflow-toggle-btn"
+            onClick={() => setShowWorkflowGuide((v) => !v)}
+            title={showWorkflowGuide ? "Collapse workflow guide" : "Expand workflow guide"}
+          >
+            <span>{showWorkflowGuide ? "Hide Guide" : "How Freight Works"}</span>
+            {showWorkflowGuide ? <CaretUp size={13} /> : <CaretDown size={13} />}
+          </button>
+        </div>
+
+        {showWorkflowGuide && (
+          <div className="fms-workflow-steps">
+            <div className="fms-workflow-step-card completed">
+              <span className="fms-step-number">✓</span>
+              <div className="fms-step-content">
+                <div className="fms-step-label">
+                  <span>Order Intake</span>
+                  <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: 600 }}>STEP 1</span>
+                </div>
+                <div className="fms-step-desc">
+                  Customer order created in Shipments. Origin, destination, commodity, and dates specified.
+                </div>
+              </div>
+            </div>
+
+            <div className="fms-workflow-step-card completed">
+              <span className="fms-step-number">✓</span>
+              <div className="fms-step-content">
+                <div className="fms-step-label">
+                  <span>Capacity Booking</span>
+                  <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: 600 }}>STEP 2</span>
+                </div>
+                <div className="fms-step-desc">
+                  Carrier assigned in Bookings with agreed rate. Rate confirmation signed and locked.
+                </div>
+              </div>
+            </div>
+
+            <div className="fms-workflow-step-card current">
+              <span className="fms-step-number">3</span>
+              <div className="fms-step-content">
+                <div className="fms-step-label">
+                  <span>Dispatch & Execution</span>
+                  <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: 700 }}>STEP 3 (HERE)</span>
+                </div>
+                <div className="fms-step-desc">
+                  Assign qualified driver & tractor. Driver accepts load assignment to move into transit.
+                </div>
+              </div>
+            </div>
+
+            <div className="fms-workflow-step-card">
+              <span className="fms-step-number">4</span>
+              <div className="fms-step-content">
+                <div className="fms-step-label">
+                  <span>Milestones & Delivery</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>STEP 4</span>
+                </div>
+                <div className="fms-step-desc">
+                  Log in-transit check-calls, record stop arrival/departure milestones, and confirm final delivery.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards Grid */}
@@ -1290,7 +1419,7 @@ export default function DispatchManagement({
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {s.status === 'booked' && isDispatcher && (
+                            {s.status === 'booked' && canAssign && (
                               <button
                                 type="button"
                                 className="disp-btn-sm primary"
@@ -1336,7 +1465,7 @@ export default function DispatchManagement({
 
                             {(s.status === 'dispatched' || s.status === 'in_transit') && (
                               <>
-                                {(isDispatcher || isDriver) && s.status === 'dispatched' && (
+                                {canDriverResponse && s.status === 'dispatched' && (
                                   <button
                                     type="button"
                                     className="disp-btn-sm"
@@ -1364,12 +1493,43 @@ export default function DispatchManagement({
                             )}
 
                             {s.status === 'delivered' && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="disp-btn-sm"
+                                  onClick={() => handleOpenMilestones(s)}
+                                >
+                                  View Stops
+                                </button>
+                                <span
+                                  style={{
+                                    fontSize: '11px',
+                                    color: '#059669',
+                                    background: '#ecfdf5',
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #a7f3d0',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                  title="Delivery completed and automated Net 30 freight invoice generated"
+                                >
+                                  <Receipt size={12} weight="bold" /> Invoiced
+                                </span>
+                              </>
+                            )}
+
+                            {onNavigateToJob && (
                               <button
                                 type="button"
                                 className="disp-btn-sm"
-                                onClick={() => handleOpenMilestones(s)}
+                                style={{ color: '#4f46e5', borderColor: '#c7d2fe', background: '#eef2ff' }}
+                                onClick={() => onNavigateToJob({ shipmentId: s.id, jobNumber: s.reference_number })}
+                                title="View in Job Console"
                               >
-                                View Stops
+                                <Briefcase size={13} /> Job
                               </button>
                             )}
                           </div>
@@ -1525,7 +1685,7 @@ export default function DispatchManagement({
                         )}
                       </td>
                       <td>
-                        {ex.status !== 'resolved' && isDispatcher && (
+                        {ex.status !== 'resolved' && canResolveException && (
                           <button
                             type="button"
                             className="disp-btn-sm success"
@@ -2012,106 +2172,112 @@ export default function DispatchManagement({
               )}
 
               {/* Log New Check Call Form */}
-              <form onSubmit={handleSubmitCheckCall} style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '18px' }}>
-                <h3 style={{ fontSize: '15px', margin: '0 0 12px', fontWeight: 700 }}>
-                  Log New Check-Call
-                </h3>
-                <div className="disp-form-grid">
-                  <div className="disp-form-group">
-                    <label className="disp-form-label">
-                      Location / Mile Marker <span className="required">*</span>
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      className="disp-input"
-                      placeholder="e.g. Rest Stop, I-55 South"
-                      value={checkCallForm.location}
-                      onChange={(e) =>
-                        setCheckCallForm({ ...checkCallForm, location: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="disp-form-group">
-                    <label className="disp-form-label">City, State</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+              {canLogCheckCall ? (
+                <form onSubmit={handleSubmitCheckCall} style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '18px' }}>
+                  <h3 style={{ fontSize: '15px', margin: '0 0 12px', fontWeight: 700 }}>
+                    Log New Check-Call
+                  </h3>
+                  <div className="disp-form-grid">
+                    <div className="disp-form-group">
+                      <label className="disp-form-label">
+                        Location / Mile Marker <span className="required">*</span>
+                      </label>
                       <input
+                        required
                         type="text"
                         className="disp-input"
-                        placeholder="City"
-                        value={checkCallForm.city}
+                        placeholder="e.g. Rest Stop, I-55 South"
+                        value={checkCallForm.location}
                         onChange={(e) =>
-                          setCheckCallForm({ ...checkCallForm, city: e.target.value })
+                          setCheckCallForm({ ...checkCallForm, location: e.target.value })
                         }
                       />
+                    </div>
+
+                    <div className="disp-form-group">
+                      <label className="disp-form-label">City, State</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          className="disp-input"
+                          placeholder="City"
+                          value={checkCallForm.city}
+                          onChange={(e) =>
+                            setCheckCallForm({ ...checkCallForm, city: e.target.value })
+                          }
+                        />
+                        <input
+                          type="text"
+                          className="disp-input"
+                          placeholder="State"
+                          style={{ width: '80px' }}
+                          value={checkCallForm.state}
+                          onChange={(e) =>
+                            setCheckCallForm({ ...checkCallForm, state: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="disp-form-group">
+                      <label className="disp-form-label">Odometer</label>
+                      <input
+                        type="number"
+                        className="disp-input"
+                        placeholder="Miles"
+                        value={checkCallForm.odometer}
+                        onChange={(e) =>
+                          setCheckCallForm({ ...checkCallForm, odometer: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <div className="disp-form-group">
+                      <label className="disp-form-label">Status</label>
+                      <select
+                        className="disp-modal-select"
+                        value={checkCallForm.status}
+                        onChange={(e) =>
+                          setCheckCallForm({ ...checkCallForm, status: e.target.value })
+                        }
+                      >
+                        <option value="on_schedule">On Schedule</option>
+                        <option value="delayed">Delayed</option>
+                        <option value="severe_weather_delay">Severe Weather Delay (Auto-Exception)</option>
+                        <option value="traffic_delay">Traffic Standstill Delay (Auto-Exception)</option>
+                        <option value="breakdown">Mechanical Breakdown (Auto-Exception)</option>
+                      </select>
+                    </div>
+
+                    <div className="disp-form-group full">
+                      <label className="disp-form-label">Notes / Remarks</label>
                       <input
                         type="text"
                         className="disp-input"
-                        placeholder="State"
-                        style={{ width: '80px' }}
-                        value={checkCallForm.state}
+                        placeholder="e.g. Routine check-call; fuel stop complete; road conditions clear"
+                        value={checkCallForm.note}
                         onChange={(e) =>
-                          setCheckCallForm({ ...checkCallForm, state: e.target.value })
+                          setCheckCallForm({ ...checkCallForm, note: e.target.value })
                         }
                       />
                     </div>
                   </div>
 
-                  <div className="disp-form-group">
-                    <label className="disp-form-label">Odometer</label>
-                    <input
-                      type="number"
-                      className="disp-input"
-                      placeholder="Miles"
-                      value={checkCallForm.odometer}
-                      onChange={(e) =>
-                        setCheckCallForm({ ...checkCallForm, odometer: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="disp-form-group">
-                    <label className="disp-form-label">Status</label>
-                    <select
-                      className="disp-modal-select"
-                      value={checkCallForm.status}
-                      onChange={(e) =>
-                        setCheckCallForm({ ...checkCallForm, status: e.target.value })
-                      }
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                    <button
+                      type="submit"
+                      className="disp-btn-sm primary"
+                      disabled={modalActionBusy || !checkCallForm.location.trim()}
                     >
-                      <option value="on_schedule">On Schedule</option>
-                      <option value="delayed">Delayed</option>
-                      <option value="severe_weather_delay">Severe Weather Delay (Auto-Exception)</option>
-                      <option value="traffic_delay">Traffic Standstill Delay (Auto-Exception)</option>
-                      <option value="breakdown">Mechanical Breakdown (Auto-Exception)</option>
-                    </select>
+                      {modalActionBusy ? 'Logging...' : 'Submit Check-Call'}
+                    </button>
                   </div>
-
-                  <div className="disp-form-group full">
-                    <label className="disp-form-label">Notes / Remarks</label>
-                    <input
-                      type="text"
-                      className="disp-input"
-                      placeholder="e.g. Routine check-call; fuel stop complete; road conditions clear"
-                      value={checkCallForm.note}
-                      onChange={(e) =>
-                        setCheckCallForm({ ...checkCallForm, note: e.target.value })
-                      }
-                    />
-                  </div>
+                </form>
+              ) : (
+                <div style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: '6px', fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+                  Logging check-calls is restricted to assigned drivers and dispatch personnel (View-only mode).
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                  <button
-                    type="submit"
-                    className="disp-btn-sm primary"
-                    disabled={modalActionBusy || !checkCallForm.location.trim()}
-                  >
-                    {modalActionBusy ? 'Logging...' : 'Submit Check-Call'}
-                  </button>
-                </div>
-              </form>
+              )}
 
               {/* History Timeline */}
               <div>

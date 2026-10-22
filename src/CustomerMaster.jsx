@@ -1046,15 +1046,16 @@ function AuditLogModal({ customer, onClose }) {
 }
 
 /* ─── Main component ─────────────────────────────────────────── */
-export default function CustomerMaster({ hasPermission, notify, profileLoading = false }) {
+export default function CustomerMaster({ hasPermission = () => false, notify = () => {}, profileLoading = false }) {
   /* RBAC */
-  const canRead   = hasPermission('customers', 'read');
-  const canCreate = hasPermission('customers', 'create');
-  const canUpdate = hasPermission('customers', 'update');
-  const canDelete = hasPermission('customers', 'delete');
+  const checkPerm = (m, a) => (!profileLoading && typeof hasPermission === 'function' ? hasPermission(m, a) : false);
+  const canRead   = checkPerm('customers', 'read');
+  const canCreate = checkPerm('customers', 'create');
+  const canUpdate = checkPerm('customers', 'update');
+  const canDelete = checkPerm('customers', 'delete');
   // Audit: use a specific permission if defined; fall back to canRead so all
   // authorized users who can view customers can also view the audit trail.
-  const canAudit  = hasPermission('customers', 'audit') || canRead;
+  const canAudit  = checkPerm('customers', 'audit') || canRead;
 
   /* List state */
   const [customers, setCustomers] = useState([]);

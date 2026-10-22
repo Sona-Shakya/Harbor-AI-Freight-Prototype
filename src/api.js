@@ -13,15 +13,17 @@ const GET_CACHE_TTL = 30_000;
 const inFlightGets = new Map();
 const getCache = new Map();
 
-function clearGetCache() {
+export function clearGetCache() {
   getCache.clear();
+  inFlightGets.clear();
 }
 
 authService.subscribe(clearGetCache);
 
 async function request(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
-  const cacheKey = `${method}:${path}`;
+  const token = authService.getToken() || 'anonymous';
+  const cacheKey = `${token}:${method}:${path}`;
   if (method === 'GET' && !options.skipCache && options.responseType !== 'blob') {
     const cached = getCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
@@ -294,7 +296,7 @@ export async function resetPassword({ resetToken, newPassword, confirmPassword }
 }
 
 export async function getProfile() {
-  return request("/v1/auth/profile");
+  return request("/v1/auth/profile", { skipCache: true });
 }
 
 export async function getCurrentOrganization() {
@@ -1051,7 +1053,7 @@ export async function getUserOrganizations() {
 export async function switchOrganizationContext(organizationId) {
   const response = await request("/v1/auth/switch-organization", {
     method: "POST",
-    body: JSON.stringify({ organizationId }),
+    body: JSON.stringify({ organizationId, organization_id: organizationId }),
   });
   const token = response?.token || response?.data?.token;
   if (token) {
@@ -2187,9 +2189,73 @@ export async function getRoutingProviderStatus() {
   return request('/v1/routes/provider-status', { skipCache: true });
 }
 
+// ============================================================
+// JOB MANAGEMENT APIS
+// ============================================================
 
+/**
+ * List jobs with pagination, status, and search filters
+ * @param {Object} params - { page, limit, status, search, start_date, end_date, carrier_id, shipper_id }
+ */
+export async function getJobs(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, val);
+    }
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/jobs${q}`, { skipCache: true });
+}
 
+/**
+ * Get job details by ID or Job Number
+ * @param {string|number} id
+ */
+export async function getJobById(id) {
+  return request(`/v1/jobs/${id}`, { skipCache: true });
+}
 
+/**
+ * Get job associated with a given Shipment ID
+ * @param {string|number} shipmentId
+ */
+export async function getShipmentJob(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/job`, { skipCache: true });
+}
 
+/**
+ * Manually create an operational job for a shipment
+ * @param {Object} data - { shipment_id, carrier_org_id?, notes?, special_instructions?, description?, status? }
+ */
+export async function createJob(data) {
+  return request('/v1/jobs', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
 
+/**
+ * Update job lifecycle status
+ * @param {string|number} id
+ * @param {Object} data - { status, notes? }
+ */
+export async function updateJobStatus(id, data) {
+  return request(`/v1/jobs/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Assign driver & equipment to job and dispatch load
+ * @param {string|number} id
+ * @param {Object} data - { driver_id, truck_id, trailer_id, notes? }
+ */
+export async function assignJob(id, data) {
+  return request(`/v1/jobs/${id}/assign`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
 

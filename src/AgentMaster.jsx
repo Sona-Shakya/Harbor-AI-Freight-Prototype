@@ -1203,19 +1203,49 @@ export default function AgentMaster({
   notify,
   profileLoading,
   currentUser,
+  currentRoleName,
+  currentOrg,
 }) {
   // RBAC checks - supports both ('agents', 'read') and ('agents.read')
-  const canRead   = hasPermission ? (hasPermission('agents', 'read') || hasPermission('agents.read')) : true;
-  const canCreate = hasPermission ? (hasPermission('agents', 'create') || hasPermission('agents.create')) : true;
-  const canUpdate = hasPermission ? (hasPermission('agents', 'update') || hasPermission('agents.update')) : true;
-  const canDelete = hasPermission ? (hasPermission('agents', 'delete') || hasPermission('agents.delete')) : true;
+  const canRead   = hasPermission ? (hasPermission('agents', 'read') || hasPermission('agents.read')) : false;
+  const canCreate = hasPermission ? (hasPermission('agents', 'create') || hasPermission('agents.create')) : false;
+  const canUpdate = hasPermission ? (hasPermission('agents', 'update') || hasPermission('agents.update')) : false;
+  const canDelete = hasPermission ? (hasPermission('agents', 'delete') || hasPermission('agents.delete')) : false;
 
-  // Tenant / Role Guard: Shipper users and Driver users are strictly blocked from Agent Master
+  // Role Normalization
+  const resolvedRole =
+    currentRoleName ||
+    currentUser?.role?.name ||
+    (typeof currentUser?.role === 'string' ? currentUser.role : '') ||
+    currentUser?.roleName ||
+    currentUser?.organization_roles?.[0]?.role?.name ||
+    '';
+
+  const isPlatformAdmin = resolvedRole === 'Platform Admin';
+  const isCompanyAdmin = resolvedRole === 'Company Admin';
+
+  // Tenant / Role Guard: Shipper portal users and Driver users are strictly blocked from Agent Master.
+  // Internal Company Admins of a shipper organization are NOT blocked.
   const isShipper =
-    currentUser?.organization?.type === 'shipper' ||
-    currentUser?.role?.name === 'Shipper User';
+    !isPlatformAdmin &&
+    !isCompanyAdmin &&
+    (
+      resolvedRole === 'Shipper User' ||
+      currentUser?.role?.name === 'Shipper User' ||
+      currentUser?.role === 'Shipper User' ||
+      currentUser?.roleName === 'Shipper User' ||
+      (currentOrg?.type === 'shipper' &&
+        !['Dispatcher', 'Finance', 'Finance User', 'Read-only', 'Carrier Admin'].includes(resolvedRole))
+    );
+
   const isDriver =
-    currentUser?.role?.name === 'Driver';
+    !isPlatformAdmin &&
+    (
+      resolvedRole === 'Driver' ||
+      currentUser?.role?.name === 'Driver' ||
+      currentUser?.role === 'Driver' ||
+      currentUser?.roleName === 'Driver'
+    );
 
   const isBlocked = !canRead || isShipper || isDriver;
 
@@ -1354,7 +1384,7 @@ export default function AgentMaster({
           <h2>Access Restricted</h2>
           <p>
             {isShipper
-              ? 'Shipper organization accounts are not permitted to access internal broker agent records.'
+              ? 'Shipper customer accounts are not permitted to access internal broker agent records.'
               : isDriver
               ? 'Driver accounts do not have permission to view or manage broker agent records.'
               : 'You do not have the required permissions to view Agent Master. Please contact your organization administrator.'}

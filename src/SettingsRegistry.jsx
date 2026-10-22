@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   GearSix,
   LockKey,
@@ -25,6 +25,10 @@ import {
   Clock,
   Copy,
   Check,
+  Tag,
+  SquaresFour,
+  Sliders,
+  Funnel,
 } from '@phosphor-icons/react';
 import {
   load,
@@ -191,6 +195,9 @@ export default function SettingsRegistry({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchCatQuery, setSearchCatQuery] = useState('');
+  const [selectedModuleFilter, setSelectedModuleFilter] = useState('all');
+  const [showGuide, setShowGuide] = useState(true);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   // Organization Context
   const [organization, setOrganization] = useState({
@@ -198,10 +205,12 @@ export default function SettingsRegistry({
     name: currentOrg?.legal_name || 'Organization',
   });
 
-  // Audit Log State
+  // Audit Log State & Filters
   const [auditLogs, setAuditLogs] = useState(propSettingAudit || []);
   const [auditLoading, setAuditLoading] = useState(false);
   const [selectedAuditDiff, setSelectedAuditDiff] = useState(null);
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
 
   // Modals State
   const [modal, setModal] = useState(null);
@@ -217,6 +226,8 @@ export default function SettingsRegistry({
   // Inline / Card Add Value State
   const [newValueSlug, setNewValueSlug] = useState('');
   const [newValueLabel, setNewValueLabel] = useState('');
+  const [newValueSortOrder, setNewValueSortOrder] = useState('');
+  const [newValueIsDefault, setNewValueIsDefault] = useState(false);
   const [addingValue, setAddingValue] = useState(false);
 
   // Inline Edit Value Label
@@ -395,6 +406,20 @@ export default function SettingsRegistry({
     }
   }
 
+  /* ─── Copy Category Key Helper ──────────────────────────────── */
+  const handleCopyKey = useCallback((key) => {
+    if (!key) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(key);
+      }
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch (err) {
+      console.warn('Clipboard write failed:', err);
+    }
+  }, []);
+
   /* ─── Value Creation Handler ────────────────────────────────── */
   async function handleAddValue(e) {
     e?.preventDefault();
@@ -409,19 +434,26 @@ export default function SettingsRegistry({
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, '_');
 
+    const calculatedOrder =
+      newValueSortOrder !== ''
+        ? Number(newValueSortOrder)
+        : (activeCategory.values?.length || 0) + 1;
+
     setAddingValue(true);
     try {
       await createValue(activeCategory.id, {
         value: slug,
         label: newValueLabel.trim(),
-        sort_order: (activeCategory.values?.length || 0) + 1,
+        sort_order: isNaN(calculatedOrder) ? 1 : calculatedOrder,
         is_active: true,
-        is_default: false,
+        is_default: Boolean(newValueIsDefault),
       });
 
       notify(`Setting value '${newValueLabel.trim()}' added.`);
       setNewValueSlug('');
       setNewValueLabel('');
+      setNewValueSortOrder('');
+      setNewValueIsDefault(false);
       await fetchAllSettings();
       await fetchAuditLogs();
     } catch (err) {
@@ -579,16 +611,52 @@ export default function SettingsRegistry({
     );
   }
 
-  /* ─── Filtered Categories ───────────────────────────────────── */
-  const filteredCategories = categories.filter((c) => {
-    const query = searchCatQuery.toLowerCase().trim();
-    if (!query) return true;
-    return (
-      (c.name || '').toLowerCase().includes(query) ||
-      (c.key || '').toLowerCase().includes(query) ||
-      (c.module || '').toLowerCase().includes(query)
+  /* ─── Module Filters & Filtered Lists ───────────────────────── */
+  const availableModules = useMemo(() => {
+    const set = new Set(
+      categories.map((c) => (c.module || 'other').toLowerCase()).filter(Boolean)
     );
-  });
+    return ['all', ...Array.from(set).sort()];
+  }, [categories]);
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter((c) => {
+      if (
+        selectedModuleFilter !== 'all' &&
+        (c.module || '').toLowerCase() !== selectedModuleFilter.toLowerCase()
+      ) {
+        return false;
+      }
+      const query = searchCatQuery.toLowerCase().trim();
+      if (!query) return true;
+      return (
+        (c.name || '').toLowerCase().includes(query) ||
+        (c.key || '').toLowerCase().includes(query) ||
+        (c.module || '').toLowerCase().includes(query)
+      );
+    });
+  }, [categories, selectedModuleFilter, searchCatQuery]);
+
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter((log) => {
+      if (
+        auditActionFilter !== 'all' &&
+        (log.action || '').toUpperCase() !== auditActionFilter
+      ) {
+        return false;
+      }
+      if (!auditSearchQuery.trim()) return true;
+      const q = auditSearchQuery.toLowerCase().trim();
+      const userStr = (
+        log.user?.name ||
+        log.user?.email ||
+        `User #${log.changed_by || ''}`
+      ).toLowerCase();
+      const targetType = (log.target_type || '').toLowerCase();
+      const targetId = String(log.target_id || log.setting_value_id || '').toLowerCase();
+      return userStr.includes(q) || targetType.includes(q) || targetId.includes(q);
+    });
+  }, [auditLogs, auditActionFilter, auditSearchQuery]);
 
   return (
     <section className="settings-registry" aria-label="System settings registry">
@@ -605,6 +673,16 @@ export default function SettingsRegistry({
         </div>
 
         <div className="sr-header-actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setShowGuide((prev) => !prev)}
+            title="Toggle first-time user guide"
+          >
+            <Info size={15} />
+            {showGuide ? 'Hide Guide' : 'Quick Guide'}
+          </button>
+
           <button
             type="button"
             className="btn"
@@ -645,6 +723,70 @@ export default function SettingsRegistry({
           </span>
         </div>
       </div>
+
+      {/* ─── First-Time User Onboarding Guide Banner (M17 Core Pillars) ─── */}
+      {showGuide && (
+        <div className="sr-guide-banner" role="region" aria-label="Settings configuration guide">
+          <div className="sr-guide-header">
+            <div className="sr-guide-title">
+              <Info size={18} style={{ color: '#0284c7' }} />
+              <div>
+                <strong>M17 System Settings & Configuration Guide</strong>
+                <span className="sr-guide-sub">Essential platform rules for administrators</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="text-btn sr-guide-dismiss-btn"
+              onClick={() => setShowGuide(false)}
+              title="Dismiss quick guide"
+            >
+              <X size={14} /> Dismiss
+            </button>
+          </div>
+          <div className="sr-guide-grid">
+            <div className="sr-guide-card">
+              <div className="sr-guide-card-icon sys">
+                <LockKey size={16} />
+              </div>
+              <div className="sr-guide-card-text">
+                <h6>System Protection (FR-17.5 & FR-17.3)</h6>
+                <p>Core platform enums (e.g. 53' Dry Van, FTL, Standard Cutoff) are system-defined and cannot be deleted or deactivated, protecting active shipments from corruption.</p>
+              </div>
+            </div>
+
+            <div className="sr-guide-card">
+              <div className="sr-guide-card-icon def">
+                <CheckCircle size={16} />
+              </div>
+              <div className="sr-guide-card-text">
+                <h6>Category Defaults (FR-17.4)</h6>
+                <p>Each category has a primary default value that automatically pre-populates dropdowns in bookings, rate confirmations, and dispatch workflows.</p>
+              </div>
+            </div>
+
+            <div className="sr-guide-card">
+              <div className="sr-guide-card-icon ovr">
+                <Buildings size={16} />
+              </div>
+              <div className="sr-guide-card-text">
+                <h6>Tenant Overrides (FR-17.7)</h6>
+                <p>Organizations can configure custom labels and display order scoped exclusively to their company, without affecting global settings for other tenants.</p>
+              </div>
+            </div>
+
+            <div className="sr-guide-card">
+              <div className="sr-guide-card-icon aud">
+                <Clock size={16} />
+              </div>
+              <div className="sr-guide-card-text">
+                <h6>Real-Time Audit Trail (FR-17.8 & FR-17.9)</h6>
+                <p>All configuration changes immediately propagate across consuming modules and are immutably logged with comprehensive Before/After diffs.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Compact Operational Summary Strip ─────────────────── */}
       <div className="sr-summary-bar">
@@ -703,9 +845,24 @@ export default function SettingsRegistry({
         <aside className="sr-categories-sidebar">
           <div className="sr-sidebar-top">
             <div className="sr-sidebar-title">
-              Setting Categories
-              <span>{filteredCategories.length}</span>
+              <span>Setting Categories</span>
+              <span className="sr-count-pill">{filteredCategories.length}</span>
             </div>
+
+            {/* Module Filter Chips */}
+            <div className="sr-module-filter-bar" role="tablist" aria-label="Filter categories by module">
+              {availableModules.map((mod) => (
+                <button
+                  key={mod}
+                  type="button"
+                  className={`sr-mod-chip ${selectedModuleFilter === mod ? 'active' : ''}`}
+                  onClick={() => setSelectedModuleFilter(mod)}
+                >
+                  {mod === 'all' ? 'All' : mod.charAt(0).toUpperCase() + mod.slice(1)}
+                </button>
+              ))}
+            </div>
+
             <div className="sr-search-input">
               <MagnifyingGlass size={16} />
               <input
@@ -714,6 +871,17 @@ export default function SettingsRegistry({
                 value={searchCatQuery}
                 onChange={(e) => setSearchCatQuery(e.target.value)}
               />
+              {searchCatQuery && (
+                <button
+                  type="button"
+                  className="sr-search-clear-btn"
+                  onClick={() => setSearchCatQuery('')}
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -785,7 +953,7 @@ export default function SettingsRegistry({
               <div className="sr-cat-header">
                 <div className="sr-cat-header-title">
                   <div className="sr-module-badge">
-                    Module: {activeCategory.module} ·{' '}
+                    Module: <strong>{activeCategory.module}</strong> ·{' '}
                     {activeCategory.isSystemDefined ||
                     activeCategory.is_system_defined
                       ? 'Protected System Category'
@@ -796,7 +964,20 @@ export default function SettingsRegistry({
                 </div>
 
                 <div className="sr-cat-header-key">
-                  <code>{activeCategory.key}</code>
+                  <span className="sr-key-label">Category Key</span>
+                  <div className="sr-key-pill">
+                    <code>{activeCategory.key}</code>
+                    <button
+                      type="button"
+                      className="sr-copy-btn"
+                      onClick={() => handleCopyKey(activeCategory.key)}
+                      title="Copy category key to clipboard"
+                      aria-label="Copy category key"
+                    >
+                      {copiedKey ? <Check size={13} color="#16a34a" /> : <Copy size={13} />}
+                      <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1089,7 +1270,7 @@ export default function SettingsRegistry({
                         onSubmit={handleAddValue}
                         className="sr-add-value-form"
                       >
-                        <div className="sr-form-group">
+                        <div className="sr-form-group" style={{ minWidth: '160px' }}>
                           <label>Code / Slug *</label>
                           <input
                             type="text"
@@ -1100,7 +1281,7 @@ export default function SettingsRegistry({
                           />
                         </div>
 
-                        <div className="sr-form-group" style={{ flex: 1 }}>
+                        <div className="sr-form-group" style={{ flex: 2, minWidth: '220px' }}>
                           <label>Display Label *</label>
                           <input
                             type="text"
@@ -1111,11 +1292,33 @@ export default function SettingsRegistry({
                           />
                         </div>
 
+                        <div className="sr-form-group" style={{ width: '100px', flex: '0 0 100px' }}>
+                          <label>Sort Order</label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder={String((activeCategory.values?.length || 0) + 1)}
+                            value={newValueSortOrder}
+                            onChange={(e) => setNewValueSortOrder(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="sr-form-group sr-checkbox-group" style={{ flex: '0 0 auto', alignSelf: 'center', marginBottom: '4px' }}>
+                          <label className="sr-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={newValueIsDefault}
+                              onChange={(e) => setNewValueIsDefault(e.target.checked)}
+                            />
+                            <span>Set as Default Value</span>
+                          </label>
+                        </div>
+
                         <button
                           type="submit"
                           className="btn primary"
                           disabled={addingValue}
-                          style={{ height: '36px' }}
+                          style={{ height: '36px', alignSelf: 'flex-end', marginBottom: '2px' }}
                         >
                           <Plus size={16} />
                           {addingValue ? 'Adding…' : 'Add Value'}
@@ -1338,7 +1541,9 @@ export default function SettingsRegistry({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      marginBottom: '16px',
+                      marginBottom: '14px',
+                      flexWrap: 'wrap',
+                      gap: '12px',
                     }}
                   >
                     <div>
@@ -1347,7 +1552,7 @@ export default function SettingsRegistry({
                       </h3>
                       <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
                         Immutable compliance record of all category, value, and
-                        override changes.
+                        override changes (FR-17.8).
                       </p>
                     </div>
 
@@ -1365,6 +1570,42 @@ export default function SettingsRegistry({
                     </button>
                   </div>
 
+                  {/* Audit Filter & Search Bar */}
+                  <div className="sr-audit-filter-bar">
+                    <div className="sr-audit-action-chips" role="group" aria-label="Filter audit actions">
+                      {['all', 'CREATE', 'UPDATE', 'DEACTIVATE'].map((act) => (
+                        <button
+                          key={act}
+                          type="button"
+                          className={`sr-filter-chip ${auditActionFilter === act ? 'active' : ''}`}
+                          onClick={() => setAuditActionFilter(act)}
+                        >
+                          {act === 'all' ? 'All Actions' : act}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="sr-search-input sr-audit-search">
+                      <MagnifyingGlass size={15} />
+                      <input
+                        type="text"
+                        placeholder="Search audit trail by user, ID, type…"
+                        value={auditSearchQuery}
+                        onChange={(e) => setAuditSearchQuery(e.target.value)}
+                      />
+                      {auditSearchQuery && (
+                        <button
+                          type="button"
+                          className="sr-search-clear-btn"
+                          onClick={() => setAuditSearchQuery('')}
+                          title="Clear search"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="sr-table-wrap">
                     <table className="sr-table sr-audit-table">
                       <thead>
@@ -1378,8 +1619,8 @@ export default function SettingsRegistry({
                         </tr>
                       </thead>
                       <tbody>
-                        {auditLogs.length > 0 ? (
-                          auditLogs.map((log) => (
+                        {filteredAuditLogs.length > 0 ? (
+                          filteredAuditLogs.map((log) => (
                             <tr key={log.id}>
                               <td style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>
                                 {formatDate(log.changed_at || log.created_at)}
@@ -1440,7 +1681,9 @@ export default function SettingsRegistry({
                             >
                               <Clock size={32} style={{ margin: '0 auto 8px' }} />
                               <p style={{ margin: 0 }}>
-                                No audit log records found.
+                                {auditSearchQuery || auditActionFilter !== 'all'
+                                  ? 'No matching audit records found for the applied filter.'
+                                  : 'No audit log records found.'}
                               </p>
                             </td>
                           </tr>
@@ -1564,15 +1807,17 @@ export default function SettingsRegistry({
           onClose={() => setModal(null)}
         >
           <div style={{ padding: '8px 0' }}>
-            <p style={{ margin: '0 0 12px 0', fontSize: '14px', lineHeight: 1.5 }}>
+            <p style={{ margin: '0 0 14px 0', fontSize: '14px', lineHeight: 1.5 }}>
               Are you sure you want to deactivate the setting value{' '}
               <strong>"{modal.value?.label}"</strong> (
               <code>{modal.value?.value}</code>)?
             </p>
-            <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', lineHeight: 1.4 }}>
-              Deactivating will exclude this option from new shipment bookings, quotes,
-              and load selections. Historical records will retain their references.
-            </p>
+            <div className="sr-deactivate-notice">
+              <Info size={18} style={{ color: '#0284c7', flexShrink: 0, marginTop: '1px' }} />
+              <div>
+                <strong>Soft Deactivation (FR-17.3):</strong> Deactivating will exclude this option from new shipment bookings, quotes, and dispatch dropdowns. To maintain absolute data integrity, all historical shipments, billing records, and audit logs will continue to resolve this value.
+              </div>
+            </div>
 
             <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button
@@ -1811,13 +2056,21 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
   function formatKeyLabel(key) {
     if (!key) return '';
     const lower = String(key).toLowerCase();
-    if (lower === 'org_id' || lower === 'orgid' || lower === 'organization_id') return 'Organization';
-    if (lower === 'category_id' || lower === 'categoryid') return 'Category';
-    if (lower === 'is_active' || lower === 'isactive') return 'Active';
+    if (lower === 'org_id' || lower === 'orgid' || lower === 'organization_id') return 'Organization Scope';
+    if (lower === 'category_id' || lower === 'categoryid') return 'Setting Category';
+    if (lower === 'is_active' || lower === 'isactive') return 'Active Status';
+    if (lower === 'is_default' || lower === 'isdefault') return 'Default Option';
+    if (lower === 'is_system_defined' || lower === 'issystemdefined') return 'System Protection';
     if (lower === 'sort_order' || lower === 'sortorder') return 'Sort Order';
     if (lower === 'setting_value_id') return 'Setting Value ID';
     if (lower === 'created_at' || lower === 'createdat') return 'Created At';
     if (lower === 'updated_at' || lower === 'updatedat') return 'Updated At';
+    if (lower === 'value') return 'Value Code (Slug)';
+    if (lower === 'label') return 'Display Label';
+    if (lower === 'module') return 'Module Group';
+    if (lower === 'name') return 'Category Name';
+    if (lower === 'key') return 'Category Key';
+    if (lower === 'description') return 'Description';
     return String(key)
       .replace(/([A-Z])/g, ' $1')
       .replace(/_/g, ' ')
@@ -1825,39 +2078,110 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  function formatHumanValue(val) {
+  function formatHumanReadableValue(key, val) {
     if (val === null || val === undefined) {
-      return <span className="sr-diff-val-empty">—</span>;
+      return <span className="sr-diff-val-empty">— (Not set)</span>;
     }
+    const keyLower = String(key || '').toLowerCase();
+
     if (typeof val === 'boolean') {
+      if (keyLower.includes('active')) {
+        return (
+          <span className={`sr-val-badge ${val ? 'active' : 'inactive'}`}>
+            {val ? 'Active' : 'Inactive (Deactivated)'}
+          </span>
+        );
+      }
+      if (keyLower.includes('default')) {
+        return (
+          <span className={`sr-val-badge ${val ? 'default' : 'standard'}`}>
+            {val ? 'Default (Pre-selected)' : 'Standard Option'}
+          </span>
+        );
+      }
+      if (keyLower.includes('system')) {
+        return (
+          <span className={`sr-val-badge ${val ? 'sys' : 'custom'}`}>
+            {val ? 'System Protected (Core Enum)' : 'Admin-Defined Custom Value'}
+          </span>
+        );
+      }
       return (
-        <span className={`sr-diff-val-bool ${val ? 'true' : 'false'}`}>
+        <span className={`sr-val-badge ${val ? 'true' : 'false'}`}>
           {val ? 'Yes' : 'No'}
         </span>
       );
     }
+
+    if (keyLower.includes('created_at') || keyLower.includes('updated_at') || keyLower.includes('changed_at')) {
+      return <span className="sr-diff-val-text">{formatDate(val)}</span>;
+    }
+
+    if (keyLower === 'sort_order' || keyLower === 'sortorder') {
+      return <span className="sr-val-badge order">Position #{val}</span>;
+    }
+
+    if (keyLower === 'value') {
+      return <code className="sr-diff-prop-code">{String(val)}</code>;
+    }
+
+    if (keyLower === 'category_id' || keyLower === 'categoryid') {
+      const matchCat = categories.find((c) => String(c.id) === String(val));
+      if (matchCat) {
+        return (
+          <span className="sr-diff-val-text">
+            <strong>{matchCat.name}</strong> <small style={{ color: '#64748b' }}>({matchCat.key})</small>
+          </span>
+        );
+      }
+      return <span className="sr-diff-val-text">Category #{val}</span>;
+    }
+
+    if (keyLower === 'org_id' || keyLower === 'organization_id') {
+      return <span className="sr-diff-val-text">Organization #{val}</span>;
+    }
+
     if (Array.isArray(val)) {
-      if (val.length === 0) return <span className="sr-diff-val-empty">Empty list</span>;
-      const allPrimitives = val.every((v) => typeof v !== 'object' || v === null);
-      if (allPrimitives) {
-        return val.map((v) => (v === null ? 'null' : String(v))).join(', ');
-      }
-      return <code className="sr-diff-code-inline">{JSON.stringify(val)}</code>;
+      if (val.length === 0) return <span className="sr-diff-val-empty">None (Empty list)</span>;
+      return (
+        <div className="sr-diff-val-tags">
+          {val.map((item, idx) => (
+            <span key={idx} className="sr-diff-tag-pill">
+              {typeof item === 'object' && item !== null
+                ? (item.label || item.name || item.value || `Item ${idx + 1}`)
+                : String(item)}
+            </span>
+          ))}
+        </div>
+      );
     }
+
     if (typeof val === 'object') {
-      try {
-        return <code className="sr-diff-code-inline">{JSON.stringify(val)}</code>;
-      } catch {
-        return String(val);
-      }
+      const entries = Object.entries(val);
+      if (entries.length === 0) return <span className="sr-diff-val-empty">Empty</span>;
+      return (
+        <div className="sr-diff-val-nested">
+          {entries.map(([k, v]) => (
+            <div key={k} className="sr-diff-nested-item">
+              <span className="sr-diff-nested-key">{formatKeyLabel(k)}:</span>
+              <span className="sr-diff-nested-val">
+                {typeof v === 'boolean'
+                  ? (v ? 'Yes' : 'No')
+                  : typeof v === 'object'
+                  ? String(v?.label || v?.name || v?.value || '—')
+                  : String(v)}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
     }
-    return String(val);
+
+    return <span className="sr-diff-val-text">{String(val)}</span>;
   }
 
-  const isOldObj =
-    oldParsed !== null && typeof oldParsed === 'object' && !Array.isArray(oldParsed);
-  const isNewObj =
-    newParsed !== null && typeof newParsed === 'object' && !Array.isArray(newParsed);
+  const isOldObj = oldParsed !== null && typeof oldParsed === 'object' && !Array.isArray(oldParsed);
+  const isNewObj = newParsed !== null && typeof newParsed === 'object' && !Array.isArray(newParsed);
   const isObjectDiff = isOldObj || isNewObj;
 
   // Resolve property keys for breakdown table
@@ -1923,25 +2247,6 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
     return { type: 'unchanged', label: 'Unchanged', className: 'sr-diff-tag unchanged' };
   }
 
-  function renderVal(val) {
-    if (val === null || val === undefined) {
-      return <span className="sr-diff-val-empty">null</span>;
-    }
-    if (typeof val === 'boolean') {
-      return (
-        <span className={`sr-diff-val-bool ${val ? 'true' : 'false'}`}>
-          {val ? 'true' : 'false'}
-        </span>
-      );
-    }
-    if (typeof val === 'object') {
-      return (
-        <code className="sr-diff-code-inline">{JSON.stringify(val)}</code>
-      );
-    }
-    return <span className="sr-diff-val-text">{String(val)}</span>;
-  }
-
   return (
     <ModalShell title="Audit Change Details" onClose={onClose} wide={true}>
       <div className="sr-diff-modal-body">
@@ -1992,7 +2297,7 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
             <span className="sr-diff-meta-label">Performed By</span>
             <span className="sr-diff-meta-value">
               <strong>
-                {log.user?.name || (log.changed_by ? `User #${log.changed_by}` : 'System')}
+                {log.user?.name || (log.changed_by ? `User #${log.changed_by}` : 'System Administrator')}
               </strong>
               {log.user?.email && (
                 <span className="sr-diff-meta-sub">{log.user.email}</span>
@@ -2015,36 +2320,44 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
           <div className="sr-diff-empty-state">
             <Clock size={36} style={{ color: '#94a3b8', margin: '0 auto 8px' }} />
             <p className="sr-diff-empty-title">
-              No detailed change information is available for this audit record.
+              No detailed before/after snapshot is available for this audit entry.
             </p>
             <span className="sr-diff-empty-sub">
-              This action was logged without explicit before/after payload snapshots.
+              This action was logged without explicit payload snapshots.
             </span>
           </div>
         ) : (
           <div className="sr-diff-content">
             {/* Side-by-Side Before vs After Panels */}
             <div className="sr-diff-panels">
+              {/* Previous State Panel */}
               <div className="sr-diff-panel before">
                 <div className="sr-diff-panel-header">
-                  <span className="sr-diff-panel-title">Before (Previous State)</span>
+                  <span className="sr-diff-panel-title">Previous State (Before)</span>
                   {oldParsed === null && (
                     <span className="sr-diff-panel-pill">Initial Record Creation</span>
                   )}
                 </div>
                 <div className="sr-diff-panel-body">
                   {oldParsed === null || oldParsed === undefined ? (
-                    <div className="sr-diff-empty-panel">
-                      No previous state exists (new item was created)
+                    <div className="sr-diff-empty-panel create">
+                      <CheckCircle size={26} style={{ color: '#059669', marginBottom: '6px' }} />
+                      <strong style={{ display: 'block', color: '#0f172a', marginBottom: '2px' }}>
+                        Initial Record Creation
+                      </strong>
+                      <span>This record was newly created. No prior configuration state existed in the database.</span>
                     </div>
                   ) : typeof oldParsed === 'object' ? (
                     <div className="sr-diff-summary-list">
-                      {Object.entries(oldParsed).map(([key, val]) => (
-                        <div key={key} className="sr-diff-summary-row">
-                          <span className="sr-diff-summary-key">{formatKeyLabel(key)}</span>
-                          <span className="sr-diff-summary-val">{formatHumanValue(val)}</span>
-                        </div>
-                      ))}
+                      {Object.entries(oldParsed).map(([key, val]) => {
+                        const isModified = newParsed && JSON.stringify(val) !== JSON.stringify(newParsed[key]);
+                        return (
+                          <div key={key} className={`sr-diff-summary-row ${isModified ? 'was-changed' : ''}`}>
+                            <span className="sr-diff-summary-key">{formatKeyLabel(key)}</span>
+                            <span className="sr-diff-summary-val">{formatHumanReadableValue(key, val)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="sr-diff-summary-list">
@@ -2057,26 +2370,37 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
                 </div>
               </div>
 
+              {/* Updated State Panel */}
               <div className="sr-diff-panel after">
                 <div className="sr-diff-panel-header">
-                  <span className="sr-diff-panel-title">After (New State)</span>
-                  {newParsed === null && (
-                    <span className="sr-diff-panel-pill warn">Record Removed / Deactivated</span>
+                  <span className="sr-diff-panel-title">Updated State (After)</span>
+                  {(newParsed === null || log.action === 'DEACTIVATE' || log.action === 'DELETE') && (
+                    <span className="sr-diff-panel-pill warn">Record Deactivated / Soft-Disabled</span>
                   )}
                 </div>
                 <div className="sr-diff-panel-body">
                   {newParsed === null || newParsed === undefined ? (
-                    <div className="sr-diff-empty-panel">
-                      No new state exists (item deactivated or deleted)
+                    <div className="sr-diff-empty-panel delete">
+                      <WarningCircle size={26} style={{ color: '#dc2626', marginBottom: '6px' }} />
+                      <strong style={{ display: 'block', color: '#0f172a', marginBottom: '2px' }}>
+                        Record Deactivated / Removed
+                      </strong>
+                      <span>This configuration entry was deactivated and excluded from active dropdown selections.</span>
                     </div>
                   ) : typeof newParsed === 'object' ? (
                     <div className="sr-diff-summary-list">
-                      {Object.entries(newParsed).map(([key, val]) => (
-                        <div key={key} className="sr-diff-summary-row">
-                          <span className="sr-diff-summary-key">{formatKeyLabel(key)}</span>
-                          <span className="sr-diff-summary-val">{formatHumanValue(val)}</span>
-                        </div>
-                      ))}
+                      {Object.entries(newParsed).map(([key, val]) => {
+                        const isModified = oldParsed && JSON.stringify(val) !== JSON.stringify(oldParsed[key]);
+                        return (
+                          <div key={key} className={`sr-diff-summary-row ${isModified ? 'is-modified' : ''}`}>
+                            <span className="sr-diff-summary-key">
+                              {formatKeyLabel(key)}
+                              {isModified && <span className="sr-diff-changed-pill">Updated</span>}
+                            </span>
+                            <span className="sr-diff-summary-val">{formatHumanReadableValue(key, val)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="sr-diff-summary-list">
@@ -2090,60 +2414,64 @@ function ChangeDiffModal({ log, categories = [], onClose }) {
               </div>
             </div>
 
-            {/* Property-by-Property Breakdown Table */}
+            {/* Property-Level Breakdown Table */}
             {isObjectDiff && fieldKeys.length > 0 && (
               <div className="sr-diff-fields-section">
                 <div className="sr-diff-fields-header">
-                  <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--ink, #102247)' }}>
-                    Property-Level Breakdown
-                  </h4>
+                  <div>
+                    <h4 className="sr-diff-fields-title">Property-Level Breakdown</h4>
+                    <p className="sr-diff-fields-subtitle">
+                      Human-readable comparison detailing exact values before and after this configuration event.
+                    </p>
+                  </div>
                   <span className="sr-diff-fields-count">
                     {fieldKeys.length} {fieldKeys.length === 1 ? 'property' : 'properties'} evaluated
                   </span>
                 </div>
 
-                <div className="sr-table-wrap" style={{ marginTop: '10px' }}>
+                <div className="sr-table-wrap" style={{ marginTop: '12px' }}>
                   <table className="sr-table sr-diff-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '180px' }}>Property</th>
-                        <th style={{ width: '110px' }}>Status</th>
-                        <th>Before</th>
-                        <th>After</th>
+                        <th style={{ width: '220px' }}>Property</th>
+                        <th style={{ width: '120px' }}>Change Type</th>
+                        <th>Previous State (Before)</th>
+                        <th>Updated State (After)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {fieldKeys.map((key) => {
                         const status = getFieldStatus(key);
-                        const vOld =
-                          oldParsed && Object.prototype.hasOwnProperty.call(oldParsed, key)
-                            ? oldParsed[key]
-                            : undefined;
-                        const vNew =
-                          newParsed && Object.prototype.hasOwnProperty.call(newParsed, key)
-                            ? newParsed[key]
-                            : undefined;
+                        const vOld = oldParsed && Object.prototype.hasOwnProperty.call(oldParsed, key)
+                          ? oldParsed[key]
+                          : undefined;
+                        const vNew = newParsed && Object.prototype.hasOwnProperty.call(newParsed, key)
+                          ? newParsed[key]
+                          : undefined;
 
                         return (
                           <tr key={key} className={`sr-diff-row ${status.type}`}>
                             <td>
-                              <code className="sr-diff-prop-code">{key}</code>
+                              <div className="sr-diff-prop-cell">
+                                <strong className="sr-diff-prop-title">{formatKeyLabel(key)}</strong>
+                                <code className="sr-diff-prop-code">{key}</code>
+                              </div>
                             </td>
                             <td>
                               <span className={status.className}>{status.label}</span>
                             </td>
-                            <td className="sr-diff-cell before">
+                            <td className={`sr-diff-cell before ${status.type === 'modified' ? 'modified-old' : ''}`}>
                               {vOld !== undefined ? (
-                                renderVal(vOld)
+                                formatHumanReadableValue(key, vOld)
                               ) : (
-                                <span className="sr-diff-val-empty">—</span>
+                                <span className="sr-diff-val-empty">— (Not set)</span>
                               )}
                             </td>
-                            <td className="sr-diff-cell after">
+                            <td className={`sr-diff-cell after ${status.type === 'modified' ? 'modified-new' : ''}`}>
                               {vNew !== undefined ? (
-                                renderVal(vNew)
+                                formatHumanReadableValue(key, vNew)
                               ) : (
-                                <span className="sr-diff-val-empty">—</span>
+                                <span className="sr-diff-val-empty">— (Removed)</span>
                               )}
                             </td>
                           </tr>

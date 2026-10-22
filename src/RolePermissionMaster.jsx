@@ -37,9 +37,10 @@ const ACTIONS = [
   { id: 'delete', label: 'Delete', tooltip: 'Remove or archive records' },
 ];
 
-export default function RolePermissionMaster({ hasPermission, notify, currentRoleName }) {
-  const canRead = hasPermission('roles', 'read');
-  const canUpdate = hasPermission('roles', 'update');
+export default function RolePermissionMaster({ hasPermission = () => false, notify = () => {}, currentRoleName }) {
+  const checkPerm = (m, a) => (typeof hasPermission === 'function' ? hasPermission(m, a) : false);
+  const canRead = checkPerm('roles', 'read');
+  const canUpdate = checkPerm('roles', 'update');
 
   const [roles, setRoles] = useState([]);
   const [selectedRoleId, setSelectedRoleId] = useState(null);
