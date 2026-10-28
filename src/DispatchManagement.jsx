@@ -30,7 +30,8 @@ import {
   NavigationArrow,
   CaretUp,
   CaretDown,
-  Briefcase
+  Briefcase,
+  Broadcast
 } from '@phosphor-icons/react';
 import {
   getDispatchBoard,
@@ -55,6 +56,7 @@ import {
   RouteSimulationModal,
   LtlConsolidationModal
 } from './RoutePlanningModals';
+import DocumentsPanel from './DocumentsPanel.jsx';
 import './styles/dispatchManagement.css';
 
 export default function DispatchManagement({
@@ -70,6 +72,7 @@ export default function DispatchManagement({
   onNavigateToJob = null,
   onNavigateToShipment = null,
   onNavigateToBooking = null,
+  onNavigateToTracking = null,
 }) {
   // Roles & Permissions
   const isDriver = currentRoleName === 'Driver';
@@ -141,6 +144,7 @@ export default function DispatchManagement({
   const [reassignModalLoad, setReassignModalLoad] = useState(null);
   const [checkCallModalLoad, setCheckCallModalLoad] = useState(null);
   const [milestonesModalLoad, setMilestonesModalLoad] = useState(null);
+  const [docsModalLoad, setDocsModalLoad] = useState(null);
   const [exceptionModalLoad, setExceptionModalLoad] = useState(null);
   const [resolveExceptionTarget, setResolveExceptionTarget] = useState(null);
 
@@ -885,6 +889,18 @@ export default function DispatchManagement({
                 <MapPin size={14} /> Check-Calls
               </button>
 
+              {onNavigateToTracking && (
+                <button
+                  type="button"
+                  className="disp-btn-sm"
+                  style={{ color: '#2563eb', fontWeight: 600 }}
+                  onClick={() => onNavigateToTracking(load.id)}
+                  title="Open Real-Time Tracking, Geofences & Telematics (M8)"
+                >
+                  <Broadcast size={14} /> Tracking (M8)
+                </button>
+              )}
+
               <button
                 type="button"
                 className="disp-btn-sm"
@@ -892,6 +908,15 @@ export default function DispatchManagement({
                 title="Stop-level Arrival & Departure Milestones"
               >
                 <CalendarCheck size={14} /> Milestones
+              </button>
+
+              <button
+                type="button"
+                className="disp-btn-sm"
+                onClick={() => setDocsModalLoad(load)}
+                title="Shipment Documents & Compliance"
+              >
+                <FileText size={14} /> Documents
               </button>
 
               {canReassign && (
@@ -1482,6 +1507,17 @@ export default function DispatchManagement({
                                 >
                                   Check-Calls
                                 </button>
+                                {onNavigateToTracking && (
+                                  <button
+                                    type="button"
+                                    className="disp-btn-sm"
+                                    style={{ color: '#2563eb', fontWeight: 600 }}
+                                    onClick={() => onNavigateToTracking(s.id)}
+                                    title="Open Real-Time Tracking (M8)"
+                                  >
+                                    Tracking (M8)
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   className="disp-btn-sm"
@@ -2719,6 +2755,51 @@ export default function DispatchManagement({
           availableVehicles={availableVehicles}
           notify={notify}
         />
+      )}
+
+      {/* Module M10 Documents Modal */}
+      {docsModalLoad && (
+        <div className="disp-modal-overlay" onClick={() => setDocsModalLoad(null)}>
+          <div className="disp-modal-box wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '980px', width: '100%' }}>
+            <div className="disp-modal-header">
+              <div className="disp-modal-title">
+                <h2>Shipment Documents & Compliance</h2>
+                <p>
+                  Shipment #{docsModalLoad.reference_number || docsModalLoad.id} · BOL, Rate Confirmation, POD, and legal signatures
+                </p>
+              </div>
+              <button
+                type="button"
+                className="disp-modal-close"
+                onClick={() => setDocsModalLoad(null)}
+              >
+                <X />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', overflowY: 'auto', maxHeight: '78vh' }}>
+              <DocumentsPanel
+                shipmentId={docsModalLoad.id}
+                shipment={docsModalLoad}
+                hasPermission={hasPermission}
+                role={currentRoleName}
+                currentUser={currentUser}
+                notify={notify}
+                onClose={() => setDocsModalLoad(null)}
+              />
+            </div>
+
+            <div className="disp-modal-footer">
+              <button
+                type="button"
+                className="disp-btn-sm"
+                onClick={() => setDocsModalLoad(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

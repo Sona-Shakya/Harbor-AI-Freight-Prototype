@@ -1,5 +1,5 @@
-import React, {useEffect,useRef,useState,useMemo} from 'react';
-import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings,GitBranch,IdentificationBadge,Anchor,Package,ArrowsClockwise,Briefcase} from '@phosphor-icons/react';
+import React, {useEffect,useRef,useState,useMemo,useCallback} from 'react';
+import {ArrowUp,ArrowRight,Plus,House,Stack,UsersThree,GearSix,FileText,Paperclip,X,Check,CheckCircle,Clock,Info,CaretLeft,CaretRight,CaretDown,CaretUp,ArrowSquareOut,ChatCircleDots,MagnifyingGlass,DownloadSimple,WarningCircle,Boat,WaveSine,SignOut,CalendarBlank,ClipboardText,ShieldCheck,Cube,Receipt,Path,Tag,Truck,Files,Calculator,Umbrella,Handshake,ChartBar,ShoppingBag,ShoppingCart,CalendarCheck,MapPin,SquaresFour,NotePencil,ArrowCounterClockwise,List,Trash,EnvelopeSimple,Eye,EyeSlash,LockKey,Buildings,GitBranch,IdentificationBadge,Anchor,Package,ArrowsClockwise,Briefcase,Broadcast} from '@phosphor-icons/react';
 import {modules,labels,numeric,dates,initialRecords,seedMissions,seedSettingCategories,money,TODAY} from './data';
 import SettingsRegistry from './SettingsRegistry';
 import UserManagement from './UserManagement';
@@ -18,6 +18,7 @@ import QuoteRateManagement from './QuoteRateManagement';
 import './styles/quotingRate.css';
 import CarrierFleetManagement from './CarrierFleetManagement';
 import './styles/carrierFleet.css';
+import { isFleetPermittedForOrg } from './services/fleetAccess';
 import BookingManagement from './BookingManagement';
 import ShipmentManagement from './ShipmentManagement';
 import JobManagement from './JobManagement';
@@ -26,17 +27,31 @@ import DispatchManagement from './DispatchManagement';
 import './styles/dispatchManagement.css';
 import CustomerPortal from './CustomerPortal';
 import './styles/customerPortal.css';
+import InvoiceManagement from './InvoiceManagement';
+import './styles/invoiceManagement.css';
 import LoginOtpScreen from './LoginOtpScreen.jsx';
 import AcceptInvitation from './AcceptInvitation.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
 import VerifyResetOtp from './VerifyResetOtp.jsx';
 import ResetPassword from './ResetPassword.jsx';
+import RegisterScreen from './RegisterScreen.jsx';
+import PublicTrackingScreen from './PublicTrackingScreen.jsx';
+import PublicSharedDocumentScreen from './PublicSharedDocumentScreen.jsx';
+import TrackingVisibilityConsole from './TrackingVisibilityConsole.jsx';
 import Dashboard from './Dashboard.jsx';
 import {login as apiLogin, getProfile, getUserOrganizations, switchOrganizationContext, getShipments, getDispatchBoard, clearGetCache} from './api';
 import * as authService from './services/authService';
+import {
+  clearActiveOrgRoleSelection,
+  clearPersistedWorkspaceState,
+  findActiveOrgRoleIndex,
+  readActiveOrgRoleSelection,
+  saveActiveOrgRoleSelection,
+  stripPersistedUserContext,
+} from './services/sessionIsolation';
 const icons={SquaresFour,UsersThree,Cube,ShoppingBag,ShoppingCart,Path,ChatCircleDots,Tag,CalendarCheck,Boat,MapPin,Truck,Files,ShieldCheck,Calculator,Receipt,Umbrella,Handshake,ChartBar,GearSix,Buildings,GitBranch,IdentificationBadge,Anchor,Package,Briefcase};
 const STORE='harbor-demo-v1';
-const load=()=>{try {return JSON.parse(sessionStorage.getItem(STORE))||{}}catch{return {}}};
+const load=()=>{try {return stripPersistedUserContext(JSON.parse(sessionStorage.getItem(STORE))||{})}catch{return {}}};
 const uid=p=>p+'-'+Array.from(crypto.getRandomValues(new Uint8Array(4)),v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
 const display=(k,v)=>v===''||v==null?'Not confirmed':numeric.includes(k)&&['amount','actual','expected','duty','destinationCharge'].includes(k)?money(v):dates.includes(k)?new Date(v+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):String(v);
 function Badge({children}){const c=/^(approved|approved locally|active|confirmed|delivered|final|resolved|valid|paid|settled|reviewed|ready|reconciled|complete|selected)$/i.test(children)?'green':/pending|review|correction|incomplete|exception|disputed|awaiting/i.test(children)?'amber':'gray';return <span className={'badge '+c}>{children}</span>}
@@ -44,6 +59,13 @@ function Btn({children,onClick,primary=false,disabled=false,className='',...prop
 const moduleGroups=['Workspace','Orders','Freight','Operations','Finance','Network'];
 
 const MODULE_METADATA = {
+  dashboard: {
+    category: 'Workspace & Overview',
+    name: 'Executive Operations Dashboard',
+    desc: 'Real-time freight metrics, active shipments, fleet readiness, and high-priority exception alerts.',
+    nextModule: 'shipments',
+    nextLabel: 'Manage Shipments ➔',
+  },
   shipments: {
     category: 'Transportation Operations',
     name: 'Shipments',
@@ -69,6 +91,13 @@ const MODULE_METADATA = {
     category: 'Transportation Operations',
     name: 'Dispatch & Execution Board',
     desc: 'Assign drivers and equipment, track en-route milestones, and record delivery PODs.',
+    nextModule: 'tracking',
+    nextLabel: 'Next: Real-Time Tracking ➔',
+  },
+  tracking: {
+    category: 'Transportation Operations',
+    name: 'Real-Time Tracking & Visibility (M8)',
+    desc: 'Live GPS mapping, telematics ingestion, geofence boundary milestones, and corridor deviation alerts.',
   },
   quotes: {
     category: 'Commercial & Load Discovery',
@@ -171,8 +200,14 @@ const MODULE_METADATA = {
     name: 'Landed Cost Calculator',
     desc: 'Cost estimation worksheets, freight allocation, and landed cargo unit economics.',
   },
+  invoices: {
+    category: 'Finance & Billing',
+    name: 'Invoices & AR Aging',
+    desc: 'Operational freight billing, invoice reconciliation, and 30/60/90-day accounts receivable aging.',
+  },
 };
-function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
+function ModuleNavigation({moduleId,view,records,openModule,hasPermission,role,currentOrg,profile}){
+  const isDashboardSelected = view === 'records' && moduleId === 'dashboard';
   const isAdminSelected = view === 'records' && moduleId === 'admin';
   const isUsersSelected = view === 'records' && moduleId === 'users';
   const isRolesSelected = view === 'records' && moduleId === 'roles';
@@ -186,22 +221,35 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const isDriversSelected = view === 'records' && moduleId === 'drivers';
   const isLoadBoardSelected = view === 'records' && moduleId === 'load_board';
   const isQuotesSelected = view === 'records' && (moduleId === 'quotes' || moduleId === 'rates');
+  const isCostsSelected = view === 'records' && moduleId === 'costs';
   const isFleetSelected = view === 'records' && (moduleId === 'fleet' || moduleId === 'carrier_fleet');
   const isBookingsSelected = view === 'records' && moduleId === 'bookings';
   const isJobsSelected = view === 'records' && moduleId === 'jobs';
   const isShipmentsSelected = view === 'records' && moduleId === 'shipments';
   const isDispatchSelected = view === 'records' && (moduleId === 'dispatch' || moduleId === 'dispatches');
+  const isTrackingSelected = view === 'records' && moduleId === 'tracking';
   const isPortalSelected = view === 'records' && (moduleId === 'portal' || moduleId === 'customer_portal');
+  const isInvoicesSelected = view === 'records' && (moduleId === 'invoices' || moduleId === 'billing');
+  const isReportsSelected = view === 'records' && moduleId === 'reports';
 
-  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected || isQuotesSelected || isFleetSelected || isBookingsSelected || isJobsSelected || isShipmentsSelected || isDispatchSelected || isPortalSelected;
+  const isChildActive = isUsersSelected || isRolesSelected || isOrgSelected || isCustomersSelected || isVendorsSelected || isBranchesSelected || isAgentsSelected || isPortsSelected || isCfsSelected || isDriversSelected || isLoadBoardSelected || isQuotesSelected || isCostsSelected || isFleetSelected || isBookingsSelected || isJobsSelected || isShipmentsSelected || isDispatchSelected || isTrackingSelected || isPortalSelected || isInvoicesSelected || isReportsSelected;
 
+  const canReadDashboard = true;
   const canReadSettings = hasPermission('system_settings', 'read');
   const canReadLoadBoard = hasPermission('load_board', 'read');
   const canReadQuotes = hasPermission('quotes', 'read') || hasPermission('rates', 'read') || hasPermission('rate_agreements', 'read');
-  const canReadFleet = hasPermission('vehicles', 'read') || hasPermission('fleet', 'read') || hasPermission('fleet_assignments', 'read') || hasPermission('hos_logs', 'read');
+  const canReadCosts = true;
+  const canReadFleet = isFleetPermittedForOrg({
+    roleName: role?.name,
+    orgType: currentOrg?.type || profile?.organization?.type,
+    hasPermission,
+  });
   const canReadBookings = hasPermission('shipments', 'read') || hasPermission('bookings', 'read');
   const canReadJobs = hasPermission('jobs', 'read') || hasPermission('shipments', 'read') || hasPermission('bookings', 'read') || hasPermission('dispatch', 'read');
   const canReadDispatch = hasPermission('dispatch', 'read') || hasPermission('dispatches', 'read') || hasPermission('shipments', 'read') || hasPermission('tracking', 'read');
+  const canReadTracking = hasPermission('tracking', 'read') || hasPermission('shipments', 'read') || hasPermission('dispatch', 'read') || ['Platform Admin', 'Company Admin', 'Carrier Admin', 'Dispatcher', 'Shipper User'].includes(role?.name);
+  const canReadInvoices = hasPermission('invoices', 'read') || hasPermission('billing', 'read');
+  const canReadReports = true;
   const canReadUsers = hasPermission('users', 'read');
   const canReadRoles = hasPermission('roles', 'read');
   const canReadOrg = hasPermission('organizations', 'read');
@@ -217,9 +265,10 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   const canReadCompanyAndAccess = canReadOrg || canReadBranches || canReadUsers || canReadRoles;
   const canReadBusinessPartners = canReadCustomers || canReadPortal || canReadVendors || canReadAgents || canReadFleet || canReadDrivers;
   const canReadLocationsAndNetwork = canReadPorts || canReadCfs;
-  const canReadCommercial = canReadQuotes || canReadLoadBoard;
+  const canReadCommercial = canReadQuotes || canReadLoadBoard || canReadCosts;
   const canReadOperations = canReadBookings || canReadJobs || canReadDispatch;
-  const canReadManage = canReadCompanyAndAccess || canReadBusinessPartners || canReadLocationsAndNetwork || canReadCommercial || canReadOperations;
+  const canReadFinance = canReadInvoices || canReadReports;
+  const canReadManage = canReadCompanyAndAccess || canReadBusinessPartners || canReadLocationsAndNetwork || canReadCommercial || canReadOperations || canReadFinance;
 
   const [manageOpen, setManageOpen] = useState(true);
 
@@ -261,6 +310,21 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
   return (
     <nav className="module-navigation" aria-label="Freight modules">
       <section className="module-nav-group">
+        {/* Dashboard */}
+        {canReadDashboard && (
+          <button
+            key="dashboard"
+            type="button"
+            className={'module-nav-item ' + (isDashboardSelected ? 'selected' : '')}
+            aria-current={isDashboardSelected ? 'page' : undefined}
+            title="Executive Operations Dashboard"
+            onClick={() => openModule('dashboard')}
+          >
+            <SquaresFour size={20} />
+            <span>Dashboard</span>
+          </button>
+        )}
+
         {/* Manage section */}
         {canReadManage && (
           <div className="manage-group masters-group">
@@ -499,6 +563,19 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         <span>Find Loads</span>
                       </button>
                     )}
+
+                    {canReadCosts && (
+                      <button
+                        key="costs"
+                        className={'module-nav-item sub-item ' + (isCostsSelected ? 'selected' : '')}
+                        aria-current={isCostsSelected ? 'page' : undefined}
+                        title="Landed Cost Calculator - Commercial Cargo Costing"
+                        onClick={() => openModule('costs')}
+                      >
+                        <Calculator size={20} />
+                        <span>Landed Costs</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -557,6 +634,51 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
                         <span>Dispatch</span>
                       </button>
                     )}
+
+                    {canReadTracking && (
+                      <button
+                        key="tracking"
+                        className={'module-nav-item sub-item ' + (isTrackingSelected ? 'selected' : '')}
+                        aria-current={isTrackingSelected ? 'page' : undefined}
+                        title="Real-Time Tracking & Visibility (M8) - Live GPS, Geofences & Alerts"
+                        onClick={() => openModule('tracking')}
+                      >
+                        <Broadcast size={20} />
+                        <span>Tracking (M8)</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* F. Finance & Billing */}
+                {canReadFinance && (
+                  <div className="nav-subgroup">
+                    <div className="nav-subgroup-label">Finance & Billing</div>
+                    {canReadInvoices && (
+                      <button
+                        key="invoices"
+                        className={'module-nav-item sub-item ' + (isInvoicesSelected ? 'selected' : '')}
+                        aria-current={isInvoicesSelected ? 'page' : undefined}
+                        title="Invoices & AR Aging - Freight Invoicing & Accounts Receivable"
+                        onClick={() => openModule('invoices')}
+                      >
+                        <Receipt size={20} />
+                        <span>Invoices & AR Aging</span>
+                      </button>
+                    )}
+
+                    {canReadReports && (
+                      <button
+                        key="reports"
+                        className={'module-nav-item sub-item ' + (isReportsSelected ? 'selected' : '')}
+                        aria-current={isReportsSelected ? 'page' : undefined}
+                        title="Reports & Analytics - Operational & Financial Performance"
+                        onClick={() => openModule('reports')}
+                      >
+                        <ChartBar size={20} />
+                        <span>Reports & Analytics</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -584,7 +706,7 @@ function ModuleNavigation({moduleId,view,records,openModule,hasPermission}){
 function Modal({title,onClose,children,wide=false}){const box=useRef();useEffect(()=>{const before=document.activeElement;box.current?.focus();const key=e=>{if(e.key==='Escape')onClose();if(e.key==='Tab'){const els=[...box.current.querySelectorAll('button,input,select,textarea,a[href]')].filter(x=>!x.disabled);if(e.shiftKey&&document.activeElement===els[0]){e.preventDefault();els.at(-1)?.focus()}else if(!e.shiftKey&&document.activeElement===els.at(-1)){e.preventDefault();els[0]?.focus()}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);before?.focus()}},[]);return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section ref={box} tabIndex={-1} className={'modal '+(wide?'wide':'')} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={22}/></button></header>{children}</section></div>}
 function RecordForm({module,record,onSave,onClose}){const [form,setForm]=useState(record||Object.fromEntries(module.fields.map(k=>[k,k==='status'?module.statuses[0]:''])));const [error,setError]=useState('');function save(e){e.preventDefault();if(form.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)){setError('Enter a valid email address.');return}if(form.allocated!==undefined&&Number(form.allocated)>Number(form.quantity)){setError('Allocated quantity cannot exceed the order quantity.');return}if(form.etd&&form.eta&&form.etd>form.eta){setError('Arrival cannot be before departure.');return}onSave({...form,id:record?.id||uid(module.id.slice(0,3).toUpperCase())});}return <Modal title={(record?'Edit ':'New ')+module.name.toLowerCase()} onClose={onClose}><form onSubmit={save}><div className="form-grid">{module.fields.map((k,i)=><label key={k}>{labels[k]||k[0].toUpperCase()+k.slice(1)}{k==='status'?<select value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})}>{module.statuses.map(s=><option key={s}>{s}</option>)}</select>:<input required={i===0||k==='quantity'} type={numeric.includes(k)?'number':dates.includes(k)?'date':k==='email'?'email':'text'} min={numeric.includes(k)?0:undefined} step="any" value={form[k]??''} onChange={e=>setForm({...form,[k]:numeric.includes(k)&&e.target.value!==''?Number(e.target.value):e.target.value})}/>}</label>)}</div>{error&&<p className="error" role="alert">{error}</p>}<div className="modal-actions"><Btn onClick={onClose} type="button">Cancel</Btn><Btn primary type="submit">Save record</Btn></div></form></Modal>}
 
-function LoginScreen({ onLogin, onForgotPassword, successNotice }) {
+function LoginScreen({ onLogin, onForgotPassword, onGoToRegister, onGoToTrack, successNotice }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -733,6 +855,30 @@ function LoginScreen({ onLogin, onForgotPassword, successNotice }) {
               {!loading && <ArrowRight size={18} />}
             </Btn>
 
+            <div className="login-divider">
+              <span>or</span>
+            </div>
+
+            <button
+              type="button"
+              className="register-back-btn"
+              onClick={onGoToRegister}
+              style={{ width: '100%' }}
+            >
+              Register your company
+            </button>
+
+            <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#64748b' }}>
+              Looking to track a shipment?{' '}
+              <button
+                type="button"
+                style={{ border: 0, background: 'none', color: 'var(--blue)', fontWeight: 600, padding: 0, cursor: 'pointer' }}
+                onClick={onGoToTrack}
+              >
+                Track shipment →
+              </button>
+            </p>
+
           </form>
 
           <div className="login-note">
@@ -805,6 +951,40 @@ function LoginScreen({ onLogin, onForgotPassword, successNotice }) {
     </main>
   );
 }
+const getSharedTokenFromPath = (path) => {
+  if (!path) return '';
+  if (path.startsWith('/shared/')) {
+    const sub = path.slice('/shared/'.length).split(/[?#]/)[0];
+    return decodeURIComponent(sub);
+  }
+  if (path === '/shared' || path.startsWith('/shared?')) {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('token') || '';
+    } catch {
+      return '';
+    }
+  }
+  return '';
+};
+
+const getTrackingRefFromPath = (path) => {
+  if (!path) return '';
+  if (path.startsWith('/track/')) {
+    const sub = path.slice('/track/'.length).split(/[?#]/)[0];
+    return decodeURIComponent(sub);
+  }
+  if (path === '/track' || path.startsWith('/track?')) {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('ref') || urlParams.get('token') || '';
+    } catch {
+      return '';
+    }
+  }
+  return '';
+};
+
 export function App() {
   const [authenticated, setAuthenticated] = useState(
     () => authService.hasToken()
@@ -829,6 +1009,27 @@ export function App() {
     } catch {}
     return null;
   });
+  const [isRegister, setIsRegister] = useState(() => {
+    try {
+      return window.location.pathname === '/register';
+    } catch {
+      return false;
+    }
+  });
+  const [isPublicTrack, setIsPublicTrack] = useState(() => {
+    try {
+      return window.location.pathname === '/track' || window.location.pathname.startsWith('/track/');
+    } catch {
+      return false;
+    }
+  });
+  const [isPublicShared, setIsPublicShared] = useState(() => {
+    try {
+      return window.location.pathname === '/shared' || window.location.pathname.startsWith('/shared/');
+    } catch {
+      return false;
+    }
+  });
   const [loginSuccessNotice, setLoginSuccessNotice] = useState('');
 
   useEffect(() => {
@@ -840,6 +1041,9 @@ export function App() {
       setOtpChallenge(null);
       setAuthenticated(false);
       setRecoveryStep(null);
+      setIsRegister(false);
+      setIsPublicTrack(false);
+      setIsPublicShared(false);
       setRecoveryEmail('');
       setResetToken('');
       setLoginSuccessNotice('Your session has expired. Please sign in again.');
@@ -851,12 +1055,39 @@ export function App() {
       setPathname(path);
       if (path === '/forgot-password') {
         setRecoveryStep('forgot_password');
+        setIsRegister(false);
+        setIsPublicTrack(false);
+        setIsPublicShared(false);
       } else if (path === '/verify-reset-otp') {
         setRecoveryStep('verify_otp');
+        setIsRegister(false);
+        setIsPublicTrack(false);
+        setIsPublicShared(false);
       } else if (path === '/reset-password') {
         setRecoveryStep('reset_password');
+        setIsRegister(false);
+        setIsPublicTrack(false);
+        setIsPublicShared(false);
+      } else if (path === '/register') {
+        setIsRegister(true);
+        setIsPublicTrack(false);
+        setIsPublicShared(false);
+        setRecoveryStep(null);
+      } else if (path === '/track' || path.startsWith('/track/')) {
+        setIsPublicTrack(true);
+        setIsPublicShared(false);
+        setIsRegister(false);
+        setRecoveryStep(null);
+      } else if (path === '/shared' || path.startsWith('/shared/')) {
+        setIsPublicShared(true);
+        setIsPublicTrack(false);
+        setIsRegister(false);
+        setRecoveryStep(null);
       } else if (path === '/login' || path === '/') {
         setRecoveryStep(null);
+        setIsRegister(false);
+        setIsPublicTrack(false);
+        setIsPublicShared(false);
       }
     };
 
@@ -883,14 +1114,54 @@ export function App() {
     setAuthenticated(false);
     setOtpChallenge(null);
     setRecoveryStep(null);
+    setIsRegister(false);
+    setIsPublicTrack(false);
     setRecoveryEmail('');
     setResetToken('');
     setLoginSuccessNotice('');
     navigateTo('/login');
   };
 
+  const handleGoToTrack = (ref = '') => {
+    setIsPublicTrack(true);
+    setIsRegister(false);
+    setRecoveryStep(null);
+    setLoginSuccessNotice('');
+    navigateTo(ref ? `/track/${encodeURIComponent(ref)}` : '/track');
+  };
+
+  const handleTrackExit = () => {
+    setIsPublicTrack(false);
+    if (authenticated) {
+      navigateTo('/dashboard');
+    } else {
+      navigateTo('/login');
+    }
+  };
+
+  const handleGoToRegister = () => {
+    setIsRegister(true);
+    setRecoveryStep(null);
+    setLoginSuccessNotice('');
+    navigateTo('/register');
+  };
+
+  const handleBackToLoginFromRegister = (prefillEmail, regResult) => {
+    setIsRegister(false);
+    if (regResult) {
+      const orgType = regResult.organization?.type;
+      if (orgType === 'carrier') {
+        setLoginSuccessNotice('Carrier registration submitted. Your account is pending FMCSA SAFER verification.');
+      } else {
+        setLoginSuccessNotice('Registration successful! Please sign in with your credentials.');
+      }
+    }
+    navigateTo('/login');
+  };
+
   const handleStartForgotPassword = () => {
     setRecoveryStep('forgot_password');
+    setIsRegister(false);
     setLoginSuccessNotice('');
     setRecoveryEmail('');
     setResetToken('');
@@ -932,6 +1203,10 @@ export function App() {
   };
 
   async function login(email, password) {
+    authService.logout();
+    clearGetCache();
+    clearPersistedWorkspaceState(sessionStorage, STORE);
+    clearActiveOrgRoleSelection(sessionStorage);
     const result = await apiLogin(email, password);
 
     if (result?.otpRequired) {
@@ -957,23 +1232,55 @@ export function App() {
     setAuthenticated(false);
   };
 
-  function logout() {
+  const logout = useCallback(() => {
     authService.logout();
     try {
-      sessionStorage.removeItem(STORE);
-      clearGetCache();
-    } catch {}
+      clearPersistedWorkspaceState(sessionStorage, STORE);
+    } catch (error) {
+      console.error('Failed to clear persisted workspace state during logout.', error);
+    }
+    try {
+      clearActiveOrgRoleSelection(sessionStorage);
+    } catch (error) {
+      console.error('Failed to clear the saved organization and role selection during logout.', error);
+    }
+    clearGetCache();
     setOtpChallenge(null);
     setRecoveryStep(null);
     setRecoveryEmail('');
     setResetToken('');
     setAuthenticated(false);
     navigateTo('/login');
-  }
+  }, []);
 
   // Public Accept Invitation Route (unauthenticated)
   if (pathname === '/accept-invitation' || pathname.startsWith('/accept-invitation')) {
     return <AcceptInvitation onGoToLogin={handleGoToLogin} />;
+  }
+
+  // Public Shipment Tracking Route (FR-8.3)
+  if (isPublicTrack || pathname === '/track' || pathname.startsWith('/track/') || pathname.startsWith('/track?')) {
+    const initialRef = getTrackingRefFromPath(pathname);
+    return (
+      <PublicTrackingScreen
+        onBackToLogin={handleTrackExit}
+        initialRef={initialRef}
+      />
+    );
+  }
+
+  // Public Shared Document Route (M10 FR-10.4)
+  if (isPublicShared || pathname === '/shared' || pathname.startsWith('/shared/') || pathname.startsWith('/shared?')) {
+    const sharedToken = getSharedTokenFromPath(pathname);
+    return (
+      <PublicSharedDocumentScreen
+        token={sharedToken}
+        onBackToLogin={() => {
+          setIsPublicShared(false);
+          navigateTo('/login');
+        }}
+      />
+    );
   }
 
   if (authenticated) {
@@ -1022,39 +1329,53 @@ export function App() {
     );
   }
 
+  if (isRegister || pathname === '/register') {
+    return (
+      <RegisterScreen
+        onBackToLogin={handleBackToLoginFromRegister}
+        onRegisterSuccess={() => {}}
+      />
+    );
+  }
+
   return (
     <LoginScreen
       onLogin={login}
       onForgotPassword={handleStartForgotPassword}
+      onGoToRegister={handleGoToRegister}
+      onGoToTrack={handleGoToTrack}
       successNotice={loginSuccessNotice}
     />
   );
 }
 
 const getModuleFromPath = (path) => {
-  if (path === '/' || path === '/dashboard' || path.startsWith('/dashboard/')) return 'dashboard';
-  if (path === '/reports' || path.startsWith('/reports/')) return 'reports';
-  if (path === '/costs' || path.startsWith('/costs/')) return 'costs';
-  if (path === '/invoices' || path.startsWith('/invoices/')) return 'invoices';
-  if (path === '/customers' || path.startsWith('/customers/')) return 'customers';
-  if (path === '/vendors' || path.startsWith('/vendors/')) return 'vendors';
-  if (path === '/branches' || path.startsWith('/branches/')) return 'branches';
-  if (path === '/agents' || path.startsWith('/agents/')) return 'agents';
-  if (path === '/ports' || path.startsWith('/ports/')) return 'ports';
-  if (path === '/cfs' || path.startsWith('/cfs/')) return 'cfs';
-  if (path === '/drivers' || path.startsWith('/drivers/')) return 'drivers';
-  if (path === '/bookings' || path.startsWith('/bookings/')) return 'bookings';
-  if (path === '/jobs' || path.startsWith('/jobs/')) return 'jobs';
-  if (path === '/dispatch' || path.startsWith('/dispatch/') || path === '/tracking' || path.startsWith('/tracking/') || path === '/routes' || path.startsWith('/routes/') || path === '/route-planning' || path.startsWith('/route-planning/')) return 'dispatch';
-  if (path === '/shipments' || path.startsWith('/shipments/')) return 'shipments';
-  if (path === '/load-board' || path.startsWith('/load-board/')) return 'load_board';
-  if (path === '/quotes' || path.startsWith('/quotes/') || path === '/rates' || path.startsWith('/rates/')) return 'quotes';
-  if (path === '/fleet' || path.startsWith('/fleet/') || path === '/carrier-fleet' || path.startsWith('/carrier-fleet/')) return 'fleet';
-  if (path === '/users' || path.startsWith('/users/')) return 'users';
-  if (path === '/roles' || path.startsWith('/roles/')) return 'roles';
-  if (path === '/organization' || path.startsWith('/organization/')) return 'organization';
-  if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
-  if (path === '/portal' || path.startsWith('/portal/') || path === '/customer-portal' || path.startsWith('/customer-portal/')) return 'portal';
+  if (!path) return null;
+  const p = path.toLowerCase();
+  if (p === '/' || p === '/dashboard' || p.startsWith('/dashboard/')) return 'dashboard';
+  if (p === '/reports' || p.startsWith('/reports/')) return 'reports';
+  if (p === '/costs' || p.startsWith('/costs/') || p === '/landed-costs' || p.startsWith('/landed-costs/')) return 'costs';
+  if (p === '/invoices' || p.startsWith('/invoices/') || p === '/billing' || p.startsWith('/billing/') || p === '/ar-aging' || p.startsWith('/ar-aging/')) return 'invoices';
+  if (p === '/customers' || p.startsWith('/customers/')) return 'customers';
+  if (p === '/vendors' || p.startsWith('/vendors/')) return 'vendors';
+  if (p === '/branches' || p.startsWith('/branches/')) return 'branches';
+  if (p === '/agents' || p.startsWith('/agents/')) return 'agents';
+  if (p === '/ports' || p.startsWith('/ports/')) return 'ports';
+  if (p === '/cfs' || p.startsWith('/cfs/')) return 'cfs';
+  if (p === '/drivers' || p.startsWith('/drivers/')) return 'drivers';
+  if (p === '/bookings' || p.startsWith('/bookings/')) return 'bookings';
+  if (p === '/jobs' || p.startsWith('/jobs/')) return 'jobs';
+  if (p === '/tracking' || p.startsWith('/tracking/') || p === '/visibility' || p.startsWith('/visibility/')) return 'tracking';
+  if (p === '/dispatch' || p.startsWith('/dispatch/') || p === '/dispatches' || p.startsWith('/dispatches/') || p === '/routes' || p.startsWith('/routes/') || p === '/route-planning' || p.startsWith('/route-planning/')) return 'dispatch';
+  if (p === '/shipments' || p.startsWith('/shipments/')) return 'shipments';
+  if (p === '/load-board' || p.startsWith('/load-board/') || p === '/loadboard' || p.startsWith('/loadboard/') || p === '/loads' || p.startsWith('/loads/')) return 'load_board';
+  if (p === '/quotes' || p.startsWith('/quotes/') || p === '/rates' || p.startsWith('/rates/') || p === '/rate-agreements' || p.startsWith('/rate-agreements/')) return 'quotes';
+  if (p === '/fleet' || p.startsWith('/fleet/') || p === '/carrier-fleet' || p.startsWith('/carrier-fleet/') || p === '/carriers' || p.startsWith('/carriers/') || p === '/vehicles' || p.startsWith('/vehicles/')) return 'fleet';
+  if (p === '/users' || p.startsWith('/users/') || p === '/user-management' || p.startsWith('/user-management/')) return 'users';
+  if (p === '/roles' || p.startsWith('/roles/') || p === '/permissions' || p.startsWith('/permissions/')) return 'roles';
+  if (p === '/organization' || p.startsWith('/organization/') || p === '/company' || p.startsWith('/company/')) return 'organization';
+  if (p === '/admin' || p.startsWith('/admin/') || p === '/settings' || p.startsWith('/settings/') || p === '/system-settings' || p.startsWith('/system-settings/')) return 'admin';
+  if (p === '/portal' || p.startsWith('/portal/') || p === '/customer-portal' || p.startsWith('/customer-portal/')) return 'portal';
   return null;
 };
 
@@ -1122,48 +1443,86 @@ function HarborWorkspace({onLogout}){
     };
   }, [profile, role, currentOrg]);
 
-  const loadUserProfile = () => {
+  const loadUserProfile = useCallback(async () => {
     setProfileLoading(true);
     setProfileError(null);
-    getProfile()
-      .then((response) => {
-        const data = response?.data || response;
-        if (!data || (!data.user && !data.id)) {
-          throw new Error('Server returned an empty or invalid profile response');
+    let isAborted = false;
+    try {
+      const response = await getProfile();
+      let data = response?.data || response;
+      if (!data || (!data.user && !data.id)) {
+        throw new Error('Server returned an empty or invalid profile response');
+      }
+
+      let savedSelection = null;
+      try {
+        savedSelection = readActiveOrgRoleSelection(sessionStorage);
+      } catch (error) {
+        console.error('Failed to read the saved organization and role selection.', error);
+      }
+
+      let activeIndex = savedSelection ? findActiveOrgRoleIndex(data, savedSelection) : -1;
+      if (savedSelection && activeIndex < 0) {
+        try {
+          clearActiveOrgRoleSelection(sessionStorage);
+        } catch (error) {
+          console.error('Failed to clear a stale organization and role selection.', error);
         }
-        setProfile(data);
-        const currentOrgId = data.organization?.id || data.user?.organization_id;
-        if (data.organization_roles?.length && currentOrgId) {
-          const currentIdx = data.organization_roles.findIndex(
-            (r) => Number(r.org_id) === Number(currentOrgId) || Number(r.organization?.id) === Number(currentOrgId)
-          );
-          if (currentIdx >= 0) {
-            setActiveOrgRoleIndex(currentIdx);
+        savedSelection = null;
+      }
+
+      if (savedSelection) {
+        const currentOrgId = data.organization?.id ?? data.user?.organization_id;
+        if (currentOrgId == null || String(currentOrgId) !== savedSelection.orgId) {
+          const switchResponse = await switchOrganizationContext(savedSelection.orgId);
+          if (!switchResponse?.success && !switchResponse?.data?.token && !switchResponse?.token) {
+            throw new Error(switchResponse?.message || 'Failed to restore organization context');
+          }
+          const refreshedResponse = await getProfile();
+          data = refreshedResponse?.data || refreshedResponse;
+          if (!data || (!data.user && !data.id)) {
+            throw new Error('Server returned an empty or invalid profile response after restoring organization context');
+          }
+          activeIndex = findActiveOrgRoleIndex(data, savedSelection);
+          if (activeIndex < 0) {
+            try {
+              clearActiveOrgRoleSelection(sessionStorage);
+            } catch (error) {
+              console.error('Failed to clear a stale organization and role selection.', error);
+            }
           }
         }
-      })
-      .catch((error) => {
-        console.error("Failed to load profile:", error);
-        if (error?.status === 401) {
-          onLogout?.();
-          return;
-        }
-        if (error?.status === 403) {
-          setProfileError(error.message || 'Access Forbidden: Your account or organization is inactive.');
-          return;
-        }
-        setProfileError(error.message || 'Failed to load user authorization profile. Please check your connection.');
-      })
-      .finally(() => {
+      }
+
+      setProfile(data);
+      setActiveOrgRoleIndex(activeIndex >= 0 ? activeIndex : 0);
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        isAborted = true;
+        return;
+      }
+      console.error("Failed to load profile:", error);
+      if (error?.status === 401) {
+        onLogout?.();
+        return;
+      }
+      if (error?.status === 403) {
+        setProfileError(error.message || 'Access Forbidden: Your account or organization is inactive.');
+        return;
+      }
+      setProfileError(error.message || 'Failed to load user authorization profile. Please check your connection.');
+    } finally {
+      if (!isAborted) {
         setProfileLoading(false);
-      });
-  };
+      }
+    }
+  }, [onLogout]);
 
   useEffect(() => {
     loadUserProfile();
-  }, []);
+  }, [loadUserProfile]);
 
-  const handleSwitchOrganization = async (targetOrgId) => {
+  const handleSwitchOrganization = async (targetOrgId, targetRoleId) => {
     try {
       setProfileLoading(true);
       const res = await switchOrganizationContext(targetOrgId);
@@ -1190,13 +1549,18 @@ function HarborWorkspace({onLogout}){
       }
       setProfile(freshData);
 
-      // 5. Update active organization index matching the targetOrgId
-      const newIdx = freshData.organization_roles?.findIndex(
-        (r) => Number(r.org_id) === Number(targetOrgId) || Number(r.organization?.id) === Number(targetOrgId)
-      );
-      setActiveOrgRoleIndex(newIdx >= 0 ? newIdx : 0);
+      // 5. Update and persist the selected organization and role
+      const userId = freshData.user?.id ?? freshData.id;
+      const newIdx = targetRoleId != null
+        ? findActiveOrgRoleIndex(freshData, { userId, orgId: targetOrgId, roleId: targetRoleId })
+        : freshData.organization_roles?.findIndex(
+          (r) => Number(r.org_id) === Number(targetOrgId) || Number(r.organization?.id) === Number(targetOrgId)
+        );
+      const resolvedIdx = newIdx >= 0 ? newIdx : 0;
+      setActiveOrgRoleIndex(resolvedIdx);
 
-      const targetSel = freshData.organization_roles?.[newIdx >= 0 ? newIdx : 0];
+      const targetSel = freshData.organization_roles?.[resolvedIdx];
+      if (targetSel) saveActiveOrgRoleSelection(sessionStorage, freshData, targetSel);
       const targetOrgName = targetSel?.organization?.legal_name || targetSel?.name || freshData.organization?.legal_name || 'Organization';
       const targetRoleName = typeof targetSel?.role === 'string' ? targetSel.role : targetSel?.role?.name || freshData.role?.name || 'Role';
 
@@ -1209,7 +1573,7 @@ function HarborWorkspace({onLogout}){
     }
   };
 
-const hasPermission = (module, action) => {
+const hasPermission = useCallback((module, action) => {
   // Never grant permissions while loading or when profile data is missing
   if (profileLoading || !profile || !role) {
     return false;
@@ -1262,8 +1626,20 @@ const hasPermission = (module, action) => {
     settings: 'system_settings',
     customer_portal: 'portal',
     route_planning: 'routes',
+    document: 'documents',
   };
   const canonicalMod = moduleAliases[mod] || mod;
+
+  // Documentation Management (Module M10) matching backend authorizePermission
+  if (canonicalMod === 'documents' || canonicalMod === 'document') {
+    if (role?.name === 'Platform Admin') return true;
+    if (role?.name === 'Company Admin') return ['read', 'upload', 'generate', 'sign', 'share', 'delete'].includes(act);
+    if (role?.name === 'Dispatcher') return ['read', 'upload', 'generate'].includes(act);
+    if (role?.name === 'Driver') return ['read', 'upload', 'sign'].includes(act);
+    if (role?.name === 'Finance') return ['read', 'share'].includes(act);
+    if (role?.name === 'Shipper User') return ['read', 'upload', 'sign', 'share'].includes(act);
+    if (role?.name === 'Read-only') return act === 'read';
+  }
 
   const perms =
     permissionSet[canonicalMod] ||
@@ -1584,14 +1960,29 @@ const hasPermission = (module, action) => {
     return false;
   }
 
-  return false;
-};
+  // Invoices, Billing & AR Aging (M11: FR-11.1, FR-11.6)
+  if (mod === 'invoices' || mod === 'invoice' || mod === 'billing' || mod === 'payments') {
+    if (role?.name === 'Platform Admin' || role?.name === 'Company Admin' || role?.name === 'Finance' || role?.name === 'Finance User') {
+      return true;
+    }
+    if (role?.name === 'Carrier Admin' || role?.name === 'Dispatcher' || role?.name === 'Shipper User') {
+      return act === 'read' || act === 'list';
+    }
+    if (act === 'read') return true;
+    return false;
+  }
 
-const isModulePermitted = (modId) => {
+  return false;
+}, [profileLoading, profile, role, permissionSet]);
+
+const isModulePermitted = useCallback((modId) => {
   if (profileLoading || !profile || !role) return false;
   if (role?.name === 'Platform Admin') return true;
   if (modId === 'dashboard') return true;
   if (modId === 'reports' || modId === 'costs') return true;
+  if (modId === 'invoices' || modId === 'billing') {
+    return hasPermission('invoices', 'read') || hasPermission('billing', 'read') || ['Platform Admin', 'Company Admin', 'Finance', 'Finance User', 'Carrier Admin'].includes(role?.name);
+  }
   if (modId === 'admin') return hasPermission('system_settings', 'read');
   if (modId === 'users') return hasPermission('users', 'read');
   if (modId === 'roles') return hasPermission('roles', 'read');
@@ -1604,19 +1995,33 @@ const isModulePermitted = (modId) => {
   if (modId === 'cfs') return hasPermission('cfs', 'read');
   if (modId === 'drivers') return hasPermission('drivers', 'read');
   if (modId === 'load_board') return hasPermission('load_board', 'read');
-  if (modId === 'quotes' || modId === 'rates') return hasPermission('quotes', 'read');
-  if (modId === 'fleet' || modId === 'carrier_fleet') return hasPermission('vehicles', 'read');
+  if (modId === 'quotes' || modId === 'rates') {
+    return hasPermission('quotes', 'read') || hasPermission('rates', 'read') || hasPermission('rate_agreements', 'read');
+  }
+  if (modId === 'fleet' || modId === 'carrier_fleet') {
+    return isFleetPermittedForOrg({
+      roleName: role?.name,
+      orgType: currentOrg?.type || profile?.organization?.type,
+      hasPermission,
+    });
+  }
   if (modId === 'bookings') return hasPermission('bookings', 'read') || hasPermission('shipments', 'read');
   if (modId === 'jobs') return hasPermission('jobs', 'read') || hasPermission('shipments', 'read') || hasPermission('dispatch', 'read');
   if (modId === 'shipments') return hasPermission('shipments', 'read');
-  if (modId === 'dispatch' || modId === 'dispatches') return hasPermission('dispatch', 'read');
-  if (modId === 'portal') return hasPermission('portal', 'read');
+  if (modId === 'dispatch' || modId === 'dispatches') {
+    return hasPermission('dispatch', 'read') || hasPermission('dispatches', 'read') || hasPermission('shipments', 'read') || hasPermission('tracking', 'read');
+  }
+  if (modId === 'tracking') {
+    return hasPermission('tracking', 'read') || hasPermission('shipments', 'read') || hasPermission('dispatch', 'read') || ['Platform Admin', 'Company Admin', 'Carrier Admin', 'Dispatcher', 'Shipper User'].includes(role?.name);
+  }
+  if (modId === 'portal') return hasPermission('portal', 'read') || hasPermission('customer_portal', 'read') || hasPermission('customers', 'read') || hasPermission('shipments', 'read');
   return false;
-};
+}, [profileLoading, profile, role, currentOrg, hasPermission]);
 
 const getPrimaryPermittedModule = () => {
   if (role?.name === 'Shipper User' && isModulePermitted('portal')) return 'portal';
   if (role?.name === 'Driver' && isModulePermitted('dispatch')) return 'dispatch';
+  if ((role?.name === 'Finance' || role?.name === 'Finance User') && isModulePermitted('invoices')) return 'invoices';
   if (isModulePermitted('shipments')) return 'shipments';
   if (isModulePermitted('jobs')) return 'jobs';
   if (isModulePermitted('dispatch')) return 'dispatch';
@@ -1634,9 +2039,13 @@ const getPrimaryPermittedModule = () => {
       const currentPathMod = getModuleFromPath(window.location.pathname);
       if (currentPathMod) {
         if (!isModulePermitted(currentPathMod)) {
-          const fallback = getPrimaryPermittedModule();
+          const fallback = isModulePermitted('dashboard') ? 'dashboard' : getPrimaryPermittedModule();
           openModule(fallback);
-          notify(`Access to ${currentPathMod} is restricted for your role. Redirected to your workspace.`);
+          if (currentPathMod === 'fleet' || currentPathMod === 'carrier_fleet') {
+            notify('Fleet management is available for carrier accounts.');
+          } else {
+            notify(`Access to ${currentPathMod} is restricted for your role. Redirected to your workspace.`);
+          }
         } else {
           openModule(currentPathMod);
         }
@@ -1722,13 +2131,26 @@ const getPrimaryPermittedModule = () => {
     notify('You do not have permission to access Load Board & Freight Matching.');
     return;
   }
-  if ((id === 'quotes' || id === 'rates') && !hasPermission('quotes', 'read')) {
+  if ((id === 'quotes' || id === 'rates') && !hasPermission('quotes', 'read') && !hasPermission('rates', 'read') && !hasPermission('rate_agreements', 'read')) {
     notify('You do not have permission to access Quotes & Rates.');
     return;
   }
-  if ((id === 'fleet' || id === 'carrier_fleet') && !hasPermission('vehicles', 'read') && !hasPermission('fleet', 'read') && !hasPermission('hos_logs', 'read')) {
-    notify('You do not have permission to access Carrier & Fleet.');
-    return;
+  if (id === 'fleet' || id === 'carrier_fleet') {
+    const permitted = isFleetPermittedForOrg({
+      roleName: role?.name,
+      orgType: currentOrg?.type || profile?.organization?.type,
+      hasPermission,
+    });
+    if (!permitted) {
+      const fallback = isModulePermitted('dashboard') ? 'dashboard' : getPrimaryPermittedModule();
+      notify('Fleet management is available for carrier accounts.');
+      setModuleId(fallback);
+      setView('records');
+      try {
+        window.history.replaceState({}, '', `/${fallback}`);
+      } catch {}
+      return;
+    }
   }
   if ((id === 'bookings' || id === 'shipments') && !hasPermission('shipments', 'read') && !hasPermission('bookings', 'read')) {
     notify('You do not have permission to access Bookings / Shipments.');
@@ -1738,12 +2160,20 @@ const getPrimaryPermittedModule = () => {
     notify('You do not have permission to access Job Management.');
     return;
   }
-  if ((id === 'dispatch' || id === 'dispatches') && !hasPermission('dispatch', 'read') && !hasPermission('shipments', 'read') && !hasPermission('tracking', 'read')) {
+  if ((id === 'dispatch' || id === 'dispatches') && !hasPermission('dispatch', 'read') && !hasPermission('dispatches', 'read') && !hasPermission('shipments', 'read') && !hasPermission('tracking', 'read')) {
     notify('You do not have permission to access Dispatch & Execution.');
     return;
   }
-  if (id === 'portal' && !hasPermission('portal', 'read') && !hasPermission('customers', 'read') && !hasPermission('shipments', 'read')) {
+  if (id === 'tracking' && !hasPermission('tracking', 'read') && !hasPermission('shipments', 'read') && !hasPermission('dispatch', 'read') && !['Platform Admin', 'Company Admin', 'Carrier Admin', 'Dispatcher', 'Shipper User'].includes(role?.name)) {
+    notify('You do not have permission to access Tracking & Visibility.');
+    return;
+  }
+  if (id === 'portal' && !hasPermission('portal', 'read') && !hasPermission('customer_portal', 'read') && !hasPermission('customers', 'read') && !hasPermission('shipments', 'read')) {
     notify('You do not have permission to access Customer Portal.');
+    return;
+  }
+  if ((id === 'invoices' || id === 'billing') && !hasPermission('invoices', 'read') && !hasPermission('billing', 'read') && !['Platform Admin', 'Company Admin', 'Finance', 'Finance User', 'Carrier Admin'].includes(role?.name)) {
+    notify('You do not have permission to access Invoices & AR Aging.');
     return;
   }
 
@@ -1760,11 +2190,14 @@ const getPrimaryPermittedModule = () => {
   setNavOpen(false);
 
   const moduleUrls = {
-    dashboard: '/',
+    dashboard: '/dashboard',
+    invoices: '/invoices',
+    billing: '/invoices',
     bookings: '/bookings',
     jobs: '/jobs',
     shipments: '/shipments',
     dispatch: '/dispatch',
+    tracking: '/tracking',
     portal: '/portal',
     customers: '/customers',
     vendors: '/vendors',
@@ -1781,9 +2214,14 @@ const getPrimaryPermittedModule = () => {
     users: '/users',
     roles: '/roles',
     organization: '/organization',
-    admin: '/admin'
+    admin: '/admin',
+    reports: '/reports',
+    costs: '/costs'
   };
-  const targetUrl = moduleUrls[id];
+  let targetUrl = moduleUrls[id];
+  if (id === 'dashboard' && window.location.pathname === '/') {
+    targetUrl = '/';
+  }
   if (targetUrl && window.location.pathname !== targetUrl) {
     window.history.pushState({}, '', targetUrl);
   } else if (!targetUrl && window.location.pathname !== '/') {
@@ -1824,19 +2262,21 @@ const getPrimaryPermittedModule = () => {
     );
   }
 
-  if (profileError) {
+  if (profileError || (!profile && !profileLoading)) {
     return (
       <div className="fms-auth-loading-shell">
         <div className="fms-auth-loading-box">
           <WarningCircle size={40} style={{ color: '#dc2626', marginBottom: '8px' }} />
           <h3>Unable to Load Profile</h3>
-          <p style={{ marginBottom: '20px' }}>{profileError}</p>
+          <p style={{ marginBottom: '20px' }}>
+            {profileError || 'Failed to load user authorization profile. Please check your connection.'}
+          </p>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <Btn onClick={loadUserProfile}>
-              <ArrowsClockwise size={16} /> Retry
+            <Btn onClick={() => loadUserProfile()}>
+              <ArrowsClockwise size={16} /> Try again
             </Btn>
             <Btn primary onClick={onLogout}>
-              Sign in with another account
+              Log in again
             </Btn>
           </div>
         </div>
@@ -1878,6 +2318,9 @@ const getPrimaryPermittedModule = () => {
     records={records}
     openModule={openModule}
     hasPermission={hasPermission}
+    role={role}
+    currentOrg={currentOrg}
+    profile={profile}
   /></div>
  <div className="sidebar-bottom"><button className="about-link" onClick={()=>setModal({kind:'about'})}><Info size={19}/><span>About Harbor</span></button>
  <button className="profile" onClick={()=>setModal({kind:'about'})}>
@@ -1904,7 +2347,7 @@ const getPrimaryPermittedModule = () => {
  {view==='mission'?<><header className="workspace-header"><div className="top-meta"><span className="demo-label" onClick={()=>setModal({kind:'about'})}>Sample workspace</span><div className="topbar-actions"><span>16 September 2026</span><button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div><h1>{mission.title}</h1><p className="subtitle">{mission.reference} · {type==='custom'?'New mission':type==='export'?'Required by 8 Oct':type==='invoice'?'Due 25 Sep':'Required by 30 Sep'} · <span>AI demo</span></p><div className="tabs" role="tablist" aria-label="Mission views">{['Conversation','Work products','Activity'].map(t=><button key={t} role="tab" aria-selected={tab===t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}{t==='Work products'&&<span className="tab-count">{type==='import'?4:type==='export'?3:2}</span>}</button>)}</div></header>
  <div className="conversation-scroll" ref={scroll}>{tab==='Conversation'?<><div className="message user-message"><span className="avatar small-avatar">AR</span><div>{mission.goal}</div><time>9:12 AM</time></div><div className="message assistant-message"><span className="assistant-avatar"><img src="/harbor-mark.png" alt="" className="harbor-mark"/></span><div className="assistant-content">{contentIntro()}</div></div>{currentMessages.map((m,i)=><div key={i} className={'message followup '+(m.role==='user'?'user-message':'assistant-message')}><span className={m.role==='user'?'avatar small-avatar':'assistant-avatar'}>{m.role==='user'?'AR':<img src="/harbor-mark.png" alt="" className="harbor-mark"/>}</span><div className="reply-text">{m.text}</div></div>)}{busy&&<p className="thinking">Reviewing the sample records…</p>}</>:tab==='Work products'?<WorkProducts type={type} records={records} selectedRate={selectedRate} award={award} createBooking={createBooking} importBooked={importBooked} openModule={openModule} detail={detail} setModal={setModal} fixPacking={fixPacking}/>:<div className="activity"><h2>Mission activity</h2><p className="muted">Local changes and decisions in this demo session.</p>{audit.length?audit.map(a=><div className="activity-row" key={a.id}><CheckCircle size={20}/><div>{a.text}<small>{a.time} · Ananya Rao</small></div></div>):<div className="empty"><Clock size={30}/><h3>No changes yet</h3><p>Approvals, edits and new records will appear here.</p></div>}</div>}</div>
  <form className="composer" onSubmit={ask}><div className="compose-line"><button type="button" className="icon-btn" aria-label="Attach a document" onClick={()=>fileRef.current.click()}><Paperclip size={23}/></button><textarea aria-label="Message Harbor" rows={2} placeholder="Ask Harbor, change the plan, or attach a document…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}}}/><button className="send" type="submit" aria-label="Send message" disabled={!input.trim()||busy}><ArrowUp size={23}/></button></div><div className="compose-context"><span>{mission.reference}</span>{attachments.map((n,i)=><button key={i} type="button" onClick={()=>setAttachments(a=>a.filter((_,j)=>i!==j))}>{n}<X size={13}/></button>)}<small>Demo assistant · review before acting</small></div><input ref={fileRef} type="file" hidden multiple onChange={e=>{setAttachments(a=>[...a,...Array.from(e.target.files).map(f=>f.name)]);notify('Attached locally for this draft. File content is not uploaded or analyzed.');e.target.value=''}}/></form>
-        </>:<><header className="records-header"><div className="records-meta-row"><div className="fms-breadcrumb-container"><span className="fms-breadcrumb-root" onClick={()=>openMission(missionId)} title="Return to Missions Overview">Harbor</span><span className="fms-breadcrumb-separator">/</span><span className="fms-breadcrumb-category">{MODULE_METADATA[moduleId]?.category || 'Directory & Master Records'}</span><span className="fms-breadcrumb-separator">/</span><span className="fms-breadcrumb-current">{MODULE_METADATA[moduleId]?.name || mod?.name || moduleId}</span>{MODULE_METADATA[moduleId]?.step && (<span className="fms-breadcrumb-step-badge">{MODULE_METADATA[moduleId].step}</span>)}</div><div className="records-meta-actions">{MODULE_METADATA[moduleId]?.nextModule && (<button type="button" className="fms-breadcrumb-next-btn" onClick={() => openModule(MODULE_METADATA[moduleId].nextModule)} title={`Go to ${MODULE_METADATA[moduleId].nextModule}`}><span>{MODULE_METADATA[moduleId].nextLabel}</span></button>)}<button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div>{moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='jobs'&&moduleId!=='dispatch'&&moduleId!=='portal'&&moduleId!=='shipments'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{MODULE_METADATA[moduleId]?.desc || mod.description}</p></div>{moduleId!=='users'&&moduleId!=='roles'&&<Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn>}</div>)}</header><div className="records-body" key={`org-context-${currentOrg?.id || activeOrgRole?.org_id || '0'}`}>{!isModulePermitted(moduleId) ? (
+        </>:<><header className="records-header"><div className="records-meta-row"><div className="fms-breadcrumb-container"><span className="fms-breadcrumb-root" onClick={()=>openMission(missionId)} title="Return to Missions Overview">Harbor</span><span className="fms-breadcrumb-separator">/</span><span className="fms-breadcrumb-category">{MODULE_METADATA[moduleId]?.category || 'Directory & Master Records'}</span><span className="fms-breadcrumb-separator">/</span><span className="fms-breadcrumb-current">{MODULE_METADATA[moduleId]?.name || mod?.name || moduleId}</span>{MODULE_METADATA[moduleId]?.step && (<span className="fms-breadcrumb-step-badge">{MODULE_METADATA[moduleId].step}</span>)}</div><div className="records-meta-actions">{MODULE_METADATA[moduleId]?.nextModule && (<button type="button" className="fms-breadcrumb-next-btn" onClick={() => openModule(MODULE_METADATA[moduleId].nextModule)} title={`Go to ${MODULE_METADATA[moduleId].nextModule}`}><span>{MODULE_METADATA[moduleId].nextLabel}</span></button>)}<button className="top-search" aria-label="Search workspace" onClick={()=>setModal({kind:'search'})}><MagnifyingGlass size={18}/><span>Search</span></button></div></div>{moduleId!=='dashboard'&&moduleId!=='tracking'&&moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='reports'&&moduleId!=='costs'&&moduleId!=='customers'&&moduleId!=='organization'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='jobs'&&moduleId!=='dispatch'&&moduleId!=='portal'&&moduleId!=='shipments'&&moduleId!=='invoices'&&moduleId!=='billing'&&( <div className="row between"><div><h1>{mod.name}</h1><p className="muted">{MODULE_METADATA[moduleId]?.desc || mod.description}</p></div><Btn primary onClick={()=>setModal({kind:'form',collection:moduleId})}><Plus size={18}/>New record</Btn></div>)}</header><div className="records-body" key={`org-context-${currentOrg?.id || activeOrgRole?.org_id || '0'}`}>{!isModulePermitted(moduleId) ? (
   <div className="access-denied-panel">
     <div className="access-denied-icon"><LockKey size={28}/></div>
     <h2>Access Restricted</h2>
@@ -1913,10 +2356,10 @@ const getPrimaryPermittedModule = () => {
   </div>
 ) : (
   <>
-  {moduleId==='dashboard'&&<Dashboard profile={profile} currentOrg={currentOrg} role={role} records={records} openModule={openModule} openMission={openMission} hasPermission={hasPermission} notify={notify}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} operationalFilter={operationalFilter} onNavigateToBooking={(shipmentId, quoteId)=>openModule('bookings', { shipmentId, quoteId, action: 'create' })} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} operationalFilter={operationalFilter} onNavigateToBooking={(shipmentId, quoteId)=>openModule('bookings', { shipmentId, quoteId, action: 'create' })} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>}  {moduleId==='shipments'&&<ShipmentManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.shipments} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId, action: 'create' })} onNavigateToDispatch={(shipmentId)=>openModule('dispatch', { shipmentId })} onNavigateToQuote={(shipmentId)=>openModule('quotes', { shipmentId, action: 'create' })} onNavigateToLoadBoard={(shipmentId)=>openModule('load_board', { shipmentId, action: 'post' })} onNavigateToJob={(shipmentId, jobId, jobNumber)=>openModule('jobs', { shipmentId, jobId, jobNumber })}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={false} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'} operationalFilter={operationalFilter} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })} onNavigateToDispatch={(shipmentId)=>openModule('dispatch', { shipmentId })} onNavigateToJob={(shipmentId, jobId, jobNumber)=>openModule('jobs', { shipmentId, jobId, jobNumber })}/>} {moduleId==='jobs'&&<JobManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} operationalFilter={operationalFilter} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId })} onNavigateToDispatch={(shipmentId)=>openModule('dispatch', { shipmentId })}/>} {moduleId==='dispatch'&&<DispatchManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialViewMode={operationalFilter?.viewMode || 'kanban'} initialStatusFilter={operationalFilter?.status || 'all'} operationalFilter={operationalFilter} onNavigateToJob={(shipmentId, jobId, jobNumber)=>openModule('jobs', { shipmentId, jobId, jobNumber })} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId })}/>} {moduleId==='portal'&&<CustomerPortal hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialTab={portalTab}/>}
+  {moduleId==='dashboard'&&<Dashboard profile={profile} currentOrg={currentOrg} role={role} records={records} openModule={openModule} openMission={openMission} hasPermission={hasPermission} notify={notify}/>} {moduleId==='reports'&&<Reports records={records}/>} {moduleId==='costs'&&<CostCalculator records={records}/>} {moduleId==='admin'&&<SettingsRegistry hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} settings={settings} setSettings={setSettings} settingAudit={settingAudit} setSettingAudit={setSettingAudit} visible={view==='records'&&moduleId==='admin'}/>} {moduleId==='users'&&<UserManagement hasPermission={hasPermission} notify={notify} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='roles'&&<RolePermissionMaster hasPermission={hasPermission} notify={notify} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='organization'&&<OrganizationView hasPermission={hasPermission} notify={notify} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='customers'&&<CustomerMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='vendors'&&<VendorMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='branches'&&<BranchMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='agents'&&<AgentMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='ports'&&<PortMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='cfs'&&<CfsMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='drivers'&&<DriverMaster hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='load_board'&&<LoadBoard hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} operationalFilter={operationalFilter} onNavigateToBooking={(shipmentId, quoteId)=>openModule('bookings', { shipmentId, quoteId, action: 'create' })} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })}/>} {(moduleId==='quotes'||moduleId==='rates')&&<QuoteRateManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} operationalFilter={operationalFilter} onNavigateToBooking={(shipmentId, quoteId)=>openModule('bookings', { shipmentId, quoteId, action: 'create' })} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })}/>} {(moduleId==='fleet'||moduleId==='carrier_fleet')&&<CarrierFleetManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>}  {moduleId==='shipments'&&<ShipmentManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.shipments} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId, action: 'create' })} onNavigateToDispatch={(shipmentId)=>openModule('dispatch', { shipmentId })} onNavigateToQuote={(shipmentId)=>openModule('quotes', { shipmentId, action: 'create' })} onNavigateToLoadBoard={(shipmentId)=>openModule('load_board', { shipmentId, action: 'post' })} onNavigateToJob={(shipmentId, jobId, jobNumber)=>openModule('jobs', { shipmentId, jobId, jobNumber })}/>} {moduleId==='bookings'&&<BookingManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialRecords={records.bookings} isShipmentView={false} initialStatusFilter={operationalFilter?.status || 'all'} autoOpenCreate={operationalFilter?.action === 'create'} operationalFilter={operationalFilter} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })} onNavigateToDispatch={(shipmentId)=>openModule('dispatch', { shipmentId })} onNavigateToJob={(shipmentId, jobId, jobNumber)=>openModule('jobs', { shipmentId, jobId, jobNumber })}/>} {moduleId==='jobs'&&<JobManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} operationalFilter={operationalFilter} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId })} onNavigateToDispatch={(shipmentId)=>openModule('dispatch', { shipmentId })}/>} {moduleId==='dispatch'&&<DispatchManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialViewMode={operationalFilter?.viewMode || 'kanban'} initialStatusFilter={operationalFilter?.status || 'all'} operationalFilter={operationalFilter} onNavigateToJob={(shipmentId, jobId, jobNumber)=>openModule('jobs', { shipmentId, jobId, jobNumber })} onNavigateToShipment={(shipmentId)=>openModule('shipments', { shipmentId })} onNavigateToBooking={(shipmentId)=>openModule('bookings', { shipmentId })} onNavigateToTracking={(shipmentId)=>openModule('tracking', { shipmentId })}/>} {moduleId==='portal'&&<CustomerPortal hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg} initialTab={portalTab}/>} {moduleId==='invoices'&&<InvoiceManagement hasPermission={hasPermission} notify={notify} profileLoading={profileLoading} currentUser={userWithContext} currentRoleName={role?.name} currentOrg={currentOrg}/>} {moduleId==='tracking'&&<TrackingVisibilityConsole initialShipmentId={operationalFilter?.shipmentId} currentUser={userWithContext} notify={notify}/>}
   </>
 )}
-{moduleId!=='dashboard'&&moduleId!=='reports'&&moduleId!=='costs'&&moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='jobs'&&moduleId!=='dispatch'&&moduleId!=='portal'&&moduleId!=='shipments'&&(
+{moduleId!=='dashboard'&&moduleId!=='reports'&&moduleId!=='costs'&&moduleId!=='users'&&moduleId!=='roles'&&moduleId!=='organization'&&moduleId!=='customers'&&moduleId!=='vendors'&&moduleId!=='branches'&&moduleId!=='agents'&&moduleId!=='ports'&&moduleId!=='cfs'&&moduleId!=='drivers'&&moduleId!=='load_board'&&moduleId!=='quotes'&&moduleId!=='rates'&&moduleId!=='fleet'&&moduleId!=='carrier_fleet'&&moduleId!=='admin'&&moduleId!=='bookings'&&moduleId!=='jobs'&&moduleId!=='dispatch'&&moduleId!=='tracking'&&moduleId!=='portal'&&moduleId!=='shipments'&&moduleId!=='invoices'&&moduleId!=='billing'&&(
 <>
 <div className="table-toolbar"><div className="search-input"><MagnifyingGlass size={19}/><input aria-label="Search records" placeholder="Search records…" value={query} onChange={e=>setQuery(e.target.value)}/></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}><option>All statuses</option>{mod.statuses.map(s=><option key={s}>{s}</option>)}</select><button className="icon-btn" aria-label="Export records as CSV" title="Export CSV" onClick={exportCsv}><DownloadSimple size={21}/></button></div><div className="table-wrap"><table className="records-table"><thead><tr><th>Reference</th>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><th key={k}>{labels[k]||k}</th>)}<th>Status</th><th></th></tr></thead><tbody>{records[moduleId]?.filter(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase())).map(r=><tr key={r.id}><td><button className="table-link" onClick={()=>detail(r.id,moduleId)}>{r.id}</button></td>{mod.fields.slice(0,5).filter(k=>k!=='status').map(k=><td key={k}>{display(k,r[k])}</td>)}<td><Badge>{r.status}</Badge></td><td><button className="icon-btn small" aria-label={'Open '+r.id} onClick={()=>detail(r.id,moduleId)}><CaretRight size={18}/></button></td></tr>)}</tbody></table></div>{!records[moduleId]?.some(r=>(filter==='All statuses'||r.status===filter)&&Object.values(r).join(' ').toLowerCase().includes(query.toLowerCase()))&&<div className="empty"><MagnifyingGlass size={30}/><h3>No matching records</h3><p>Change your search or create a record.</p></div>}<div className="table-footer">{records[moduleId]?.length || 0} records · Illustrative data · USD unless noted</div>
 </>
@@ -1955,10 +2398,12 @@ const getPrimaryPermittedModule = () => {
         const idx = Number(e.target.value);
         const sel = profile.organization_roles[idx];
         const targetOrgId = sel?.org_id || sel?.organization?.id;
+        const targetRoleId = sel?.role_id ?? sel?.role?.id;
         if (targetOrgId) {
-          await handleSwitchOrganization(targetOrgId);
+          await handleSwitchOrganization(targetOrgId, targetRoleId);
         } else {
           setActiveOrgRoleIndex(idx);
+          saveActiveOrgRoleSelection(sessionStorage, profile, sel);
         }
       }}
     >

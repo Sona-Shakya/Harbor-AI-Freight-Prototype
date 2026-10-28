@@ -38,6 +38,7 @@ import {
   getPortalShipmentDocuments,
   downloadPortalShipmentDocument,
   uploadPortalShipmentDocument,
+  downloadRateConfirmationDocument,
   getPortalInvoices,
   getPortalInvoice,
   getPortalSavedLocations,
@@ -50,7 +51,10 @@ import {
   getCustomers,
   getVendors,
   getShipmentDynamicEta,
+  getShipmentCurrentLocation,
 } from './api';
+import TrackingMap from './components/tracking/TrackingMap.jsx';
+import DocumentsPanel from './DocumentsPanel.jsx';
 
 const money = (val) =>
   new Intl.NumberFormat('en-US', {
@@ -71,6 +75,21 @@ const formatDate = (val) => {
     return String(val);
   }
 };
+
+const PORTAL_EQUIPMENT_BY_MODE = {
+  ocean: [
+    '20ft Standard Ocean Container',
+    '40ft Standard Ocean Container',
+    '40ft High Cube Container',
+  ],
+  air: [
+    'Air Cargo ULD - LD3',
+    'Air Cargo ULD - PMC Pallet',
+    'Air Cargo ULD - AKE',
+  ],
+};
+
+const normalizePortalMode = (mode) => mode === 'air' ? 'air' : 'ocean';
 
 export default function CustomerPortal({
   hasPermission,
@@ -107,6 +126,7 @@ export default function CustomerPortal({
   // Detail & Tracking Modals
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [trackingData, setTrackingData] = useState(null);
+  const [m8LocationData, setM8LocationData] = useState(null);
   const [loadingTracking, setLoadingTracking] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -156,6 +176,7 @@ export default function CustomerPortal({
   // Guided Quote & Book wizard state
   const [wizardStep, setWizardStep] = useState(1);
   const [quoteFormData, setQuoteFormData] = useState({
+    mode: 'ocean',
     origin_name: '',
     origin_address: '',
     origin_city: '',
@@ -167,7 +188,7 @@ export default function CustomerPortal({
     destination_state: '',
     destination_zip: '',
     commodity: 'General Freight',
-    equipment_type: 'Dry Van',
+    equipment_type: PORTAL_EQUIPMENT_BY_MODE.ocean[1],
     weight_lbs: 15000,
     package_type: 'Pallets',
     package_quantity: 12,
@@ -334,13 +355,54 @@ export default function CustomerPortal({
     }
   }, [activeTab, loadLocations]);
 
+  // FR-8.1: Real-time telemetry polling while tracking modal is open (2-minute interval with cleanup)
+  useEffect(() => {
+    if (!showTrackingModal || !selectedShipment) return;
+    let isMounted = true;
+    let inFlight = false;
+
+    const pollM8Location = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const m8Res = await getShipmentCurrentLocation(selectedShipment.id);
+        const data = m8Res?.data || m8Res;
+        if (isMounted && data) {
+          setM8LocationData(data);
+        }
+      } catch (err) {
+        console.warn('Periodic telemetry poll error:', err.message);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    // 2-minute polling interval
+    const interval = setInterval(pollM8Location, 120_000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [showTrackingModal, selectedShipment]);
+
   // Open Tracking Modal
   const openTracking = async (shipment) => {
     setSelectedShipment(shipment);
     setShowTrackingModal(true);
     setLoadingTracking(true);
+    setM8LocationData(null);
     try {
-      const res = await getPortalShipmentTracking(shipment.id, targetParams);
+      const [res, m8Res] = await Promise.allSettled([
+        getPortalShipmentTracking(shipment.id, targetParams),
+        getShipmentCurrentLocation(shipment.id),
+      ]);
+
+      if (m8Res.status === 'fulfilled' && m8Res.value) {
+        setM8LocationData(m8Res.value?.data || m8Res.value);
+      }
+
+      const portalData = res.status === 'fulfilled' ? (res.value?.data || res.value) : {};
+
       let dynEta = null;
       try {
         const dynRes = await getShipmentDynamicEta(shipment.id);
@@ -348,7 +410,7 @@ export default function CustomerPortal({
       } catch (e) {
         // Dynamic ETA optional fallback
       }
-      const combined = { ...(res?.data || res), dynamic_eta: dynEta };
+      const combined = { ...portalData, dynamic_eta: dynEta };
       setTrackingData(combined);
     } catch (err) {
       notify?.(err.message || 'Failed to load tracking data');
@@ -375,11 +437,56 @@ export default function CustomerPortal({
   // Download Document
   const handleDownloadDoc = async (doc) => {
     try {
+      // Check if document is Rate Confirmation - use binary endpoint
+      if (doc.type === 'rate_confirmation' || doc.type === 'rate_confirmation_signed') {
+        try {
+          notify?.('Downloading official Rate Confirmation PDF...');
+          const blob = await downloadRateConfirmationDocument(doc.id);
+          if (blob instanceof Blob && blob.size > 0) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = doc.file_name || `Rate_Confirmation_${doc.id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              window.URL.revokeObjectURL(url);
+              if (document.body.contains(a)) document.body.removeChild(a);
+            }, 1000);
+            notify?.(`Rate Confirmation PDF downloaded successfully.`);
+            return;
+          }
+        } catch (rcErr) {
+          console.warn('Rate confirmation direct download notice:', rcErr.message);
+        }
+      }
+
       const res = await downloadPortalShipmentDocument(selectedShipment.id, doc.id, targetParams);
       if (res?.download_url) {
-        notify?.(`Authorization granted for ${doc.file_name}. Download initiated.`);
+        // Attempt to fetch file stream if endpoint is wired
+        try {
+          const fileResp = await fetch(res.download_url, { credentials: 'include' });
+          if (fileResp.ok) {
+            const blob = await fileResp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = doc.file_name || `${doc.type || 'Document'}-${doc.id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              window.URL.revokeObjectURL(url);
+              if (document.body.contains(a)) document.body.removeChild(a);
+            }, 1000);
+            notify?.(`Document ${doc.file_name} downloaded successfully.`);
+            return;
+          }
+        } catch (fetchErr) {
+          // Fall through to informative notice
+        }
+        notify?.(`Document ${doc.file_name} verified on file. Cloud storage file stream pending backend driver.`);
       } else {
-        notify?.('Document download access verified.');
+        notify?.(`Document ${doc.file_name} access verified.`);
       }
     } catch (err) {
       notify?.(err.message || 'Download authorization failed');
@@ -539,8 +646,10 @@ export default function CustomerPortal({
     setQuoteResult(null);
     setSelectedCarrier(null);
     try {
+      const mode = normalizePortalMode(quoteFormData.mode);
       const payload = {
         action: 'quote',
+        mode,
         origin: {
           address: quoteFormData.origin_address,
           city: quoteFormData.origin_city,
@@ -579,8 +688,10 @@ export default function CustomerPortal({
     }
     setBookingShipment(true);
     try {
+      const mode = normalizePortalMode(quoteFormData.mode);
       const payload = {
         action: 'book',
+        mode,
         carrier_org_id: selectedCarrier.id,
         quote_amount: quoteResult?.rate?.total || selectedCarrier.estimated_cost,
         origin: {
@@ -598,6 +709,7 @@ export default function CustomerPortal({
         pickup_date: quoteFormData.pickup_date || undefined,
         delivery_date: quoteFormData.delivery_date || undefined,
         freight_details: {
+          mode,
           commodity: quoteFormData.commodity,
           equipment_type: quoteFormData.equipment_type,
           total_weight: Number(quoteFormData.weight_lbs),
@@ -1252,6 +1364,23 @@ export default function CustomerPortal({
 
               <div className="cportal-form-grid">
                 <div className="cportal-form-field">
+                  <label>Freight Mode:</label>
+                  <select
+                    value={quoteFormData.mode}
+                    onChange={(e) => {
+                      const mode = e.target.value === 'air' ? 'air' : 'ocean';
+                      setQuoteFormData({
+                        ...quoteFormData,
+                        mode,
+                        equipment_type: PORTAL_EQUIPMENT_BY_MODE[mode][0],
+                      });
+                    }}
+                  >
+                    <option value="ocean">Ocean Freight</option>
+                    <option value="air">Air Cargo</option>
+                  </select>
+                </div>
+                <div className="cportal-form-field">
                   <label>Commodity Description:</label>
                   <input
                     type="text"
@@ -1265,11 +1394,9 @@ export default function CustomerPortal({
                     value={quoteFormData.equipment_type}
                     onChange={(e) => setQuoteFormData({ ...quoteFormData, equipment_type: e.target.value })}
                   >
-                    <option value="Dry Van">Dry Van 53'</option>
-                    <option value="Reefer">Refrigerated (Reefer)</option>
-                    <option value="Flatbed">Flatbed</option>
-                    <option value="Step Deck">Step Deck</option>
-                    <option value="Power Only">Power Only</option>
+                    {PORTAL_EQUIPMENT_BY_MODE[normalizePortalMode(quoteFormData.mode)].map((equipment) => (
+                      <option key={equipment} value={equipment}>{equipment}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="cportal-form-field">
@@ -2214,18 +2341,55 @@ export default function CustomerPortal({
                     </div>
                   </div>
 
-                  {/* Real Coordinates & Carrier Snapshot */}
+                  {/* Interactive Map (FR-8.1) */}
+                  <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                    <TrackingMap
+                      currentLocation={m8LocationData?.current_location}
+                      origin={selectedShipment.origin}
+                      destination={selectedShipment.destination}
+                      referenceNumber={selectedShipment.reference_number || `SHP-${selectedShipment.id}`}
+                      height="280px"
+                    />
+                  </div>
+
+                  {/* Real Coordinates & Carrier Snapshot (FR-8.1) */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                     <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
-                        LAST REPORTED TELEMETRY
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
+                          LAST REPORTED TELEMETRY
+                        </span>
+                        {m8LocationData?.current_location && (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: m8LocationData.is_stale ? '#fef3c7' : '#dcfce7',
+                            color: m8LocationData.is_stale ? '#b45309' : '#15803d'
+                          }}>
+                            {m8LocationData.is_stale ? 'STALE (>15m)' : 'LIVE GPS'}
+                          </span>
+                        )}
                       </div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
-                        Location: {trackingData?.dynamic_eta?.telemetry?.last_check_call_location || trackingData?.current_location?.city || 'In Transit'}, {trackingData?.current_location?.state || ''}
-                      </div>
-                      <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-                        Coordinates: Lat {trackingData?.dynamic_eta?.telemetry?.current_coordinates?.lat || trackingData?.current_location?.latitude || '32.7767'}, Lon {trackingData?.dynamic_eta?.telemetry?.current_coordinates?.lng || trackingData?.current_location?.longitude || '-96.7970'}
-                      </div>
+
+                      {m8LocationData?.current_location ? (
+                        <>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
+                            Lat {Number(m8LocationData.current_location.latitude).toFixed(5)}, Lon {Number(m8LocationData.current_location.longitude).toFixed(5)}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>
+                            Speed: {m8LocationData.current_location.speed_mph !== null && m8LocationData.current_location.speed_mph !== undefined ? `${m8LocationData.current_location.speed_mph} mph` : 'Stationary'} • Heading: {m8LocationData.current_location.heading_deg ? `${m8LocationData.current_location.heading_deg}°` : 'N/A'}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
+                            Fix: {new Date(m8LocationData.current_location.recorded_at).toLocaleTimeString()} ({m8LocationData.current_location.source})
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: '13px', color: '#64748b', padding: '6px 0' }}>
+                          No GPS telemetry fixes recorded yet for this shipment. Updates appear when driver or ELD hardware transmits.
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
@@ -2233,9 +2397,9 @@ export default function CustomerPortal({
                         ASSIGNED MOTOR CARRIER
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
-                        {trackingData?.carrier?.legal_name || selectedShipment.carrier_org?.legal_name || 'Assigned Carrier'}
+                        {currentLocationData?.carrier?.legal_name || trackingData?.carrier?.legal_name || selectedShipment.carrier_org?.legal_name || 'Assigned Carrier'}
                       </div>
-                      <div style={{ fontSize: '12.5px', color: '#059669', fontWeight: 600 }}>
+                      <div style={{ fontSize: '12.5px', color: '#059669', fontWeight: 600, marginTop: '4px' }}>
                         Carrier Active on Highway
                       </div>
                     </div>
@@ -2378,7 +2542,7 @@ export default function CustomerPortal({
                   <h4 style={{ margin: '0 0 8px', fontSize: '13.5px', color: '#0f172a' }}>Cargo & Equipment</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', fontSize: '13px' }}>
                     <div>Commodity: <strong>{selectedShipment.freight_details.commodity || 'General Freight'}</strong></div>
-                    <div>Equipment: <strong>{selectedShipment.freight_details.equipment_type || 'Dry Van'}</strong></div>
+                    <div>Equipment: <strong>{selectedShipment.freight_details.equipment_type || 'Not specified'}</strong></div>
                     <div>Total Weight: <strong>{selectedShipment.freight_details.total_weight || '15,000'} lbs</strong></div>
                     <div>Package Count: <strong>{selectedShipment.freight_details.package_quantity || 1} {selectedShipment.freight_details.package_type || 'units'}</strong></div>
                   </div>
@@ -2416,16 +2580,16 @@ export default function CustomerPortal({
       )}
 
       {/* ==================================================================== */}
-      {/* MODAL 3: DOCUMENTS HUB (FR-12.4)                                     */}
+      {/* MODAL 3: DOCUMENTS HUB (MODULE M10)                                   */}
       {/* ==================================================================== */}
       {showDocsModal && selectedShipment && (
         <div className="cportal-modal-backdrop" onClick={() => setShowDocsModal(false)}>
-          <div className="cportal-modal-box wide" onClick={(e) => e.stopPropagation()}>
+          <div className="cportal-modal-box wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '980px', width: '100%' }}>
             <div className="cportal-modal-header">
               <div>
                 <h2>Documents Hub · {selectedShipment.reference_number || `SHP-${selectedShipment.id}`}</h2>
                 <span style={{ fontSize: '12.5px', color: '#64748b' }}>
-                  Download authorized Bill of Lading, Proof of Delivery, Rate Confirmations, and Invoices
+                  Document checklist, digital signatures, Bills of Lading, Proof of Delivery, and share links
                 </span>
               </div>
               <button className="icon-btn" onClick={() => setShowDocsModal(false)}>
@@ -2433,68 +2597,17 @@ export default function CustomerPortal({
               </button>
             </div>
 
-            <div className="cportal-modal-body">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h4 style={{ margin: 0, fontSize: '14px', color: '#1e293b' }}>
-                  Attached Shipment Files ({shipmentDocs.length})
-                </h4>
-                <button
-                  className="btn primary small"
-                  onClick={() => setUploadDocModal(true)}
-                >
-                  <UploadSimple size={15} />
-                  <span>Upload Document</span>
-                </button>
-              </div>
-
-              {loadingDocs ? (
-                <div className="cportal-empty-state">
-                  <ArrowsClockwise size={32} className="spin" color="#2563eb" />
-                  <h3>Loading Documents...</h3>
-                </div>
-              ) : shipmentDocs.length === 0 ? (
-                <div className="cportal-empty-state">
-                  <FileText size={38} color="#94a3b8" />
-                  <h3>No documents attached yet</h3>
-                  <p>Documents generated upon booking or uploaded by the carrier will appear here.</p>
-                </div>
-              ) : (
-                <table className="cportal-table">
-                  <thead>
-                    <tr>
-                      <th>Document Type</th>
-                      <th>Filename</th>
-                      <th>File Size</th>
-                      <th>Uploaded On</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shipmentDocs.map((doc) => (
-                      <tr key={doc.id}>
-                        <td>
-                          <span className="cportal-badge booked">{doc.type || 'Document'}</span>
-                        </td>
-                        <td>
-                          <strong>{doc.file_name || `document-${doc.id}.pdf`}</strong>
-                        </td>
-                        <td>{doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : '—'}</td>
-                        <td>{formatDate(doc.created_at)}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn small"
-                            onClick={() => handleDownloadDoc(doc)}
-                          >
-                            <DownloadSimple size={15} />
-                            <span>Download</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            <div className="cportal-modal-body" style={{ padding: '20px' }}>
+              <DocumentsPanel
+                shipmentId={selectedShipment.id}
+                shipment={selectedShipment}
+                hasPermission={hasPermission}
+                role="Shipper User"
+                currentUser={currentUser}
+                notify={notify}
+                isPortal={true}
+                onClose={() => setShowDocsModal(false)}
+              />
             </div>
 
             <div className="cportal-modal-footer">
@@ -2828,4 +2941,3 @@ export default function CustomerPortal({
     </div>
   );
 }
-

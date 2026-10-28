@@ -49,70 +49,95 @@ export default function Dashboard({
   const orgType = currentOrg?.type || profile?.organization?.type || 'shipper';
 
   // Metrics State
+  const initialCounts = profile?.record_counts;
   const [metrics, setMetrics] = useState({
-    shipments: { count: profile?.record_counts?.shipments ?? null, breakdown: null, loading: true, error: null },
-    jobs: { count: profile?.record_counts?.jobs ?? null, breakdown: null, loading: true, error: null },
+    shipments: { count: initialCounts?.shipments ?? null, breakdown: null, loading: !initialCounts, error: null },
+    jobs: { count: initialCounts?.jobs ?? null, breakdown: null, loading: !initialCounts, error: null },
     dispatch: { count: null, unassigned: 0, exceptions: 0, loading: true, error: null },
-    quotes: { count: profile?.record_counts?.quotes ?? null, loading: true, error: null },
-    users: { count: profile?.record_counts?.users ?? null, loading: true, error: null },
-    customers: { count: null, loading: true, error: null },
-    branches: { count: null, loading: true, error: null },
-    fleet: { vehicles: profile?.record_counts?.vehicles ?? null, drivers: profile?.record_counts?.drivers ?? null, loading: true, error: null }
+    quotes: { count: initialCounts?.quotes ?? null, loading: false, error: null },
+    users: { count: initialCounts?.users ?? null, loading: false, error: null },
+    customers: { count: initialCounts?.customers ?? null, loading: false, error: null },
+    branches: { count: initialCounts?.branches ?? null, loading: false, error: null },
+    fleet: { vehicles: initialCounts?.vehicles ?? null, drivers: initialCounts?.drivers ?? null, loading: false, error: null }
   });
 
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    if (profile?.record_counts) {
+      const c = profile.record_counts;
+      setMetrics((prev) => ({
+        ...prev,
+        shipments: { ...prev.shipments, count: prev.shipments.count ?? c.shipments, loading: false },
+        jobs: { ...prev.jobs, count: prev.jobs.count ?? c.jobs, loading: false },
+        quotes: { ...prev.quotes, count: c.quotes ?? prev.quotes.count, loading: false },
+        users: { ...prev.users, count: c.users ?? prev.users.count, loading: false },
+        customers: { ...prev.customers, count: c.customers ?? prev.customers.count, loading: false },
+        branches: { ...prev.branches, count: c.branches ?? prev.branches.count, loading: false },
+        fleet: {
+          ...prev.fleet,
+          vehicles: c.vehicles ?? prev.fleet.vehicles,
+          drivers: c.drivers ?? prev.fleet.drivers,
+          loading: false,
+        },
+      }));
+    }
+  }, [profile?.record_counts]);
+
   // Fetch organization-scoped live metrics
-  const fetchDashboardMetrics = useCallback(async () => {
+  const fetchDashboardMetrics = useCallback(async (opts = {}) => {
+    const isManual = opts?.forceRefresh === true;
+    const signal = opts?.signal;
     setRefreshing(true);
 
     const checkPerm = (m, a) => (typeof hasPermission === 'function' ? hasPermission(m, a) : false);
+    const hasCounts = Boolean(profile?.record_counts);
 
     // Prepare requests conditionally based on permissions & tenant type
     const tasks = [
-      // 0. Shipments
+      // 0. Shipments (for breakdown & recent metrics)
       (checkPerm('shipments', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getShipments({ limit: 100 })
+        ? getShipments({ limit: 100 }, { signal })
         : Promise.resolve(null),
 
       // 1. Jobs
       (checkPerm('jobs', 'read') || checkPerm('shipments', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getJobs({ limit: 100 })
+        ? getJobs({ limit: 100 }, { signal })
         : Promise.resolve(null),
 
-      // 2. Dispatch Board
+      // 2. Dispatch Board (unassigned & exceptions)
       (checkPerm('dispatch', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getDispatchBoard()
+        ? getDispatchBoard({}, { signal })
         : Promise.resolve(null),
 
-      // 3. Quotes
-      (checkPerm('quotes', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getQuotes({ limit: 50 })
+      // 3. Quotes (only when manual refresh or counts missing)
+      (isManual || !hasCounts) && (checkPerm('quotes', 'read') || isCompanyAdmin || isPlatformAdmin)
+        ? getQuotes({ limit: 50 }, { signal })
         : Promise.resolve(null),
 
-      // 4. Team Users
-      (checkPerm('users', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getAccounts()
+      // 4. Team Users (only when manual refresh or counts missing)
+      (isManual || !hasCounts) && (checkPerm('users', 'read') || isCompanyAdmin || isPlatformAdmin)
+        ? getAccounts({ signal })
         : Promise.resolve(null),
 
-      // 5. Customers
-      (checkPerm('customers', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getCustomers({ limit: 50 })
+      // 5. Customers (only when manual refresh or counts missing)
+      (isManual || !hasCounts) && (checkPerm('customers', 'read') || isCompanyAdmin || isPlatformAdmin)
+        ? getCustomers({ limit: 50 }, { signal })
         : Promise.resolve(null),
 
-      // 6. Branches
-      (checkPerm('branches', 'read') || isCompanyAdmin || isPlatformAdmin)
-        ? getBranches()
+      // 6. Branches (only when manual refresh or counts missing)
+      (isManual || !hasCounts) && (checkPerm('branches', 'read') || isCompanyAdmin || isPlatformAdmin)
+        ? getBranches('', { signal })
         : Promise.resolve(null),
 
-      // 7. Vehicles (Fleet)
-      (checkPerm('vehicles', 'read') || orgType === 'carrier' || isCompanyAdmin || isPlatformAdmin)
-        ? getVehicles()
+      // 7. Vehicles (only when manual refresh or counts missing)
+      (isManual || !hasCounts) && (checkPerm('vehicles', 'read') || orgType === 'carrier' || isCompanyAdmin || isPlatformAdmin)
+        ? getVehicles({}, { signal })
         : Promise.resolve(null),
 
-      // 8. Drivers
-      (checkPerm('drivers', 'read') || orgType === 'carrier' || isCompanyAdmin || isPlatformAdmin)
-        ? getFleetDrivers()
+      // 8. Drivers (only when manual refresh or counts missing)
+      (isManual || !hasCounts) && (checkPerm('drivers', 'read') || orgType === 'carrier' || isCompanyAdmin || isPlatformAdmin)
+        ? getFleetDrivers({}, { signal })
         : Promise.resolve(null)
     ];
 
@@ -337,17 +362,37 @@ export default function Dashboard({
           error: fleetErr
         };
 
+        if (profile?.record_counts) {
+          const c = profile.record_counts;
+          if (c.quotes !== undefined && !quotesRes.value) next.quotes = { count: c.quotes, loading: false, error: null };
+          if (c.users !== undefined && !usersRes.value) next.users = { count: c.users, loading: false, error: null };
+          if (c.customers !== undefined && !customersRes.value) next.customers = { count: c.customers, loading: false, error: null };
+          if (c.branches !== undefined && !branchesRes.value) next.branches = { count: c.branches, loading: false, error: null };
+          if (!vehiclesRes.value && !driversRes.value) {
+            next.fleet = {
+              vehicles: c.vehicles ?? prev.fleet.vehicles,
+              drivers: c.drivers ?? prev.fleet.drivers,
+              loading: false,
+              error: null
+            };
+          }
+        }
+
         return next;
       });
     } catch (err) {
-      console.error('Failed to load dashboard metrics:', err);
+      if (err?.name !== 'AbortError') {
+        console.error('Failed to load dashboard metrics:', err);
+      }
     } finally {
       setRefreshing(false);
     }
-  }, [currentOrg?.id, hasPermission, isCompanyAdmin, isPlatformAdmin, orgType, profile]);
+  }, [currentOrg?.id, profile?.organization?.id, isCompanyAdmin, isPlatformAdmin, orgType, hasPermission, profile?.record_counts]);
 
   useEffect(() => {
-    fetchDashboardMetrics();
+    const controller = new AbortController();
+    fetchDashboardMetrics({ signal: controller.signal });
+    return () => controller.abort();
   }, [fetchDashboardMetrics]);
 
   return (
@@ -383,7 +428,7 @@ export default function Dashboard({
           <button
             type="button"
             className="dash-action-btn"
-            onClick={fetchDashboardMetrics}
+            onClick={() => fetchDashboardMetrics({ forceRefresh: true })}
             disabled={refreshing}
             title="Refresh Organization Metrics"
           >

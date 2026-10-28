@@ -21,7 +21,8 @@ import {
   CaretLeft,
   CaretRight,
   Receipt,
-  FileText
+  FileText,
+  DownloadSimple
 } from '@phosphor-icons/react';
 import {
   getJobs,
@@ -31,7 +32,8 @@ import {
   assignJob,
   createJob,
   getFleetDrivers,
-  getVehicles
+  getVehicles,
+  downloadRateConfirmationDocument
 } from './api';
 import './styles/jobManagement.css';
 
@@ -71,6 +73,7 @@ export default function JobManagement({
   const [detailJob, setDetailJob] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState(null);
+  const [downloadingRcId, setDownloadingRcId] = useState(null);
 
   const [assignModalJob, setAssignModalJob] = useState(null);
   const [assignForm, setAssignForm] = useState({ driver_id: '', truck_id: '', trailer_id: '', notes: '' });
@@ -159,6 +162,43 @@ export default function JobManagement({
       setDetailError(err.message || 'Failed to retrieve job details.');
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  // Download official Rate Confirmation PDF stream
+  const handleDownloadRateConfirmation = async (rcId, confirmationNumber) => {
+    if (!rcId) return;
+    try {
+      setDownloadingRcId(rcId);
+      if (notify) notify('Downloading official Rate Confirmation PDF...', 'info');
+
+      const blob = await downloadRateConfirmationDocument(rcId);
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        throw new Error('Downloaded document is empty or invalid.');
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Rate_Confirmation_${confirmationNumber || rcId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        if (document.body.contains(a)) document.body.removeChild(a);
+      }, 1000);
+
+      if (notify) notify(`Rate Confirmation ${confirmationNumber || `#${rcId}`} downloaded successfully.`, 'success');
+    } catch (err) {
+      console.error('Rate confirmation download error:', err);
+      const msg = err.status === 404
+        ? 'Rate confirmation metadata is registered, but the PDF binary file is currently unavailable on the server.'
+        : err.status === 403
+        ? 'You do not have permission to download this rate confirmation (tenant restricted).'
+        : (err.message || 'Failed to download rate confirmation PDF.');
+      if (notify) notify(msg, 'error');
+    } finally {
+      setDownloadingRcId(null);
     }
   };
 
@@ -842,9 +882,29 @@ export default function JobManagement({
                           ${Number(detailJob.shipment?.quote_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
                         </span>
                       </div>
-                      <div className="job-detail-row">
+                      <div className="job-detail-row" style={{ alignItems: 'center' }}>
                         <span>Rate Confirmation:</span>
-                        <span>{detailJob.shipment?.rate_confirmation?.confirmation_number || 'Attached'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong>{detailJob.shipment?.rate_confirmation?.confirmation_number || 'Attached'}</strong>
+                          {detailJob.shipment?.rate_confirmation?.id && (
+                            <button
+                              type="button"
+                              className="job-btn job-btn-sm secondary"
+                              style={{ padding: '2px 8px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              onClick={() =>
+                                handleDownloadRateConfirmation(
+                                  detailJob.shipment.rate_confirmation.id,
+                                  detailJob.shipment.rate_confirmation.confirmation_number
+                                )
+                              }
+                              disabled={downloadingRcId === detailJob.shipment.rate_confirmation.id}
+                              title="Download official PDFKit Rate Confirmation PDF"
+                            >
+                              <DownloadSimple size={12} weight="bold" />
+                              <span>{downloadingRcId === detailJob.shipment.rate_confirmation.id ? 'Downloading...' : 'PDF'}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="job-detail-row">
                         <span>Shipper Org:</span>
@@ -939,27 +999,157 @@ export default function JobManagement({
                     </div>
                   )}
 
-                  {/* Proof of Delivery (POD) Status */}
-                  {(detailJob.status === 'completed' || detailJob.shipment?.documents?.some(d => d.type === 'POD') || ['delivered', 'closed'].includes(detailJob.shipment?.status)) && (
-                    <div className="job-detail-card" style={{ marginBottom: '16px' }}>
-                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={16} color="#2563eb" />
-                        <span>Proof of Delivery (POD) & Documents</span>
-                      </h3>
-                      <div style={{ fontSize: '13px', color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <CheckCircle size={16} color="#16a34a" weight="bold" />
-                          <span>
-                            {detailJob.shipment?.documents?.find(d => d.type === 'POD')?.file_name ||
-                             `POD-${detailJob.shipment?.reference_number || detailJob.job_number}.pdf (Verified)`}
-                          </span>
+                  {/* Documents & Compliance Card (Rate Confirmation, BOL, POD) */}
+                  {(() => {
+                    const rc = detailJob.shipment?.rate_confirmation;
+                    const bolDoc = detailJob.shipment?.documents?.find((d) => ['BOL', 'bol'].includes(d.type));
+                    const bolRef = Array.isArray(detailJob.shipment?.references)
+                      ? detailJob.shipment.references.find((r) => r.type === 'BOL')?.value
+                      : detailJob.shipment?.bol_number;
+                    const podDoc = detailJob.shipment?.documents?.find((d) => ['POD', 'pod'].includes(d.type));
+                    const isCompleted =
+                      detailJob.status === 'completed' ||
+                      ['delivered', 'closed'].includes(detailJob.shipment?.status);
+
+                    if (!rc && !bolDoc && !bolRef && !podDoc && !isCompleted) return null;
+
+                    return (
+                      <div className="job-detail-card" style={{ marginBottom: '16px' }}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <FileText size={16} color="#2563eb" />
+                          <span>Shipping Documents & Compliance</span>
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {/* Rate Confirmation Row */}
+                          {rc && (
+                            <div
+                              style={{
+                                fontSize: '13px',
+                                color: '#334155',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: '#f8fafc',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FileText size={15} color="#2563eb" />
+                                <span>
+                                  <strong>Rate Confirmation:</strong> {rc.confirmation_number}
+                                </span>
+                                <span
+                                  className={`bk-status-badge ${
+                                    rc.status === 'signed' ? 'signed' : 'pending_signature'
+                                  }`}
+                                  style={{ fontSize: '10px', padding: '2px 6px' }}
+                                >
+                                  {rc.status === 'signed' ? 'Signed' : 'Pending Signature'}
+                                </span>
+                              </div>
+                              {rc.id && (
+                                <button
+                                  type="button"
+                                  className="job-btn job-btn-sm secondary"
+                                  style={{
+                                    padding: '2px 8px',
+                                    fontSize: '11px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                  onClick={() => handleDownloadRateConfirmation(rc.id, rc.confirmation_number)}
+                                  disabled={downloadingRcId === rc.id}
+                                >
+                                  <DownloadSimple size={12} weight="bold" />
+                                  <span>{downloadingRcId === rc.id ? 'Downloading...' : 'PDF'}</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* BOL Row */}
+                          {(bolDoc || bolRef) && (
+                            <div
+                              style={{
+                                fontSize: '13px',
+                                color: '#334155',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: '#f8fafc',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FileText size={15} color="#059669" />
+                                <span>
+                                  <strong>Bill of Lading (BOL):</strong>{' '}
+                                  {bolRef ||
+                                    bolDoc?.file_name ||
+                                    `BOL-${detailJob.shipment?.reference_number || detailJob.job_number}`}
+                                </span>
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: '11px',
+                                  color: '#059669',
+                                  background: '#ecfdf5',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid #a7f3d0',
+                                }}
+                              >
+                                {bolDoc ? 'Verified On File' : 'Reference Logged'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* POD Row */}
+                          {(isCompleted || podDoc) && (
+                            <div
+                              style={{
+                                fontSize: '13px',
+                                color: '#334155',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: '#f8fafc',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <CheckCircle size={15} color="#16a34a" weight="bold" />
+                                <span>
+                                  <strong>Proof of Delivery (POD):</strong>{' '}
+                                  {podDoc?.file_name ||
+                                    `POD-${detailJob.shipment?.reference_number || detailJob.job_number}.pdf`}
+                                </span>
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: '12px',
+                                  color: '#059669',
+                                  background: '#ecfdf5',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid #a7f3d0',
+                                }}
+                              >
+                                {podDoc ? 'Verified On File' : 'Delivery Verified'}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <span style={{ fontSize: '12px', color: '#059669', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
-                          Delivery Verified
-                        </span>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Operational Notes */}
                   {detailJob.notes && (

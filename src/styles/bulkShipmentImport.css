@@ -1,0 +1,386 @@
+/**
+ * bulkShipmentImport.css
+ * Styling for FMS Bulk Shipment Import Modal (FR-3.2)
+ * Integrates with Harbor Freight design system tokens
+ */
+
+.fms-import-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 20px;
+  animation: fmsFadeIn 0.15s ease-out;
+}
+
+.fms-import-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.fms-import-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+
+.fms-import-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fms-import-header-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fms-import-header-title p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.fms-import-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Template Banner */
+.fms-template-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fms-template-banner-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+}
+
+.fms-template-banner-info strong {
+  display: block;
+  font-size: 13px;
+  color: #1e3a8a;
+  margin-bottom: 2px;
+}
+
+.fms-template-banner-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #3b82f6;
+  line-height: 1.4;
+}
+
+.fms-template-download-btn {
+  background: #ffffff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.fms-template-download-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+/* Dropzone */
+.fms-dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 36px 20px;
+  text-align: center;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.fms-dropzone:hover,
+.fms-dropzone.drag-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.fms-dropzone-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #dbeafe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.fms-dropzone-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.fms-dropzone-subtext {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Selected File Pill */
+.fms-selected-file-card {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fms-file-details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fms-file-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.fms-file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.fms-file-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* Pre-Validation Alerts */
+.fms-validation-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fms-validation-summary.has-warnings {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.fms-validation-summary.has-errors {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+/* Preview Table */
+.fms-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fms-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.fms-preview-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  max-height: 220px;
+}
+
+.fms-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+
+.fms-preview-table th {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 8px 10px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+
+.fms-preview-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.fms-preview-table tr:hover {
+  background: #f8fafc;
+}
+
+/* Results KPI Grid */
+.fms-results-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.fms-results-kpi-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.fms-results-kpi-card.success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.fms-results-kpi-card.failed {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.fms-results-kpi-num {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.fms-results-kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+/* Results Table */
+.fms-results-table-wrapper {
+  overflow-y: auto;
+  max-height: 260px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.fms-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.fms-results-table th {
+  background: #f8fafc;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+}
+
+.fms-results-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.fms-results-table tr.error-row {
+  background: #fffafa;
+}
+
+/* Modal Footer */
+.fms-import-footer {
+  padding: 14px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@keyframes fmsFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

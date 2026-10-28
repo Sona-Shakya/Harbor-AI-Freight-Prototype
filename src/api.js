@@ -8,8 +8,9 @@ const API_BASE = (
       )
 ).replace(/\/$/, "");
 import * as authService from './services/authService.js';
+import { createGetCacheKey } from './services/sessionIsolation.js';
 const AUTH_EXPIRED_EVENT = 'harbor-auth-expired';
-const GET_CACHE_TTL = 30_000;
+const GET_CACHE_TTL = 45_000;
 const inFlightGets = new Map();
 const getCache = new Map();
 
@@ -18,16 +19,82 @@ export function clearGetCache() {
   inFlightGets.clear();
 }
 
+export function invalidateCache(pattern) {
+  if (!pattern) {
+    clearGetCache();
+    return;
+  }
+  const needle = String(pattern);
+  for (const key of getCache.keys()) {
+    if (key.includes(needle)) {
+      getCache.delete(key);
+    }
+  }
+}
+
 authService.subscribe(clearGetCache);
+
+export function formatQuery(params) {
+  if (!params) return '';
+  if (typeof params === 'string') {
+    return params.startsWith('?') ? params : `?${params}`;
+  }
+  if (typeof params === 'object') {
+    const searchParams = new URLSearchParams();
+    for (const [key, val] of Object.entries(params)) {
+      if (val !== undefined && val !== null && val !== '') {
+        searchParams.append(key, String(val));
+      }
+    }
+    const str = searchParams.toString();
+    return str ? `?${str}` : '';
+  }
+  return '';
+}
+
+function attachSignal(promise, signal, onAbort) {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    onAbort?.();
+    return Promise.reject(new DOMException('The operation was aborted', 'AbortError'));
+  }
+  return new Promise((resolve, reject) => {
+    const onSignalAbort = () => {
+      signal.removeEventListener('abort', onSignalAbort);
+      onAbort?.();
+      reject(new DOMException('The operation was aborted', 'AbortError'));
+    };
+    signal.addEventListener('abort', onSignalAbort, { once: true });
+    promise.then(
+      (res) => {
+        signal.removeEventListener('abort', onSignalAbort);
+        resolve(res);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onSignalAbort);
+        reject(err);
+      }
+    );
+  });
+}
 
 async function request(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   const token = authService.getToken() || 'anonymous';
-  const cacheKey = `${token}:${method}:${path}`;
-  if (method === 'GET' && !options.skipCache && options.responseType !== 'blob') {
-    const cached = getCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.value;
-    if (inFlightGets.has(cacheKey)) return inFlightGets.get(cacheKey);
+  const cacheKey = createGetCacheKey(token, method, path);
+
+  if (method === 'GET' && options.responseType !== 'blob') {
+    if (!options.skipCache) {
+      const cached = getCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return attachSignal(Promise.resolve(cached.value), options.signal);
+      }
+    }
+    if (inFlightGets.has(cacheKey)) {
+      return attachSignal(inFlightGets.get(cacheKey), options.signal, () => {
+        inFlightGets.delete(cacheKey);
+      });
+    }
   }
 
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -38,69 +105,94 @@ async function request(path, options = {}) {
   };
 
   const execute = async () => {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
-
-  if (response.status === 304) {
-    const cached = getCache.get(cacheKey);
-    if (cached) return cached.value;
-  }
-
-  if (!response.ok) {
-    const rawMessage = await response.text();
-    let message = rawMessage;
-    let parsedData = null;
     try {
-      parsedData = JSON.parse(rawMessage);
-      if (parsedData && (parsedData.message || parsedData.error)) {
-        message = parsedData.message || parsedData.error;
-      }
-    } catch {
-      // not JSON
-    }
-
-    if (response.status === 401 && authService.hasToken() && !path.includes('/auth/login/verify-otp')) {
-      authService.clearToken();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
-      }
-    }
-
-    const error = new Error(message || `API ${response.status}`);
-    error.status = response.status;
-    error.data = parsedData;
-    error.raw = rawMessage;
-    throw error;
-  }
-
-  if (options.responseType === 'blob') {
-    if (options.includeHeaders) {
-      return {
-        blob: await response.blob(),
-        contentDisposition: response.headers.get('content-disposition'),
-        contentType: response.headers.get('content-type'),
+      const fetchOptions = {
+        ...options,
+        credentials: "include",
+        headers,
       };
-    }
-    return await response.blob();
-  }
+      delete fetchOptions.skipCache;
+      delete fetchOptions.responseType;
+      delete fetchOptions.includeHeaders;
 
-  const value = response.status === 204 ? null : await response.json();
-  if (method === 'GET' && !options.skipCache) getCache.set(cacheKey, {value, expiresAt: Date.now() + GET_CACHE_TTL});
-  return value;
+      const response = await fetch(`${API_BASE}${path}`, fetchOptions);
+
+      if (response.status === 304) {
+        const cached = getCache.get(cacheKey);
+        if (cached) return cached.value;
+      }
+
+      if (!response.ok) {
+        const rawMessage = await response.text();
+        let message = rawMessage;
+        let parsedData = null;
+        try {
+          parsedData = JSON.parse(rawMessage);
+          if (parsedData && (parsedData.message || parsedData.error)) {
+            message = parsedData.message || parsedData.error;
+          }
+        } catch {
+          // not JSON
+        }
+
+        if (response.status === 401 && authService.hasToken() && !path.includes('/auth/login/verify-otp')) {
+          authService.clearToken();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+          }
+        }
+
+        const error = new Error(message || `API ${response.status}`);
+        error.status = response.status;
+        error.data = parsedData;
+        error.raw = rawMessage;
+        throw error;
+      }
+
+      if (options.responseType === 'blob') {
+        if (options.includeHeaders) {
+          return {
+            blob: await response.blob(),
+            contentDisposition: response.headers.get('content-disposition'),
+            contentType: response.headers.get('content-type'),
+          };
+        }
+        return await response.blob();
+      }
+
+      const value = response.status === 204 ? null : await response.json();
+      if (method === 'GET' && !options.skipCache) {
+        getCache.set(cacheKey, { value, expiresAt: Date.now() + GET_CACHE_TTL });
+      }
+      return value;
+    } catch (err) {
+      inFlightGets.delete(cacheKey);
+      throw err;
+    }
   };
 
   if (method !== 'GET') {
     const value = await execute();
-    clearGetCache();
+    const cleanPath = path.split('?')[0];
+    const segments = cleanPath.split('/').filter(Boolean);
+    if (segments.length >= 2) {
+      invalidateCache(`/${segments[0]}/${segments[1]}`);
+    } else {
+      clearGetCache();
+    }
     return value;
   }
 
-  const promise = execute().finally(() => inFlightGets.delete(cacheKey));
+  const promise = execute()
+    .catch((err) => {
+      inFlightGets.delete(cacheKey);
+      throw err;
+    })
+    .finally(() => inFlightGets.delete(cacheKey));
   inFlightGets.set(cacheKey, promise);
-  return promise;
+  return attachSignal(promise, options.signal, () => {
+    inFlightGets.delete(cacheKey);
+  });
 }
 
 const list = (payload) =>
@@ -218,6 +310,21 @@ export async function updateRolePermissions(roleId, permissionSet) {
   });
 }
 
+export async function registerCompany(payload) {
+  return request("/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getPublicTracking(trackingReference) {
+  const cleanRef = encodeURIComponent(String(trackingReference || '').trim());
+  return request(`/v1/track/${cleanRef}`, {
+    method: "GET",
+    skipCache: true,
+  });
+}
+
 export async function login(email, password) {
   const response = await request("/v1/auth/login", {
     method: "POST",
@@ -295,8 +402,14 @@ export async function resetPassword({ resetToken, newPassword, confirmPassword }
   });
 }
 
-export async function getProfile() {
-  return request("/v1/auth/profile", { skipCache: true });
+export async function getProfile(options = {}) {
+  // Profile requests should never be aborted on cleanup
+  const { signal: _signal, ...rest } = options;
+  return request("/v1/auth/profile", {
+    ...rest,
+    cache: 'no-store',
+    skipCache: true,
+  });
 }
 
 export async function getCurrentOrganization() {
@@ -609,9 +722,8 @@ export async function importSettings(formDataOrPayload) {
  * Accepts a URLSearchParams-compatible query string:
  *   page, limit, search, status
  */
-export async function getCustomers(queryString) {
-  const qs = queryString ? `?${queryString}` : '';
-  return request(`/v1/customers${qs}`);
+export async function getCustomers(queryString, options = {}) {
+  return request(`/v1/customers${formatQuery(queryString)}`, options);
 }
 
 /**
@@ -680,9 +792,8 @@ export async function getCustomerAuditLog(id, { page = 1, limit = 20 } = {}) {
  * GET /v1/vendors
  * Supports query parameters: page, limit, search, status
  */
-export async function getVendors(queryString) {
-  const qs = queryString ? `?${queryString}` : '';
-  return request(`/v1/vendors${qs}`);
+export async function getVendors(queryString, options = {}) {
+  return request(`/v1/vendors${formatQuery(queryString)}`, options);
 }
 
 /**
@@ -758,9 +869,8 @@ export async function getVendorAuditLog(id, { page = 1, limit = 20 } = {}) {
  * GET /v1/branches
  * Query params: page, limit, search, status
  */
-export async function getBranches(queryString = '') {
-  const qs = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : '';
-  return request(`/v1/branches${qs}`);
+export async function getBranches(queryString = '', options = {}) {
+  return request(`/v1/branches${formatQuery(queryString)}`, options);
 }
 
 /**
@@ -828,9 +938,8 @@ export async function getBranchAuditLog(id, { page = 1, limit = 20 } = {}) {
  * GET /v1/agents
  * Query params: page, limit, search, status
  */
-export async function getAgents(queryString = '') {
-  const qs = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : '';
-  return request(`/v1/agents${qs}`);
+export async function getAgents(queryString = '', options = {}) {
+  return request(`/v1/agents${formatQuery(queryString)}`, options);
 }
 
 /**
@@ -899,9 +1008,8 @@ export async function getAgentAuditLog(id, { page = 1, limit = 20 } = {}) {
  * GET /v1/ports
  * Query params: page, limit, search, country, port_type, status, sort_by, sort_order
  */
-export async function getPorts(queryString = '') {
-  const qs = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : '';
-  return request(`/v1/ports${qs}`);
+export async function getPorts(queryString = '', options = {}) {
+  return request(`/v1/ports${formatQuery(queryString)}`, options);
 }
 
 /**
@@ -970,9 +1078,8 @@ export async function getPortAuditLog(id, { page = 1, limit = 20 } = {}) {
  * GET /v1/cfs
  * Query params: page, limit, search, cfs_code, name, country, city, state, facility_type, firms_code, port_id, status, sort_by, sort_order
  */
-export async function getCfsStations(queryString = '') {
-  const qs = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : '';
-  return request(`/v1/cfs${qs}`);
+export async function getCfsStations(queryString = '', options = {}) {
+  return request(`/v1/cfs${formatQuery(queryString)}`, options);
 }
 export const getCfsList = getCfsStations;
 export const getCfs = getCfsStations;
@@ -1051,6 +1158,7 @@ export async function getUserOrganizations() {
 }
 
 export async function switchOrganizationContext(organizationId) {
+  clearGetCache();
   const response = await request("/v1/auth/switch-organization", {
     method: "POST",
     body: JSON.stringify({ organizationId, organization_id: organizationId }),
@@ -1059,6 +1167,7 @@ export async function switchOrganizationContext(organizationId) {
   if (token) {
     authService.setToken(token);
   }
+  clearGetCache();
   return response;
 }
 
@@ -1241,15 +1350,8 @@ export async function getLaneMetrics(params = {}) {
   return request(`/v1/load-board/metrics/lanes${q}`);
 }
 
-export async function getShipments(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      query.set(key, val);
-    }
-  });
-  const q = query.toString() ? `?${query.toString()}` : "";
-  return request(`/v1/shipments${q}`);
+export async function getShipments(params = {}, options = {}) {
+  return request(`/v1/shipments${formatQuery(params)}`, options);
 }
 
 export async function getShipment(id) {
@@ -1298,19 +1400,26 @@ export async function addShipmentStop(id, stopData) {
   });
 }
 
+/**
+ * FR-3.2: Bulk Shipment Import
+ * Sends FormData (file) or JSON payload ({ rows, csv }) to POST /v1/shipments/import
+ * Supports .csv, .xlsx, .xls (max 15MB, up to 500 rows)
+ * @param {FormData|Object} payloadOrFormData
+ */
+export async function bulkImportShipments(payloadOrFormData) {
+  const isFormData = typeof FormData !== "undefined" && payloadOrFormData instanceof FormData;
+  return request("/v1/shipments/import", {
+    method: "POST",
+    body: isFormData ? payloadOrFormData : JSON.stringify(payloadOrFormData),
+  });
+}
+
 // ============================================================================
 // MODULE M4: QUOTING & RATE MANAGEMENT APIS
 // ============================================================================
 
-export async function getQuotes(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      query.set(key, val);
-    }
-  });
-  const q = query.toString() ? `?${query.toString()}` : "";
-  return request(`/v1/quotes${q}`);
+export async function getQuotes(params = {}, options = {}) {
+  return request(`/v1/quotes${formatQuery(params)}`, options);
 }
 
 export async function getQuote(id) {
@@ -1413,15 +1522,8 @@ export async function downloadRateConfirmationDocument(id) {
 // ============================================================
 
 // Fleet Assets (FR-5.1)
-export async function getVehicles(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      query.set(key, val);
-    }
-  });
-  const q = query.toString() ? `?${query.toString()}` : "";
-  return request(`/v1/fleet/vehicles${q}`);
+export async function getVehicles(params = {}, options = {}) {
+  return request(`/v1/fleet/vehicles${formatQuery(params)}`, options);
 }
 
 export async function getVehicle(id) {
@@ -1516,15 +1618,8 @@ export async function updateInspectionRecord(id, data) {
 }
 
 // Driver Roster & HOS (FR-5.3 & FR-5.8)
-export async function getFleetDrivers(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      query.set(key, val);
-    }
-  });
-  const q = query.toString() ? `?${query.toString()}` : "";
-  return request(`/v1/fleet/drivers${q}`);
+export async function getFleetDrivers(params = {}, options = {}) {
+  return request(`/v1/fleet/drivers${formatQuery(params)}`, options);
 }
 
 export async function getCarrierDrivers(carrierId, params = {}) {
@@ -1727,15 +1822,8 @@ export async function updateCarrierTier(carrierOrgId = null, data = {}) {
  * FR-6.1: Retrieve the operational Dispatch Board
  * @param {Object} params - Query params (date, status, driver_id, carrier_id, view_mode)
  */
-export async function getDispatchBoard(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      query.set(key, val);
-    }
-  });
-  const q = query.toString() ? `?${query.toString()}` : "";
-  return request(`/v1/dispatch/board${q}`, { skipCache: true });
+export async function getDispatchBoard(params = {}, options = {}) {
+  return request(`/v1/dispatch/board${formatQuery(params)}`, options);
 }
 
 /**
@@ -1992,6 +2080,33 @@ export async function uploadPortalShipmentDocument(shipmentId, data, params = {}
 }
 
 /**
+ * FR-11.1 & FR-11.6: List enterprise invoices and accounts receivable.
+ * Calls internal endpoint GET /v1/invoices.
+ * @param {Object} params - { status, shipment_id, customer_id, page, limit }
+ */
+export async function getInvoices(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/invoices${q}`, { skipCache: true });
+}
+
+/**
+ * FR-11.1: Get single invoice details by ID.
+ * @param {number|string} invoiceId
+ */
+export async function getInvoice(invoiceId, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") query.set(k, v);
+  });
+  const q = query.toString() ? `?${query.toString()}` : "";
+  return request(`/v1/invoices/${invoiceId}${q}`, { skipCache: true });
+}
+
+/**
  * FR-12.5: List billing invoices for shipper
  * @param {Object} params - { status, shipment_id, shipper_org_id }
  */
@@ -2197,15 +2312,8 @@ export async function getRoutingProviderStatus() {
  * List jobs with pagination, status, and search filters
  * @param {Object} params - { page, limit, status, search, start_date, end_date, carrier_id, shipper_id }
  */
-export async function getJobs(params = {}) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      query.set(key, val);
-    }
-  });
-  const q = query.toString() ? `?${query.toString()}` : "";
-  return request(`/v1/jobs${q}`, { skipCache: true });
+export async function getJobs(params = {}, options = {}) {
+  return request(`/v1/jobs${formatQuery(params)}`, options);
 }
 
 /**
@@ -2258,4 +2366,491 @@ export async function assignJob(id, data) {
     body: JSON.stringify(data),
   });
 }
+
+// ============================================================================
+// MODULE M8: REAL-TIME TRACKING & VISIBILITY (FR-8.1 - FR-8.6)
+// ============================================================================
+
+/**
+ * FR-8.1: Authorized current GPS location telemetry for a shipment
+ * @param {string|number} shipmentId
+ */
+export async function getShipmentCurrentLocation(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/location`, {
+    method: 'GET',
+    skipCache: true,
+  });
+}
+
+/**
+ * FR-8.6: Historical location telemetry trail with pagination and time range filters
+ * @param {string|number} shipmentId
+ * @param {Object} [params] - { page, limit, order, from, to, from_date, to_date }
+ */
+export async function getShipmentLocationHistory(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', params.page);
+  if (params.limit) query.set('limit', params.limit);
+  if (params.order) query.set('order', params.order);
+  if (params.from || params.from_date) query.set('from', params.from || params.from_date);
+  if (params.to || params.to_date) query.set('to', params.to || params.to_date);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return request(`/v1/shipments/${shipmentId}/location-history${qs}`, {
+    method: 'GET',
+    skipCache: true,
+  });
+}
+
+/**
+ * FR-8.6: Export historical location data as CSV for claims and billing audits
+ * @param {string|number} shipmentId
+ * @param {Object} [params] - { from, to, from_date, to_date }
+ */
+export async function exportShipmentLocationHistory(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.from || params.from_date) query.set('from', params.from || params.from_date);
+  if (params.to || params.to_date) query.set('to', params.to || params.to_date);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return request(`/v1/shipments/${shipmentId}/location-history/export${qs}`, {
+    method: 'GET',
+    responseType: 'blob',
+    includeHeaders: true,
+    skipCache: true,
+  });
+}
+
+/**
+ * FR-8.2: List active geofence boundaries and recent entry/exit events for a shipment
+ * @param {string|number} shipmentId
+ */
+export async function getShipmentGeofences(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/geofences`, {
+    method: 'GET',
+    skipCache: true,
+  });
+}
+
+/**
+ * FR-8.2: Create a geofence boundary around shipment origin, destination, stop, or hub
+ * @param {string|number} shipmentId
+ * @param {Object} data - { stop_id, name, type, center_lat, center_lng, radius_meters, metadata }
+ */
+export async function createShipmentGeofence(shipmentId, data) {
+  return request(`/v1/shipments/${shipmentId}/geofences`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-8.5: List tracking alerts (corridor deviation, stalled shipment) for a shipment
+ * @param {string|number} shipmentId
+ */
+export async function getShipmentTrackingAlerts(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/tracking-alerts`, {
+    method: 'GET',
+    skipCache: true,
+  });
+}
+
+/**
+ * FR-8.5: Acknowledge or dismiss an active tracking alert
+ * @param {string|number} alertId
+ * @param {Object} [data] - { status: 'acknowledged' | 'dismissed' }
+ */
+export async function acknowledgeTrackingAlert(alertId, data = { status: 'acknowledged' }) {
+  return request(`/v1/tracking/alerts/${alertId}/acknowledge`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-8.3: Generate shareable public tracking link with configurable expiration (Internal)
+ * @param {string|number} shipmentId
+ * @param {Object} [data] - { expires_in_hours, expires_in_days }
+ */
+export async function createTrackingLink(shipmentId, data = {}) {
+  return request(`/v1/shipments/${shipmentId}/tracking-link`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * FR-8.3: List active shareable tracking links for a shipment (Internal)
+ * @param {string|number} shipmentId
+ */
+export async function listTrackingLinks(shipmentId) {
+  return request(`/v1/shipments/${shipmentId}/tracking-links`, {
+    method: 'GET',
+    skipCache: true,
+  });
+}
+
+/**
+ * FR-8.3: Revoke an active shareable tracking link (Internal)
+ * @param {string|number} shipmentId
+ * @param {string|number} linkId
+ */
+export async function revokeTrackingLink(shipmentId, linkId) {
+  return request(`/v1/shipments/${shipmentId}/tracking-link/${linkId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ============================================================================
+// MODULE M10 — DOCUMENTATION MANAGEMENT API LAYER
+// ============================================================================
+
+/**
+ * Upload helper with optional progress callback using XMLHttpRequest
+ */
+async function uploadWithProgressHandler(path, formData, onProgress = null) {
+  if (typeof XMLHttpRequest !== 'undefined' && typeof onProgress === 'function') {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE}${path}`);
+      const authHeaders = authService.getAuthorizationHeader();
+      for (const [key, val] of Object.entries(authHeaders)) {
+        xhr.setRequestHeader(key, val);
+      }
+      xhr.withCredentials = true;
+
+      if (xhr.upload) {
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable && evt.total > 0) {
+            const percent = Math.round((evt.loaded / evt.total) * 100);
+            onProgress(percent, evt.loaded, evt.total);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        let parsed = null;
+        try {
+          parsed = JSON.parse(xhr.responseText);
+        } catch {}
+        if (xhr.status >= 200 && xhr.status < 300) {
+          clearGetCache();
+          resolve(parsed);
+        } else {
+          const message = parsed?.message || parsed?.error || `Upload failed (Status ${xhr.status})`;
+          const err = new Error(message);
+          err.status = xhr.status;
+          err.data = parsed;
+          reject(err);
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error during file upload'));
+      };
+
+      xhr.send(formData);
+    });
+  }
+
+  // Fallback to standard request()
+  return request(path, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/**
+ * 7.1 List Shipment Documents
+ * @param {number|string} shipmentId
+ * @param {Object} [params] - { type, status, include_archived }
+ * @returns {Promise<Array>} Normalized array of document objects
+ */
+export async function getShipmentDocuments(shipmentId, params = {}) {
+  const query = new URLSearchParams();
+  if (params.type && params.type !== 'all') query.set('type', params.type);
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+  if (params.include_archived) query.set('include_archived', 'true');
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await request(`/v1/shipments/${shipmentId}/documents${qs}`, { skipCache: true });
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res)) return res;
+  return [];
+}
+
+/**
+ * 7.2 Upload Shipment Document (multipart/form-data)
+ * @param {number|string} shipmentId
+ * @param {FormData} formData - fields: file, type, notes
+ * @param {Function} [onProgress] - (percent, loaded, total) => void
+ * @returns {Promise<Object>}
+ */
+export async function uploadShipmentDocument(shipmentId, formData, onProgress = null) {
+  const res = await uploadWithProgressHandler(`/v1/shipments/${shipmentId}/documents`, formData, onProgress);
+  return res?.data || res || {};
+}
+
+/**
+ * 7.3 Get Document Metadata
+ * @param {number|string} documentId
+ * @returns {Promise<Object>}
+ */
+export async function getDocument(documentId) {
+  const res = await request(`/v1/documents/${documentId}`);
+  return res?.data || res || {};
+}
+
+/**
+ * 7.4 Download / Stream Document File
+ * @param {number|string} documentId
+ * @param {boolean} [inline=false] - Preview inline (inline=1) vs attachment
+ * @returns {Promise<{ blob: Blob, contentType: string, contentDisposition: string }>}
+ */
+export async function downloadDocument(documentId, inline = false) {
+  const qs = inline ? '?inline=1' : '';
+  return request(`/v1/documents/${documentId}/download${qs}`, {
+    responseType: 'blob',
+    includeHeaders: true,
+    skipCache: true,
+  });
+}
+
+/**
+ * 7.5 Get Full Version History
+ * @param {number|string} documentId
+ * @returns {Promise<Array>} Normalized array of versions
+ */
+export async function getDocumentVersions(documentId) {
+  const res = await request(`/v1/documents/${documentId}/versions`, { skipCache: true });
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res)) return res;
+  return [];
+}
+
+/**
+ * 7.6 Upload New Document Version
+ * @param {number|string} documentId
+ * @param {FormData} formData - fields: file, notes
+ * @param {Function} [onProgress]
+ * @returns {Promise<Object>}
+ */
+export async function uploadDocumentVersion(documentId, formData, onProgress = null) {
+  const res = await uploadWithProgressHandler(`/v1/documents/${documentId}/versions`, formData, onProgress);
+  return res?.data || res || {};
+}
+
+/**
+ * 7.7 Soft-Delete (Archive) Document
+ * @param {number|string} documentId
+ * @param {string} reason - Mandatory archive reason
+ * @returns {Promise<Object>}
+ */
+export async function archiveDocument(documentId, reason) {
+  const res = await request(`/v1/documents/${documentId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason }),
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.8 Generate Bill of Lading (BOL)
+ * @param {number|string} shipmentId
+ * @param {Object} [data] - Overrides: shipper_name, consignee_name, hazmat_info, etc.
+ * @returns {Promise<Object>}
+ */
+export async function generateBol(shipmentId, data = {}) {
+  const res = await request(`/v1/shipments/${shipmentId}/documents/generate-bol`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.9 Edit Draft BOL
+ * @param {number|string} documentId
+ * @param {Object} data - Override fields
+ * @returns {Promise<Object>}
+ */
+export async function updateDraftBol(documentId, data = {}) {
+  const res = await request(`/v1/documents/${documentId}/bol`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.10 Finalize Document
+ * @param {number|string} documentId
+ * @returns {Promise<Object>}
+ */
+export async function finalizeDocument(documentId) {
+  const res = await request(`/v1/documents/${documentId}/finalize`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.11 Execute E-Signature
+ * @param {number|string} documentId
+ * @param {Object} data - { signer_name, signer_role, signature_data }
+ * @returns {Promise<Object>}
+ */
+export async function signDocument(documentId, data) {
+  const res = await request(`/v1/documents/${documentId}/sign`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.12 Document Checklist & Completion
+ * @param {number|string} shipmentId
+ * @returns {Promise<Object>} Normalized checklist object
+ */
+export async function getShipmentDocumentChecklist(shipmentId) {
+  const res = await request(`/v1/shipments/${shipmentId}/documents/checklist`, { skipCache: true });
+  const raw = res?.data || res || {};
+  return {
+    shipment_id: raw.shipment_id || shipmentId,
+    reference_number: raw.reference_number || '',
+    is_hazmat: Boolean(raw.is_hazmat),
+    is_cross_border: Boolean(raw.is_cross_border),
+    required: Array.isArray(raw.required) ? raw.required : [],
+    completed: Array.isArray(raw.completed) ? raw.completed : [],
+    missing: Array.isArray(raw.missing) ? raw.missing : [],
+    percent_complete: typeof raw.percent_complete === 'number' ? raw.percent_complete : 0,
+    blocks_invoicing: Boolean(raw.blocks_invoicing),
+  };
+}
+
+/**
+ * 7.13 Create Time-Limited Share Link
+ * @param {number|string} documentId
+ * @param {Object} [data] - { expires_in_hours: 72 }
+ * @returns {Promise<Object>}
+ */
+export async function createDocumentShareLink(documentId, data = { expires_in_hours: 72 }) {
+  const res = await request(`/v1/documents/${documentId}/share-link`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.14 List Share Links
+ * @param {number|string} documentId
+ * @returns {Promise<Array>} Normalized array of links
+ */
+export async function listDocumentShareLinks(documentId) {
+  const res = await request(`/v1/documents/${documentId}/share-links`, { skipCache: true });
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res)) return res;
+  return [];
+}
+
+/**
+ * 7.15 Revoke Share Link
+ * @param {number|string} linkId
+ * @returns {Promise<Object>}
+ */
+export async function revokeDocumentShareLink(linkId) {
+  const res = await request(`/v1/document-share-links/${linkId}`, {
+    method: 'DELETE',
+  });
+  return res?.data || res || {};
+}
+
+/**
+ * 7.16 Public Stream Shared Document (Unauthenticated)
+ * @param {string} token
+ * @returns {Promise<{ blob: Blob, contentType: string, contentDisposition: string }>}
+ */
+export async function getPublicSharedDocument(token) {
+  const url = `${API_BASE}/v1/shared-documents/${encodeURIComponent(token)}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'omit', // strictly unauthenticated
+  });
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const errJson = await response.json();
+      if (errJson?.message) message = errJson.message;
+    } catch {}
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
+  }
+
+  return {
+    blob: await response.blob(),
+    contentType: response.headers.get('content-type') || 'application/octet-stream',
+    contentDisposition: response.headers.get('content-disposition') || '',
+  };
+}
+
+/**
+ * 7.17 Shipment Document Audit Trail
+ * @param {number|string} shipmentId
+ * @returns {Promise<Array>} Normalized array of audit events
+ */
+export async function getShipmentDocumentAudit(shipmentId) {
+  const res = await request(`/v1/shipments/${shipmentId}/documents/audit`, { skipCache: true });
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res)) return res;
+  return [];
+}
+
+/**
+ * M17 Setting Values: Load active document types directly from backend
+ * Queries /v1/documents/types (or /v1/settings/document.type) and normalizes to:
+ * [{ key: string, value: string, label: string }]
+ * Uses EXACT backend keys (e.g. 'bol', 'pod', 'hazmat_form', etc.)
+ * @returns {Promise<Array<{ key: string, value: string, label: string }>>}
+ */
+export async function getDocumentTypes() {
+  try {
+    let res = null;
+    try {
+      res = await request('/v1/documents/types', { skipCache: true });
+    } catch {
+      res = await getSettingsByCategory('document.type');
+    }
+    const rawList =
+      res?.data?.values ||
+      res?.values ||
+      (Array.isArray(res?.data) ? res.data : null) ||
+      (Array.isArray(res) ? res : null);
+
+    if (Array.isArray(rawList) && rawList.length > 0) {
+      return rawList
+        .filter((item) => item && (typeof item === 'string' || item.is_active !== false))
+        .map((item) => {
+          if (typeof item === 'string') {
+            return { key: item, value: item, label: item.replace(/_/g, ' ') };
+          }
+          const val = item.value || item.key || '';
+          return {
+            key: val,
+            value: val,
+            label: item.label || item.name || val.replace(/_/g, ' '),
+          };
+        });
+    }
+  } catch (err) {
+    console.warn('getDocumentTypes error:', err?.message || err);
+  }
+  return [];
+}
+
 

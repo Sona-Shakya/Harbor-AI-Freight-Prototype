@@ -7,11 +7,20 @@
     "dev": "vite",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
-    "test:sites": "node --test tests/sites-worker.test.mjs"
+    "test:sites": "node --test tests/sites-worker.test.mjs",
+    "test:tracking": "node --test tests/public-tracking.test.mjs",
+    "test:invoices": "node --test tests/invoice-management.test.mjs",
+    "test:documents": "node --test tests/rate-confirmation-bol.test.mjs",
+    "test:m10": "node --test tests/documents-panel.test.mjs",
+    "test:import": "node --test tests/bulk-shipment-import.test.mjs",
+    "test:tracking-m8": "node --test tests/tracking-m8.test.mjs",
+    "test:nav": "node --test tests/navigation-visibility.test.mjs",
+    "test": "npm run test:sites && npm run test:tracking && npm run test:tracking-m8 && npm run test:invoices && npm run test:documents && npm run test:import && npm run test:nav"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "@vitejs/plugin-react": "5.0.4",
+    "leaflet": "^1.9.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "socket.io-client": "^4.8.4",

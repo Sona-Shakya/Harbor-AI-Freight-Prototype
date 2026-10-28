@@ -1,0 +1,207 @@
+/* ==========================================================================
+   PUBLIC SHARED DOCUMENT SCREEN STYLES
+   ========================================================================== */
+
+.public-shared-page {
+  min-height: 100vh;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.public-shared-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.public-shared-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.public-shared-brand-mark {
+  width: 32px;
+  height: 32px;
+  background: #0063fa;
+  color: #ffffff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.public-shared-brand h1 {
+  font-family: Georgia, serif;
+  font-size: 22px;
+  margin: 0;
+  color: #102247;
+  letter-spacing: -0.5px;
+}
+
+.public-shared-brand span {
+  font-size: 12px;
+  color: #64748b;
+  display: block;
+}
+
+.public-shared-main {
+  flex: 1;
+  max-width: 1050px;
+  width: 100%;
+  margin: 28px auto;
+  padding: 0 20px;
+}
+
+.public-shared-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.public-shared-card-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.public-shared-doc-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.public-shared-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #0063fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.public-shared-doc-info h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.public-shared-doc-info p {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+.public-shared-viewer {
+  min-height: 580px;
+  background: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.public-shared-viewer iframe {
+  width: 100%;
+  height: 700px;
+  border: none;
+}
+
+.public-shared-viewer img {
+  max-width: 100%;
+  max-height: 700px;
+  object-fit: contain;
+  padding: 20px;
+}
+
+.public-shared-state-box {
+  text-align: center;
+  padding: 60px 24px;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.public-shared-state-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.public-shared-state-icon.error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.public-shared-state-icon.expired {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.public-shared-state-box h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.public-shared-state-box p {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.public-shared-footer {
+  text-align: center;
+  padding: 20px;
+  font-size: 12px;
+  color: #94a3b8;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .public-shared-header {
+    padding: 12px 16px;
+  }
+  .public-shared-main {
+    margin: 14px auto;
+    padding: 0 12px;
+  }
+  .public-shared-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .public-shared-viewer iframe {
+    height: 480px;
+  }
+}
+

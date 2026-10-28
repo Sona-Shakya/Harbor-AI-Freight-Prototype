@@ -6,9 +6,14 @@ AGENTS.md
 design-qa.md
 scripts/
 tests/
+!tests/
+tests/*
+!tests/session-isolation.test.mjs
 worker/
 .sites-runtime/
 *.log
 
 # Private generated documents
 private-storage/
+
+scratch/

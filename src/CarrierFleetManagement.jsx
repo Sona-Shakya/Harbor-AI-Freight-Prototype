@@ -69,6 +69,7 @@ import {
   listCarrierTiers,
   updateCarrierTier,
 } from './api';
+import { isFleetPermittedForOrg } from './services/fleetAccess';
 
 import './styles/carrierFleet.css';
 
@@ -99,6 +100,29 @@ export default function CarrierFleetManagement({
   const isCarrierStaff = currentRoleName === 'Company Admin' || currentRoleName === 'Carrier Admin' || currentRoleName === 'Dispatcher';
   const isCarrierAdmin = currentRoleName === 'Company Admin' || currentRoleName === 'Carrier Admin' || isPlatformAdmin;
   const isShipper = currentRoleName === 'Shipper User';
+
+  // Org-type guard: only carrier orgs and Platform Admin can use this module
+  const isFleetAccessible = isFleetPermittedForOrg({
+    roleName: currentRoleName,
+    orgType: currentOrg?.type,
+    hasPermission,
+  });
+
+  // Show a single friendly inline message for non-carrier orgs — no API calls, no toasts
+  if (!profileLoading && !isFleetAccessible) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', gap: '16px', textAlign: 'center' }}>
+        <Truck size={52} style={{ color: 'var(--text-muted, #94a3b8)', opacity: 0.5 }} />
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>Fleet Management for Carrier Accounts</h2>
+        <p style={{ margin: 0, color: 'var(--text-muted, #64748b)', maxWidth: '440px', lineHeight: 1.6 }}>
+          Fleet assets, vehicle maintenance, driver HOS records, and carrier compliance are available exclusively for carrier-type organizations. Your account is registered as a <strong>{currentOrg?.type || 'non-carrier'}</strong> organization.
+        </p>
+        <p style={{ margin: 0, color: 'var(--text-muted, #94a3b8)', fontSize: '13px' }}>
+          If you manage freight carriers and need fleet access, contact your Platform Administrator.
+        </p>
+      </div>
+    );
+  }
 
   const [activeTab, setActiveTab] = useState(isDriver ? 'drivers' : 'fleet');
 
@@ -231,7 +255,10 @@ export default function CarrierFleetManagement({
       }
     } catch (err) {
       console.error('Fetch vehicles error:', err);
-      notify?.(err.message || 'Failed to load fleet vehicles');
+      // Do not toast on 403 — access restriction is shown inline by the org-type guard
+      if (err?.status !== 403) {
+        notify?.(err.message || 'Failed to load fleet vehicles');
+      }
     } finally {
       setLoadingVehicles(false);
     }

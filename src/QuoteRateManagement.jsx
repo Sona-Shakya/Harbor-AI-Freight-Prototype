@@ -457,7 +457,7 @@ export default function QuoteRateManagement({
                 value={quoteServiceTypeFilter}
                 onChange={(e) => setQuoteServiceTypeFilter(e.target.value)}
               >
-                <option value="">All Modes</option>
+                <option value="">All Service Types</option>
                 <option value="ftl">FTL (Full Truckload)</option>
                 <option value="ltl">LTL (Less-Than-Truckload)</option>
               </select>
@@ -504,7 +504,7 @@ export default function QuoteRateManagement({
                   <tr>
                     <th>Quote Ref</th>
                     <th>Lane (Origin → Dest)</th>
-                    <th>Mode & Model</th>
+                    <th>Service Type & Model</th>
                     <th>Base Linehaul</th>
                     <th>Fuel Surcharge</th>
                     <th>Accessorials</th>
@@ -1376,7 +1376,7 @@ export default function QuoteRateManagement({
                         <tr>
                           <th>Record #</th>
                           <th>Date</th>
-                          <th>Mode</th>
+                          <th>Service Type</th>
                           <th>Total Paid</th>
                           <th>Rate Per Mile</th>
                         </tr>
@@ -1700,7 +1700,7 @@ function NewQuoteModal({ onClose, onSuccess, notify, currentOrg, shipments, init
               </div>
             )}
 
-            {/* Mode Selector */}
+            {/* Trucking quote service type selector */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
@@ -2000,7 +2000,7 @@ function QuoteDetailModal({ quote, onClose, onBook, canBook, onNavigateToBooking
                 {quote.origin_city}, {quote.origin_state} → {quote.dest_city}, {quote.dest_state}
               </strong>
               <small style={{ color: '#64748b', display: 'block' }}>
-                Mode: {quote.service_type?.toUpperCase()} · Model: {quote.pricing_model?.toUpperCase()}
+                Service Type: {quote.service_type?.toUpperCase()} · Model: {quote.pricing_model?.toUpperCase()}
               </small>
             </div>
             <span className={`qr-badge qr-badge-${quote.status || 'active'}`} style={{ padding: '4px 10px', fontSize: '12px' }}>
@@ -2676,4 +2676,3 @@ function SignConfirmationModal({ confirmation, onClose, onSuccess, currentUser, 
     </div>
   );
 }
-

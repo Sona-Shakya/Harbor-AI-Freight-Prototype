@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   CalendarCheck,
   Truck,
   Boat,
   AirplaneTilt,
-  Train,
   Plus,
   ArrowRight,
   ArrowLeft,
@@ -45,6 +44,7 @@ import {
   TruckDirectionsModal,
   DynamicEtaModal
 } from './RoutePlanningModals';
+import DocumentsPanel from './DocumentsPanel.jsx';
 import {
   getShipments,
   getShipment,
@@ -67,14 +67,6 @@ import './styles/bookingManagement.css';
 
 const FREIGHT_MODES = [
   {
-    id: 'inland',
-    name: 'Inland / Road',
-    icon: Truck,
-    description: 'Over-the-road freight with dispatch & equipment assignment',
-    statusBadge: 'Fully Operational',
-    statusClass: 'operational',
-  },
-  {
     id: 'ocean',
     name: 'Ocean Freight',
     icon: Boat,
@@ -90,15 +82,42 @@ const FREIGHT_MODES = [
     statusBadge: 'Gateway Active',
     statusClass: 'active',
   },
-  {
-    id: 'rail',
-    name: 'Rail / Intermodal',
-    icon: Train,
-    description: 'Intermodal ramp-to-ramp railcar & container routing',
-    statusBadge: 'Intermodal Active',
-    statusClass: 'active',
-  },
 ];
+
+const OCEAN_EQUIPMENT_TYPES = [
+  '20ft Standard Ocean Container',
+  '40ft Standard Ocean Container',
+  '40ft High Cube Container',
+];
+
+const AIR_EQUIPMENT_TYPES = [
+  'Air Cargo ULD - LD3',
+  'Air Cargo ULD - PMC Pallet',
+  'Air Cargo ULD - AKE',
+];
+
+const normalizeBookingMode = (mode) => {
+  const normalized = String(mode || '').trim().toLowerCase();
+  return normalized === 'air' || normalized === 'air cargo' ? 'air' : 'ocean';
+};
+
+const getEquipmentTypesForMode = (mode, configuredTypes = []) => {
+  const isAir = normalizeBookingMode(mode) === 'air';
+  const defaults = isAir ? AIR_EQUIPMENT_TYPES : OCEAN_EQUIPMENT_TYPES;
+  const configured = configuredTypes.filter((type) => {
+    const label = String(type || '');
+    return isAir
+      ? /(air|uld|pmc|ake|ld3)/i.test(label)
+      : /(ocean|container|20\s*ft|40\s*ft|high cube)/i.test(label) &&
+          !/(air|uld)/i.test(label);
+  });
+  return [...new Set([...defaults, ...configured])];
+};
+
+const getDefaultEquipmentType = (mode) =>
+  normalizeBookingMode(mode) === 'air'
+    ? AIR_EQUIPMENT_TYPES[0]
+    : '40ft Standard Ocean Container';
 
 const PACKAGE_TYPES = [
   'Pallets',
@@ -113,12 +132,8 @@ const PACKAGE_TYPES = [
 ];
 
 const EQUIPMENT_TYPES = [
-  "Dry Van (53')",
-  "Refrigerated (53')",
-  "Flatbed (48')",
-  'Step Deck',
-  'Power Only',
-  'Straight / Box Truck',
+  ...OCEAN_EQUIPMENT_TYPES,
+  ...AIR_EQUIPMENT_TYPES,
 ];
 
 const LTL_CLASSES = [
@@ -170,6 +185,7 @@ export default function BookingManagement({
 
   // Rate Confirmation State
   const [rcModalBooking, setRcModalBooking] = useState(null);
+  const [docsModalBooking, setDocsModalBooking] = useState(null);
   const [rateConfirmationData, setRateConfirmationData] = useState(null);
   const [loadingRC, setLoadingRC] = useState(false);
   const [rcError, setRcError] = useState('');
@@ -186,12 +202,19 @@ export default function BookingManagement({
   const [searchQuery, setSearchQuery] = useState('');
   const [modeFilter, setModeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter || 'all');
+  const warnedLegacyBookingsRef = useRef(new Set());
 
   useEffect(() => {
     if (initialStatusFilter) {
       setStatusFilter(initialStatusFilter);
     }
   }, [initialStatusFilter]);
+
+  useEffect(() => {
+    if (!['all', 'ocean', 'air'].includes(modeFilter)) {
+      setModeFilter('all');
+    }
+  }, [modeFilter]);
 
   useEffect(() => {
     if (autoOpenCreate || operationalFilter?.action === 'create') {
@@ -210,6 +233,8 @@ export default function BookingManagement({
   const [equipmentTypes, setEquipmentTypes] = useState(EQUIPMENT_TYPES);
   const [accessorialTypes, setAccessorialTypes] = useState(STANDARD_ACCESSORIALS);
   const [loading, setLoading] = useState(true);
+  const [masterDataLoading, setMasterDataLoading] = useState(false);
+  const masterDataLoadedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorNotice, setErrorNotice] = useState('');
 
@@ -220,7 +245,7 @@ export default function BookingManagement({
     linked_shipment_id: '',
     booking_number: '',
     booking_date: new Date().toISOString().slice(0, 10),
-    booking_mode: 'inland',
+    booking_mode: 'ocean',
     shipper_org_id: '',
     status: 'draft',
 
@@ -271,7 +296,7 @@ export default function BookingManagement({
     dim_unit: 'in',
     volume: '',
     cargo_value: '',
-    equipment_type: "Dry Van (53')",
+    equipment_type: '40ft Standard Ocean Container',
     freight_class: '70',
     special_instructions: '',
     hazmat_flag: false,
@@ -331,6 +356,16 @@ export default function BookingManagement({
 
   const [form, setForm] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState({});
+  const modeEquipmentTypes = getEquipmentTypesForMode(form.booking_mode, equipmentTypes);
+
+  useEffect(() => {
+    setForm((prev) => {
+      const mode = normalizeBookingMode(prev.booking_mode);
+      const availableTypes = getEquipmentTypesForMode(mode, equipmentTypes);
+      if (availableTypes.includes(prev.equipment_type)) return prev;
+      return { ...prev, equipment_type: getDefaultEquipmentType(mode) };
+    });
+  }, [equipmentTypes, form.booking_mode]);
 
   // Roles & Permissions check
   const isPlatformAdmin = currentRoleName === 'Platform Admin';
@@ -343,32 +378,50 @@ export default function BookingManagement({
   const canCancel = !profileLoading && !isReadOnly && (isPlatformAdmin || checkPerm('shipments', 'update') || checkPerm('bookings', 'cancel'));
   const canSubmitCurrentForm = editingBooking ? canUpdate : canCreate;
 
-  // Load all backend entities
-  const loadData = async () => {
+  const warnForLegacyMode = (bookingId, mode) => {
+    const legacyMode = String(mode || '').trim().toLowerCase();
+    if (!['inland', 'rail', 'road'].includes(legacyMode)) return;
+    const warningKey = String(bookingId || `legacy-${legacyMode}`);
+    if (warnedLegacyBookingsRef.current.has(warningKey)) return;
+    warnedLegacyBookingsRef.current.add(warningKey);
+    notify?.(`This booking uses legacy ${legacyMode} mode. It will be saved as Ocean Freight when you save changes.`);
+  };
+
+  // Load bookings listing data
+  const loadData = async (signal) => {
     try {
       setLoading(true);
       setErrorNotice('');
 
-      const [shipmentsRes, customersRes, vendorsRes, portsRes, cfsRes, quotesRes, settingCatsRes] =
-        await Promise.allSettled([
-          getShipments({ limit: 100 }),
-          getCustomers(),
-          getVendors(),
-          getPorts(),
-          getCfsStations(),
-          getQuotes(),
-          getSettingCategories(),
-        ]);
+      const shipmentsRes = await getShipments({ limit: 100 }, { signal });
+      const list = Array.isArray(shipmentsRes)
+        ? shipmentsRes
+        : shipmentsRes?.data || shipmentsRes?.shipments || [];
+      setShipmentsList(list);
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      console.warn('Data fetch warning:', err);
+      setErrorNotice('Could not load complete backend data. Operating in offline/cached mode.');
+      setShipmentsList(initialRecords || []);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (shipmentsRes.status === 'fulfilled' && shipmentsRes.value) {
-        const list = Array.isArray(shipmentsRes.value)
-          ? shipmentsRes.value
-          : shipmentsRes.value?.data || shipmentsRes.value?.shipments || [];
-        setShipmentsList(list);
-      } else {
-        // Fallback to sample bookings if real backend list is empty
-        setShipmentsList(initialRecords || []);
-      }
+  // Lazy-load master dropdown data for booking creation and rate confirmations
+  const loadMasterData = useCallback(async (signal) => {
+    if (masterDataLoadedRef.current) return;
+    try {
+      setMasterDataLoading(true);
+      const [customersRes, vendorsRes, portsRes, cfsRes, quotesRes, settingCatsRes] =
+        await Promise.allSettled([
+          getCustomers('', { signal }),
+          getVendors('', { signal }),
+          getPorts('', { signal }),
+          getCfsStations('', { signal }),
+          getQuotes({}, { signal }),
+          getSettingCategories({ signal }),
+        ]);
 
       if (customersRes.status === 'fulfilled' && customersRes.value) {
         const custs = Array.isArray(customersRes.value)
@@ -437,22 +490,32 @@ export default function BookingManagement({
           }).catch(() => {});
         }
       }
+      masterDataLoadedRef.current = true;
     } catch (err) {
-      console.warn('Data fetch warning:', err);
-      setErrorNotice('Could not load complete backend data. Operating in offline/cached mode.');
+      if (err?.name !== 'AbortError') {
+        console.warn('Master data fetch warning:', err);
+      }
     } finally {
-      setLoading(false);
+      setMasterDataLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [currentOrg?.id]);
+
+  useEffect(() => {
+    if (isFormOpen || rateConfirmationData || autoOpenCreate) {
+      loadMasterData();
+    }
+  }, [isFormOpen, rateConfirmationData, autoOpenCreate, loadMasterData]);
 
   // Filtered Bookings List
   const filteredBookings = useMemo(() => {
     return shipmentsList.filter((item) => {
-      const mode = (item.freight_details?.mode || item.mode || 'inland').toLowerCase();
+      const mode = String(item.freight_details?.mode || item.mode || '').trim().toLowerCase();
       const status = (item.status || 'draft').toLowerCase();
       const ref = (item.reference_number || item.reference || item.id || '').toLowerCase();
       const shipper = (item.shipper?.legal_name || item.name || '').toLowerCase();
@@ -468,7 +531,7 @@ export default function BookingManagement({
       ).toLowerCase();
       const query = searchQuery.toLowerCase().trim();
 
-      const matchesMode = modeFilter === 'all' || mode.includes(modeFilter);
+      const matchesMode = modeFilter === 'all' || mode === modeFilter;
       const matchesStatus =
         statusFilter === 'all' || status === statusFilter.toLowerCase();
       const matchesSearch =
@@ -534,6 +597,11 @@ export default function BookingManagement({
       const poRef = details.references?.find((r) => r.type === 'PO')?.value || '';
       const bolRef = details.references?.find((r) => r.type === 'BOL')?.value || '';
       const custRef = details.references?.find((r) => r.type === 'customer_reference')?.value || '';
+      const savedMode = freight.mode || details.mode;
+      const bookingMode = normalizeBookingMode(savedMode);
+      warnForLegacyMode(details.id || booking.id, savedMode);
+      const savedEquipment = freight.equipment_type || '';
+      const availableEquipment = getEquipmentTypesForMode(bookingMode, equipmentTypes);
 
       setForm({
         ...initialFormState,
@@ -543,7 +611,7 @@ export default function BookingManagement({
         booking_date: details.created_at
           ? new Date(details.created_at).toISOString().slice(0, 10)
           : initialFormState.booking_date,
-        booking_mode: freight.mode || 'inland',
+        booking_mode: bookingMode,
         shipper_org_id: details.shipper_org_id || details.shipper?.id || '',
         status: details.status || 'draft',
 
@@ -611,7 +679,9 @@ export default function BookingManagement({
         dim_unit: firstItem.dimensions?.unit || 'in',
         volume: freight.volume || '',
         cargo_value: freight.cargo_value || '',
-        equipment_type: freight.equipment_type || "Dry Van (53')",
+        equipment_type: availableEquipment.includes(savedEquipment)
+          ? savedEquipment
+          : getDefaultEquipmentType(bookingMode),
         freight_class: firstItem.freight_class || '70',
         special_instructions: freight.special_instructions || '',
         hazmat_flag: Boolean(firstItem.hazmat_flag || freight.hazmat_flag),
@@ -707,6 +777,11 @@ export default function BookingManagement({
     }
 
     const freight = found.freight_details || {};
+    const savedMode = freight.mode || found.mode;
+    const bookingMode = normalizeBookingMode(savedMode);
+    warnForLegacyMode(found.id || found.reference_number, savedMode);
+    const savedEquipment = freight.equipment_type || '';
+    const availableEquipment = getEquipmentTypesForMode(bookingMode, equipmentTypes);
     const originObj = typeof found.origin === 'object' ? found.origin : {};
     const destObj = typeof found.destination === 'object' ? found.destination : {};
     const firstItem = found.items?.[0] || {};
@@ -716,7 +791,7 @@ export default function BookingManagement({
       booking_source: 'existing_shipment',
       linked_shipment_id: found.id || found.reference_number,
       shipper_org_id: found.shipper_org_id || found.shipper?.id || prev.shipper_org_id,
-      booking_mode: freight.mode || prev.booking_mode,
+      booking_mode: bookingMode,
       origin_address: originObj.address || originObj.address_line1 || prev.origin_address,
       origin_city: originObj.city || prev.origin_city,
       origin_state: originObj.state || prev.origin_state,
@@ -734,7 +809,9 @@ export default function BookingManagement({
       commodity: firstItem.description || freight.commodity || prev.commodity,
       gross_weight: firstItem.weight || freight.gross_weight || prev.gross_weight,
       package_count: firstItem.quantity || freight.package_count || prev.package_count,
-      equipment_type: freight.equipment_type || prev.equipment_type,
+      equipment_type: availableEquipment.includes(savedEquipment)
+        ? savedEquipment
+        : getDefaultEquipmentType(bookingMode),
       carrier_org_id: found.carrier_org_id || prev.carrier_org_id,
       quote_amount: found.quote_amount || prev.quote_amount,
     }));
@@ -856,7 +933,19 @@ export default function BookingManagement({
 
   // Helper to update form field and immediately clear its error
   const updateFormField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === 'booking_mode') {
+      const mode = normalizeBookingMode(value);
+      const availableTypes = getEquipmentTypesForMode(mode, equipmentTypes);
+      setForm((prev) => ({
+        ...prev,
+        booking_mode: mode,
+        equipment_type: availableTypes.includes(prev.equipment_type)
+          ? prev.equipment_type
+          : getDefaultEquipmentType(mode),
+      }));
+    } else {
+      setForm((prev) => ({ ...prev, [field]: value }));
+    }
     if (formErrors[field]) {
       setFormErrors((prev) => {
         const next = { ...prev };
@@ -926,11 +1015,12 @@ export default function BookingManagement({
         }
       }
     } else if (stepId === 'mode') {
-      if (form.booking_mode === 'ocean') {
+      const mode = normalizeBookingMode(form.booking_mode);
+      if (mode === 'ocean') {
         if (form.ocean_shipment_type === 'FCL' && Number(form.ocean_container_qty) < 1) {
           errors.ocean_container_qty = 'Container quantity must be at least 1.';
         }
-      } else if (form.booking_mode === 'air') {
+      } else if (mode === 'air') {
         if (form.air_origin_airport && form.air_origin_airport.length !== 3) {
           errors.air_origin_airport = 'Origin airport must be a valid 3-letter IATA code.';
         }
@@ -1149,8 +1239,9 @@ export default function BookingManagement({
         },
       ];
 
+      const payloadBookingMode = normalizeBookingMode(form.booking_mode);
       const freightDetails = {
-        mode: form.booking_mode,
+        mode: payloadBookingMode,
         equipment_type: form.equipment_type,
         package_type: form.package_type,
         special_instructions: form.special_instructions,
@@ -1169,12 +1260,7 @@ export default function BookingManagement({
         documents: form.documents || [],
 
         // Mode specific fields stored structured in freight_details
-        ...(form.booking_mode === 'inland' && {
-          road_vehicle_requirements: form.road_vehicle_requirements,
-          road_driver_notes: form.road_driver_notes,
-          road_strict_appointment: form.road_strict_appointment,
-        }),
-        ...(form.booking_mode === 'ocean' && {
+        ...(payloadBookingMode === 'ocean' && {
           ocean_pol: form.ocean_pol,
           ocean_pod: form.ocean_pod,
           ocean_receipt_place: form.ocean_receipt_place,
@@ -1188,19 +1274,13 @@ export default function BookingManagement({
           ocean_eta: form.ocean_eta,
           ocean_cfs_id: form.ocean_cfs_id,
         }),
-        ...(form.booking_mode === 'air' && {
+        ...(payloadBookingMode === 'air' && {
           air_origin_airport: form.air_origin_airport,
           air_dest_airport: form.air_dest_airport,
           air_awb_number: form.air_awb_number,
           air_flight_number: form.air_flight_number,
           air_flight_date: form.air_flight_date,
           air_chargeable_weight: form.air_chargeable_weight,
-        }),
-        ...(form.booking_mode === 'rail' && {
-          rail_origin_ramp: form.rail_origin_ramp,
-          rail_dest_ramp: form.rail_dest_ramp,
-          rail_car_number: form.rail_car_number,
-          rail_schedule_number: form.rail_schedule_number,
         }),
       };
 
@@ -1209,6 +1289,7 @@ export default function BookingManagement({
         : Number(form.shipper_org_id);
 
       const backendPayload = {
+        mode: payloadBookingMode,
         shipper_org_id: resolvedShipperOrgId,
         reference_number: form.booking_number?.trim() || undefined,
         carrier_org_id: form.carrier_org_id ? Number(form.carrier_org_id) : undefined,
@@ -1269,6 +1350,7 @@ export default function BookingManagement({
         // Book the selected existing shipment via real backend bookShipment API!
         const targetShipmentId = Number(form.linked_shipment_id);
         result = await bookShipment(targetShipmentId, {
+          mode: payloadBookingMode,
           carrier_org_id: form.carrier_org_id ? Number(form.carrier_org_id) : undefined,
           quote_amount: form.quote_amount ? Number(form.quote_amount) : undefined,
           linehaul_rate: form.carrier_pay ? Number(form.carrier_pay) : undefined,
@@ -1576,19 +1658,11 @@ export default function BookingManagement({
             </button>
             <button
               type="button"
-              className={`bk-mode-pill ${modeFilter === 'inland' ? 'active' : ''}`}
-              onClick={() => setModeFilter('inland')}
-            >
-              <Truck size={14} />
-              Inland
-            </button>
-            <button
-              type="button"
               className={`bk-mode-pill ${modeFilter === 'ocean' ? 'active' : ''}`}
               onClick={() => setModeFilter('ocean')}
             >
               <Boat size={14} />
-              Ocean
+              Ocean Freight
             </button>
             <button
               type="button"
@@ -1596,15 +1670,7 @@ export default function BookingManagement({
               onClick={() => setModeFilter('air')}
             >
               <AirplaneTilt size={14} />
-              Air
-            </button>
-            <button
-              type="button"
-              className={`bk-mode-pill ${modeFilter === 'rail' ? 'active' : ''}`}
-              onClick={() => setModeFilter('rail')}
-            >
-              <Train size={14} />
-              Rail
+              Air Cargo
             </button>
           </div>
         </div>
@@ -1677,7 +1743,9 @@ export default function BookingManagement({
                 </tr>
               ) : (
                 filteredBookings.map((bk) => {
-                  const mode = (bk.freight_details?.mode || bk.mode || 'inland').toLowerCase();
+                  const rawMode = String(bk.freight_details?.mode || bk.mode || '').trim();
+                  const mode = rawMode.toLowerCase();
+                  const isLegacyMode = ['inland', 'rail', 'road'].includes(mode);
                   const originCity =
                     typeof bk.origin === 'object'
                       ? bk.origin?.city || bk.origin?.address || '—'
@@ -1709,9 +1777,23 @@ export default function BookingManagement({
                         <span className={`bk-mode-badge ${mode}`}>
                           {mode === 'ocean' && <Boat size={14} />}
                           {mode === 'air' && <AirplaneTilt size={14} />}
-                          {mode === 'rail' && <Train size={14} />}
-                          {(mode === 'inland' || mode === 'road') && <Truck size={14} />}
-                          <span>{mode}</span>
+                          {isLegacyMode && <Truck size={14} />}
+                          <span>{rawMode || 'Unknown'}</span>
+                          {isLegacyMode && (
+                            <span
+                              style={{
+                                marginLeft: '4px',
+                                padding: '1px 5px',
+                                borderRadius: '8px',
+                                background: '#f1f5f9',
+                                color: '#64748b',
+                                fontSize: '10px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Legacy
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td>
@@ -1800,6 +1882,15 @@ export default function BookingManagement({
                               <Receipt size={16} />
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="bk-icon-btn"
+                            title="Documentation & Checklist (M10)"
+                            style={{ color: '#0063fa' }}
+                            onClick={() => setDocsModalBooking(bk)}
+                          >
+                            <FileText size={16} />
+                          </button>
                           {canCancel && status !== 'cancelled' && status !== 'delivered' && (
                             <button
                               type="button"
@@ -1844,7 +1935,7 @@ export default function BookingManagement({
                     {editingBooking ? `Edit ${editingBooking.booking_number || editingBooking.reference_number || editingBooking.id || 'Shipment'}` : 'New Freight Shipment & Booking'}
                   </h2>
                   <p>
-                    Universal multi-mode freight order · Inland, Ocean, Air, and Rail
+                    Freight order for Ocean Freight or Air Cargo
                   </p>
                 </div>
               </div>
@@ -2066,7 +2157,7 @@ export default function BookingManagement({
                         onChange={(e) => updateFormField('shipper_org_id', e.target.value)}
                         disabled={isShipper}
                       >
-                        <option value="">-- Select Shipper --</option>
+                        <option value="">{masterDataLoading ? '-- Loading Customers... --' : '-- Select Shipper --'}</option>
                         {customersList.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.legal_name} {c.tax_id ? `(Tax ID: ${c.tax_id})` : ''}
@@ -2583,13 +2674,13 @@ export default function BookingManagement({
                         value={form.equipment_type}
                         onChange={(e) => updateFormField('equipment_type', e.target.value)}
                       >
-                        {equipmentTypes.map((eq) => (
+                        {modeEquipmentTypes.map((eq) => (
                           <option key={eq} value={eq}>{eq}</option>
                         ))}
                       </select>
                       <div className="bk-term-helper">
                         <Info size={13} />
-                        <span>Trailer or container specification (e.g. 53' Dry Van, Reefer, Flatbed).</span>
+                        <span>Choose an ocean container or air cargo ULD for the selected mode.</span>
                       </div>
                     </div>
 
@@ -2843,75 +2934,15 @@ export default function BookingManagement({
                   <div className="bk-section-header">
                     <h3>
                       Mode-Specific Parameters —{' '}
-                      {FREIGHT_MODES.find((m) => m.id === form.booking_mode)?.name}
+                      {FREIGHT_MODES.find((m) => m.id === normalizeBookingMode(form.booking_mode))?.name || 'Ocean Freight'}
                     </h3>
                     <p>
                       Displays relevant fields strictly tailored to the chosen freight transport mode.
                     </p>
                   </div>
 
-                  {/* INLAND / ROAD */}
-                  {form.booking_mode === 'inland' && (
-                    <div className="bk-section">
-                      <div className="bk-mode-banner">
-                        <div className="bk-mode-banner-icon">
-                          <Truck size={20} />
-                        </div>
-                        <div className="bk-mode-banner-text">
-                          <h4>Inland Road Freight Parameters</h4>
-                          <p>Specific directives for highway carriers, driver site protocols, and appointment windows.</p>
-                        </div>
-                      </div>
-
-                      <div className="bk-grid-2">
-                        <div className="bk-field">
-                          <label>
-                            Vehicle / Equipment Requirements <span className="bk-badge-opt">Optional</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="bk-input"
-                            placeholder="Air Ride Suspension, E-track, Liftgate, Pallet Jack"
-                            value={form.road_vehicle_requirements}
-                            onChange={(e) => updateFormField('road_vehicle_requirements', e.target.value)}
-                          />
-                          <div className="bk-term-helper">
-                            <Info size={13} />
-                            <span>Special accessories or equipment required (e.g. Liftgate, Pallet Jack).</span>
-                          </div>
-                        </div>
-
-                        <div className="bk-field">
-                          <label>
-                            Appointment Enforcement <span className="bk-badge-opt">Optional</span>
-                          </label>
-                          <label className="bk-source-radio-label" style={{ marginTop: '10px' }}>
-                            <input
-                              type="checkbox"
-                              checked={form.road_strict_appointment}
-                              onChange={(e) => updateFormField('road_strict_appointment', e.target.checked)}
-                            />
-                            <span>Strict appointment required at shipper & consignee facility</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="bk-field full">
-                        <label>
-                          Driver Instructions & Loading Directives <span className="bk-badge-opt">Optional</span>
-                        </label>
-                        <textarea
-                          className="bk-textarea"
-                          placeholder="Check-in gate instructions, required PPE, securement straps, tarping instructions..."
-                          value={form.road_driver_notes}
-                          onChange={(e) => updateFormField('road_driver_notes', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
                   {/* OCEAN */}
-                  {form.booking_mode === 'ocean' && (
+                  {normalizeBookingMode(form.booking_mode) === 'ocean' && (
                     <div className="bk-section">
                       <div className="bk-mode-banner">
                         <div className="bk-mode-banner-icon">
@@ -3099,7 +3130,7 @@ export default function BookingManagement({
                   )}
 
                   {/* AIR */}
-                  {form.booking_mode === 'air' && (
+                  {normalizeBookingMode(form.booking_mode) === 'air' && (
                     <div className="bk-section">
                       <div className="bk-mode-banner">
                         <div className="bk-mode-banner-icon">
@@ -3201,84 +3232,6 @@ export default function BookingManagement({
                     </div>
                   )}
 
-                  {/* RAIL */}
-                  {form.booking_mode === 'rail' && (
-                    <div className="bk-section">
-                      <div className="bk-mode-banner">
-                        <div className="bk-mode-banner-icon">
-                          <Train size={20} />
-                        </div>
-                        <div className="bk-mode-banner-text">
-                          <h4>Rail Intermodal Parameters</h4>
-                          <p>Intermodal ramp hubs, well-car rail numbers, and rail schedule references.</p>
-                        </div>
-                      </div>
-
-                      <div className="bk-grid-2">
-                        <div className="bk-field">
-                          <label>
-                            Origin Rail Ramp / Terminal <span className="bk-badge-opt">Optional</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="bk-input"
-                            placeholder="e.g. BNSF Cicero Intermodal Ramp"
-                            value={form.rail_origin_ramp}
-                            onChange={(e) => updateFormField('rail_origin_ramp', e.target.value)}
-                          />
-                          <div className="bk-term-helper">
-                            <Info size={13} />
-                            <span>Rail ramp where containers are transferred from truck to railcar.</span>
-                          </div>
-                        </div>
-
-                        <div className="bk-field">
-                          <label>
-                            Destination Rail Ramp / Terminal <span className="bk-badge-opt">Optional</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="bk-input"
-                            placeholder="e.g. UP Dallas Intermodal Terminal"
-                            value={form.rail_dest_ramp}
-                            onChange={(e) => updateFormField('rail_dest_ramp', e.target.value)}
-                          />
-                          <div className="bk-term-helper">
-                            <Info size={13} />
-                            <span>Destination rail facility for offloading to destination drayage.</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bk-grid-2">
-                        <div className="bk-field">
-                          <label>
-                            Rail Car / Well Car Number <span className="bk-badge-opt">Optional</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="bk-input"
-                            placeholder="e.g. TTX-549102"
-                            value={form.rail_car_number}
-                            onChange={(e) => updateFormField('rail_car_number', e.target.value)}
-                          />
-                        </div>
-
-                        <div className="bk-field">
-                          <label>
-                            Train Schedule / Route Reference <span className="bk-badge-opt">Optional</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="bk-input"
-                            placeholder="e.g. BNSF-Q-CHIDAL1"
-                            value={form.rail_schedule_number}
-                            onChange={(e) => updateFormField('rail_schedule_number', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -3567,7 +3520,7 @@ export default function BookingManagement({
                         </div>
                         <div className="bk-review-row">
                           <span>Freight Mode:</span>
-                          <span style={{ textTransform: 'capitalize' }}>{form.booking_mode}</span>
+                          <span>{FREIGHT_MODES.find((m) => m.id === normalizeBookingMode(form.booking_mode))?.name || 'Ocean Freight'}</span>
                         </div>
                         <div className="bk-review-row">
                           <span>Status:</span>
@@ -3665,7 +3618,12 @@ export default function BookingManagement({
                       {/* Block 4: Mode Specific */}
                       <div className="bk-review-block">
                         <div className="bk-review-block-header">
-                          <h4><Truck size={16} /> Mode Details ({form.booking_mode.toUpperCase()})</h4>
+                          <h4>
+                            {normalizeBookingMode(form.booking_mode) === 'air'
+                              ? <AirplaneTilt size={16} />
+                              : <Boat size={16} />}
+                            {' '}Mode Details ({normalizeBookingMode(form.booking_mode).toUpperCase()})
+                          </h4>
                           <button
                             type="button"
                             className="bk-review-edit-btn"
@@ -3675,7 +3633,7 @@ export default function BookingManagement({
                             <NotePencil size={12} /> Edit
                           </button>
                         </div>
-                        {form.booking_mode === 'ocean' && (
+                        {normalizeBookingMode(form.booking_mode) === 'ocean' && (
                           <>
                             <div className="bk-review-row">
                               <span>POL:</span>
@@ -3691,7 +3649,7 @@ export default function BookingManagement({
                             </div>
                           </>
                         )}
-                        {form.booking_mode === 'air' && (
+                        {normalizeBookingMode(form.booking_mode) === 'air' && (
                           <>
                             <div className="bk-review-row">
                               <span>Airports:</span>
@@ -3700,30 +3658,6 @@ export default function BookingManagement({
                             <div className="bk-review-row">
                               <span>AWB Number:</span>
                               <span>{form.air_awb_number || 'TBD'}</span>
-                            </div>
-                          </>
-                        )}
-                        {form.booking_mode === 'rail' && (
-                          <>
-                            <div className="bk-review-row">
-                              <span>Rail Ramps:</span>
-                              <span>{form.rail_origin_ramp || 'TBD'} ➔ {form.rail_dest_ramp || 'TBD'}</span>
-                            </div>
-                            <div className="bk-review-row">
-                              <span>Railcar:</span>
-                              <span>{form.rail_car_number || 'TBD'}</span>
-                            </div>
-                          </>
-                        )}
-                        {form.booking_mode === 'inland' && (
-                          <>
-                            <div className="bk-review-row">
-                              <span>Vehicle Reqs:</span>
-                              <span>{form.road_vehicle_requirements || 'Standard'}</span>
-                            </div>
-                            <div className="bk-review-row">
-                              <span>Strict Appt:</span>
-                              <span>{form.road_strict_appointment ? 'Yes' : 'No'}</span>
                             </div>
                           </>
                         )}
@@ -4133,7 +4067,7 @@ export default function BookingManagement({
                   <h2 id="bk-rc-title" style={{ fontSize: '18px' }}>Rate Confirmation Document</h2>
                   <p>
                     Shipment #{rcModalBooking.reference_number || rcModalBooking.id} •{' '}
-                    <span style={{ textTransform: 'capitalize' }}>{rcModalBooking.freight_details?.mode || rcModalBooking.mode || 'Inland'}</span> Freight
+                    <span style={{ textTransform: 'capitalize' }}>{rcModalBooking.freight_details?.mode || rcModalBooking.mode || 'Ocean'}</span> Freight
                   </p>
                 </div>
               </div>
@@ -4358,7 +4292,55 @@ export default function BookingManagement({
         />
       )}
 
+      {/* Module M10 Documents Modal */}
+      {docsModalBooking && (
+        <div className="bk-modal-backdrop" onClick={() => setDocsModalBooking(null)}>
+          <div className="bk-modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '980px', width: '100%' }}>
+            <div className="bk-modal-header">
+              <div className="bk-modal-title">
+                <div className="bk-modal-title-icon" style={{ background: '#eff6ff', color: '#0063fa' }}>
+                  <FileText />
+                </div>
+                <div>
+                  <h2>Booking Documents & Compliance</h2>
+                  <p>Booking #{docsModalBooking.booking_number || docsModalBooking.reference_number || docsModalBooking.id} · Checklist, BOL, Rate Confirmation, POD</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="bk-close-btn"
+                onClick={() => setDocsModalBooking(null)}
+                aria-label="Close documents dialog"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="bk-modal-body" style={{ padding: '24px' }}>
+              <DocumentsPanel
+                shipmentId={docsModalBooking.id}
+                shipment={docsModalBooking}
+                hasPermission={hasPermission}
+                role={currentRoleName}
+                currentUser={currentUser}
+                notify={notify}
+                onClose={() => setDocsModalBooking(null)}
+              />
+            </div>
+
+            <div className="bk-modal-footer">
+              <button
+                type="button"
+                className="bk-btn secondary"
+                onClick={() => setDocsModalBooking(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-
